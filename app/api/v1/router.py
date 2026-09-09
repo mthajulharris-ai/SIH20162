@@ -2,7 +2,7 @@
 Central API v1 Router aggregation.
 """
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, detections, inference
+from app.api.v1.endpoints import health, detections, inference, alerts
 
 api_router = APIRouter()
 
@@ -14,3 +14,6 @@ api_router.include_router(detections.router, prefix="/detections", tags=["Detect
 
 # Include ML inference pipeline endpoints
 api_router.include_router(inference.router, prefix="/inference", tags=["Inference & AI"])
+
+# Include alerts endpoints
+api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts & Status"])

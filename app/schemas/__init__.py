@@ -7,10 +7,18 @@ from app.schemas.detection import (
     DetectionResponse,
     DetectionListResponse,
 )
+from app.schemas.alert import (
+    AlertResponse,
+    AlertStatusUpdate,
+    AlertListResponse,
+)
 
 __all__ = [
     "DetectionBase",
     "DetectionCreate",
     "DetectionResponse",
     "DetectionListResponse",
+    "AlertResponse",
+    "AlertStatusUpdate",
+    "AlertListResponse",
 ]

@@ -123,6 +123,10 @@ def predict_and_store(
     db.commit()
     db.refresh(db_detection)
 
+    # 4b. Evaluate if observation qualifies for an operational alert
+    from app.services.alert_service import create_alert_if_eligible
+    create_alert_if_eligible(db, db_detection)
+
     # 5. Format and return API response
     prediction_details = MLPredictionDetails(
         predicted_class=predicted_class_name,

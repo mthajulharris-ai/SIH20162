@@ -16,6 +16,8 @@ from app.schemas.detection import (
     DetectionListResponse,
 )
 
+from app.services.alert_service import create_alert_if_eligible
+
 router = APIRouter()
 
 
@@ -31,12 +33,17 @@ def create_detection(
     db: Session = Depends(get_db),
 ) -> DetectionResponse:
     """
-    Ingests a thermal anomaly record with ML classification outputs.
+    Ingests a thermal anomaly record with ML classification outputs
+    and triggers alert evaluation for important events.
     """
     db_obj = Detection(**detection_in.model_dump())
     db.add(db_obj)
     db.commit()
     db.refresh(db_obj)
+
+    # Evaluate if this event triggers an operational alert
+    create_alert_if_eligible(db, db_obj)
+
     return db_obj
 
 

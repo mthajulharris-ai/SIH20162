@@ -77,6 +77,8 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     )
 
 
+from fastapi.encoders import jsonable_encoder
+
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning("Validation error on %s: %s", request.url.path, exc.errors())
@@ -86,7 +88,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
             "status": "error",
             "code": 422,
             "message": "Validation failed for request parameters or body.",
-            "details": exc.errors(),
+            "details": jsonable_encoder(exc.errors()),
         },
     )
 
