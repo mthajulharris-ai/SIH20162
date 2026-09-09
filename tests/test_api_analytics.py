@@ -48,14 +48,20 @@ def test_analytics_summary_empty_database(client):
     assert response.status_code == 200
     data = response.json()
     assert data["total_detections"] == 0
-    assert data["industrial_fires"] == 0
-    assert data["total_alerts"] == 0
+    assert data["industrial_fire_predictions"] == 0
+    assert data["persistent_source_predictions"] == 0
+    assert data["other_predictions"] == 0
+    assert data["high_confidence_detections"] == 0
     assert data["avg_frp_mw"] == 0.0
+    assert "verification_breakdown" in data
+    assert "geographic_distribution" in data
+    assert "detections_over_time" in data
 
 
 def test_analytics_summary_with_records(client):
     """Test analytics metrics computation with sample detections."""
-    payload = {
+    # Ingest record 1: Industrial Fire, high confidence
+    p1 = {
         "latitude": 21.1702,
         "longitude": 72.8311,
         "brightness": 380.0,
@@ -67,12 +73,32 @@ def test_analytics_summary_with_records(client):
         "predicted_class": "Industrial Fire",
         "prediction_confidence": 0.95,
     }
-    client.post("/api/v1/detections", json=payload)
+    client.post("/api/v1/detections", json=p1)
+
+    # Ingest record 2: Persistent Thermal Source
+    p2 = {
+        "latitude": 22.4707,
+        "longitude": 70.0577,
+        "brightness": 350.0,
+        "confidence": "nominal",
+        "acq_date": "2026-09-09",
+        "acq_time": "1500",
+        "source": "MODIS_NRT",
+        "frp": 30.0,
+        "predicted_class": "Persistent Thermal Source",
+        "prediction_confidence": 0.85,
+    }
+    client.post("/api/v1/detections", json=p2)
 
     response = client.get("/api/v1/analytics/summary")
     assert response.status_code == 200
     data = response.json()
-    assert data["total_detections"] == 1
-    assert data["industrial_fires"] == 1
-    assert data["avg_frp_mw"] == 50.0
-    assert data["total_alerts"] == 1
+
+    assert data["total_detections"] == 2
+    assert data["industrial_fire_predictions"] == 1
+    assert data["persistent_source_predictions"] == 1
+    assert data["high_confidence_detections"] == 2
+    assert data["avg_frp_mw"] == 40.0
+    assert data["verification_breakdown"]["unverified_predictions"] >= 1
+    assert len(data["detections_over_time"]) >= 1
+    assert len(data["geographic_distribution"]) >= 1
