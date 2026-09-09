@@ -5,47 +5,56 @@
 [![Tests](https://img.shields.io/badge/tests-41%20passed-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
-This repository contains the **Satellite Data Pipeline & AI/ML Classification Module** for Smart India Hackathon (SIH) 2026 Problem Statement **PS 26162**.
+This repository contains the complete end-to-end platform for Smart India Hackathon (SIH) 2026 Problem Statement **PS 26162**:
+**"AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources using Satellite Data."**
 
-The system ingests satellite thermal anomaly observations from NASA FIRMS (MODIS and VIIRS), filters sensor artifacts, computes spatial clustering and multi-temporal persistence metrics, and classifies thermal hotspots into:
-1. **Industrial Fire** (Acute, catastrophic fire or flare-up at an industrial site — **CRITICAL ALERT**)
-2. **Persistent Thermal Source** (Regular 24/7 industrial operations: steel plants, refineries, flare stacks, cement kilns — **MEDIUM ALERT**)
-3. **Other** (Wildfires, agricultural crop stubble burning, transient hotspots — **LOW ALERT**)
+The platform integrates:
+1. **NASA FIRMS Satellite Data Ingestion & Preprocessing Pipeline** (MODIS & VIIRS)
+2. **AI/ML Multi-Temporal Persistence & Classification Model** (Random Forest / Gradient Boosting)
+3. **High-Performance FastAPI REST Backend** with SQLite Database Storage
+4. **Autonomous Operational Alert Evaluation Engine**
+5. **Interactive Mission-Control React GIS Dashboard** with Leaflet Maps, Live Telemetry, Filtering, and Analytics
 
 ---
 
-## 1. System Architecture & Pipeline Flow
+## 1. System Architecture & Complete Flow
 
 ```text
-                                  +---------------------------------------+
-                                  |  NASA FIRMS (MODIS / VIIRS Satellites)|
-                                  +---------------------------------------+
-                                                      |
-                                                      v
-                                        [ Step 1: Data Ingestion ]
-                                  (CSV File / Folder / NASA FIRMS REST API)
-                                                      |
-                                                      v
-                                    [ Step 2: Scientific Validation ]
-                                 (Geographic Bounds & Thermal Sanity 200-600K)
-                                                      |
-                                                      v
-                                      [ Step 3: Cleaning & Imputation ]
-                               (Alias Harmonization, Deduplication, UTC Clocks)
-                                                      |
-                                                      v
-                                   [ Step 4: Multi-Temporal Features ]
-                               (Spatial Clustering, Persistence, FRP Anomaly Z-Score)
-                                                      |
-                                                      v
-                                  [ Step 5: Scikit-Learn Classification ]
-                                   (Class-Balanced ML Classifier Pipeline)
-                                                      |
-                                                      +------------------------+
-                                                      |                        |
-                                                      v                        v
-                                            [ Output Hotspots Catalog ]  [ FastAPI Prediction API ]
-                                             (data/processed/*.csv)      (src.inference.service)
+[ NASA FIRMS Satellites ]
+  (MODIS / VIIRS Sensor Anomaly Stream)
+           │
+           ▼
+[ Step 1: Data Ingestion & Physical Validation ]
+  (Validates Coordinate Bounds [-90,90], [-180,180] & Thermal Sanity 200K-600K)
+           │
+           ▼
+[ Step 2: Multi-Temporal Feature Engineering ]
+  (Spatial Clustering 0.05° grid, Persistence Ratios, Recurrence, FRP Z-Scores)
+           │
+           ▼
+[ Step 3: AI / ML Classification ]
+  (Classifies into: Industrial Fire / Persistent Thermal Source / Other)
+           │
+           ▼
+[ Step 4: FastAPI Ingestion Router ] (POST /api/v1/inference/predict-and-store)
+  (Enforces strict Pydantic schemas, handles decoupled inference gracefully)
+           │
+           ▼
+[ Step 5: SQLite Database Persistence ]
+  (Stores detections with composite indices on (acq_date, source, predicted_class))
+           │
+           ▼
+[ Step 6: Operational Alert Evaluation Engine ]
+  (Classifies risk levels: CRITICAL / HIGH / MEDIUM; flags as "REQUIRES_VERIFICATION")
+           │
+           ▼
+[ Step 7: REST API Endpoints ]
+  (GET /detections, GET /alerts, GET /analytics, PATCH /alerts/{id}/status)
+           │
+           ▼
+[ Step 8: React GIS Mission-Control Dashboard ]
+  (Interactive Leaflet Map with CartoDB/Esri basemaps, FRP-scaled circle markers,
+   Live telemetry filtering, Alert review modal, Real-time analytics charts)
 ```
 
 ---
@@ -54,41 +63,68 @@ The system ingests satellite thermal anomaly observations from NASA FIRMS (MODIS
 
 ```text
 SIH20162/
+├── app/                          # FastAPI Backend Architecture
+│   ├── api/v1/
+│   │   ├── endpoints/
+│   │   │   ├── health.py         # System health check (/api/health, /api/v1/health)
+│   │   │   ├── detections.py     # Hotspot query, pagination, spatial bounds filtering
+│   │   │   ├── inference.py      # Predict-and-store end-to-end ML ingestion API
+│   │   │   ├── alerts.py         # Alert queue & human-in-the-loop status management
+│   │   │   └── analytics.py      # Live aggregated metrics & regional distribution
+│   │   └── router.py             # Consolidated API router
+│   ├── core/
+│   │   └── config.py             # Pydantic Settings & environment variables
+│   ├── db/
+│   │   ├── base.py               # Declarative SQLAlchemy Base
+│   │   ├── session.py            # SQLite engine & database session generator
+│   │   └── init_db.py            # Automated table creation
+│   ├── models/
+│   │   ├── detection.py          # Detection ORM model
+│   │   └── alert.py              # Operational Alert ORM model
+│   ├── schemas/
+│   │   ├── detection.py          # Detection Pydantic request/response schemas
+│   │   ├── observation.py        # Raw satellite observation input schema
+│   │   └── alert.py              # Alert response and status update schemas
+│   ├── services/
+│   │   ├── ml_service.py         # Decoupled ML inference adapter with fallback handling
+│   │   └── alert_service.py      # Automated alert generation and triage logic
+│   └── main.py                   # FastAPI application initialization and CORS
+├── frontend/                     # Modern React + Vite GIS Web Application
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Header.jsx        # Telemetry header with UTC clock and test hotspot ingest
+│   │   │   ├── Sidebar.jsx       # Navigation panel with live alert count badge
+│   │   │   ├── KpiCard.jsx       # High-contrast metric telemetry card
+│   │   │   └── StatusBadge.jsx   # Standardized status and class indicators
+│   │   ├── views/
+│   │   │   ├── OverviewView.jsx  # System health, top KPIs, quick triage stream
+│   │   │   ├── GisMapView.jsx    # Leaflet map with multi-basemap, FRP markers, popups
+│   │   │   ├── DetectionsView.jsx# Paginated table with text search & multi-filter
+│   │   │   ├── AlertsView.jsx    # Alert management queue with status lifecycle modal
+│   │   │   ├── AnalyticsView.jsx # Live database statistics, class breakdown, time trends
+│   │   │   └── HistoryView.jsx   # Archive view with CSV export
+│   │   ├── services/
+│   │   │   └── api.js            # Frontend REST client with error handling
+│   │   ├── App.jsx               # Main state container, polling & view routing
+│   │   └── index.css             # Dark-themed Mission Control styling
+│   ├── package.json              # Frontend npm dependencies (React 19, Leaflet, Lucide)
+│   └── vite.config.js            # Vite configuration with backend proxy
 ├── data/
-│   ├── raw/                      # Real NASA FIRMS downloaded CSV files
-│   ├── processed/                # Cleaned, feature-engineered & classified catalogs
-│   └── samples/                  # Labeled prototype & test datasets (clearly marked)
+│   ├── raw/                      # Raw satellite CSV observations
+│   ├── processed/                # Classified CSV catalogs and SQLite database
+│   └── samples/                  # Curated sample satellite data
 ├── docs/
-│   └── BACKEND_INTEGRATION_GUIDE.md # Technical handover manual for FastAPI developers
-├── models/
-│   └── saved_models/             # Serialized .joblib ML models and metadata JSON
-├── scripts/
-│   ├── verify_env.py             # Verifies all required packages are operational
-│   ├── run_cleaning_pipeline.py  # Executes data cleaning and outputs quality audit
-│   ├── build_ml_dataset.py       # Prepares features and leakage-free train/val/test splits
-│   ├── train_baseline.py         # Trains, compares, evaluates, and serializes models
-│   └── run_pipeline.py           # ONE-COMMAND full end-to-end pipeline runner
-├── src/
-│   ├── config.py                 # Central directory and sensor configurations
-│   ├── pipeline_runner.py        # Master pipeline orchestrator class
-│   ├── data_pipeline/
-│   │   ├── loader.py             # Ingests local CSVs or queries NASA FIRMS API
-│   │   ├── validator.py          # Enforces coordinate & physical thermal limits
-│   │   ├── cleaner.py            # Standardizes aliases, timestamps, and confidence
-│   │   ├── preprocessor.py       # Full reproducible cleaning & audit report generator
-│   │   ├── feature_engineering.py# Spatial clustering, persistence, and FRP z-scores
-│   │   └── dataset_builder.py    # Spatial group splitting (zero data leakage)
-│   ├── ml/
-│   │   ├── train.py              # Candidate model comparison and joblib serialization
-│   │   ├── evaluate.py           # Multi-metric evaluation (Macro F1, Precision, Recall)
-│   │   └── predict.py            # Core ML prediction logic
-│   └── inference/
-│       ├── __init__.py           # Re-exports inference service
-│       ├── predictor.py          # Wrapper for model inference
-│       └── service.py            # Decoupled prediction service for backend consumption
-├── tests/                        # 41 automated pytest unit & integration tests
-├── requirements.txt              # Production Python dependencies
-└── README.md                     # This documentation
+│   ├── API_DOCUMENTATION.md      # Detailed REST API specification with sample payloads
+│   └── BACKEND_INTEGRATION_GUIDE.md # ML inference integration guide
+├── models/saved_models/          # Serialized scikit-learn model and metadata
+├── src/                          # Data pipeline & ML training engine
+│   ├── data_pipeline/            # Ingestion, validation, cleaning, feature engineering
+│   ├── ml/                       # Model training, spatial group split, evaluation
+│   └── inference/                # Core ML inference service
+├── tests/                        # Automated unit, API, and end-to-end integration tests
+├── .env.example                  # Environment configuration template
+├── requirements.txt              # Backend & ML Python dependencies
+└── README.md                     # Platform documentation
 ```
 
 ---
@@ -210,35 +246,119 @@ print(result)
 }
 ```
 
-> For complete Pydantic models, JSON schemas, and example FastAPI endpoints, see [`docs/BACKEND_INTEGRATION_GUIDE.md`](docs/BACKEND_INTEGRATION_GUIDE.md).
+> For complete Pydantic models, JSON schemas, and example FastAPI endpoints, see [`docs/BACKEND_INTEGRATION_GUIDE.md`](docs/BACKEND_INTEGRATION_GUIDE.md) and [`docs/API_DOCUMENTATION.md`](docs/API_DOCUMENTATION.md).
 
 ---
 
-## 6. Running the Automated Test Suite
+## 6. Running the FastAPI Backend Locally
 
-Run the full automated test suite containing **41 unit and integration tests**:
+The FastAPI application serves REST endpoints for live thermal detections, ML inference, alert queues, and aggregated telemetry.
 
+### Step 6.1: Environment Configuration
+Copy `.env.example` to create your local `.env`:
 ```powershell
-python -m pytest -v
+cp .env.example .env
+```
+Default configuration points to a local SQLite database: `sqlite:///./data/processed/thermal_detections.db`.
+
+### Step 6.2: Start the FastAPI Server
+```powershell
+uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-**Test Coverage Summary:**
-- `tests/test_config.py` — Verifies directory layout and path constants.
-- `tests/test_environment.py` — Validates package imports, Scikit-learn estimators, and math engines.
-- `tests/test_ingestion.py` — Tests NASA FIRMS CSV parsing, validation bounds, and sensor harmonization.
-- `tests/test_cleaning_pipeline.py` — Tests missing values imputation, deduplication, and quality reports.
-- `tests/test_dataset_builder.py` — Tests feature engineering, prototype labeling, and **spatial leakage prevention**.
-- `tests/test_ml_pipeline.py` — Tests model training, validation comparison, metric calculation, and joblib serialization.
-- `tests/test_inference_service.py` — Tests backend prediction service, batch inference, and automated feature derivation.
-- `tests/test_complete_pipeline.py` — Tests end-to-end execution from raw CSV to final classified catalog.
+- **Backend API Base**: `http://127.0.0.1:8000`
+- **Interactive Swagger UI**: `http://127.0.0.1:8000/docs`
+- **ReDoc Interactive Spec**: `http://127.0.0.1:8000/redoc`
+- **System Health Check**: `http://127.0.0.1:8000/api/health`
+
+On startup, FastAPI automatically executes database table provisioning via SQLAlchemy lifecycle hooks.
 
 ---
 
-## 7. Key Methodology & Domain Details
+## 7. Running the React + Leaflet GIS Dashboard
+
+The dashboard provides an interactive mission-control interface featuring dynamic Leaflet GIS visualization, active filters, alert triage modals, and live analytics.
+
+### Step 7.1: Install Dependencies
+```powershell
+cd frontend
+npm install
+```
+
+### Step 7.2: Start the Development Server
+```powershell
+npm run dev
+```
+The Vite development server will start at `http://localhost:5173/` (with automatic API proxy forwarding `/api` and `/api/v1` to `http://127.0.0.1:8000`).
+
+### Step 7.3: Build for Production
+To generate an optimized client bundle:
+```powershell
+npm run build
+```
+Assets will be generated in `frontend/dist/`.
+
+---
+
+## 8. End-to-End Operational Pipeline Flow
+
+To test the entire integrated pipeline with a single test satellite observation:
+
+1. **Ingest via API**:
+```powershell
+curl -X POST "http://127.0.0.1:8000/api/v1/inference/predict-and-store" ^
+     -H "Content-Type: application/json" ^
+     -d "{\"latitude\": 21.1702, \"longitude\": 72.8311, \"brightness\": 385.0, \"bright_t31\": 310.0, \"frp\": 85.0, \"confidence\": \"high\", \"source\": \"VIIRS_SNPP_NRT\"}"
+```
+*Or simply click **"Ingest Test Hotspot"** directly on the React Dashboard Header!*
+
+2. **Automatic Lifecycle Triggered**:
+   - **Validation**: Coordinates and physical radiance values verified.
+   - **ML Inference**: `predict_thermal_observation()` classifies event (`Industrial Fire`).
+   - **Persistence**: Saved to SQLite `detections` table with timestamp and spatial indices.
+   - **Alert Evaluation**: Rule engine creates a `CRITICAL` alert flagged as `REQUIRES_VERIFICATION`.
+   - **Frontend GIS**: Leaflet map dynamically places an FRP-scaled marker; Alerts tab increments badge count; Analytics dashboard updates aggregate totals in real time.
+
+---
+
+## 9. Running the Automated Test Suite
+
+The repository contains comprehensive unit, API, and end-to-end integration tests:
+
+```powershell
+# Run complete test suite
+python -m pytest -v
+
+# Run backend API and end-to-end integration tests
+python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/test_api_inference.py tests/test_api_alerts.py tests/test_api_analytics.py tests/test_database.py tests/test_end_to_end_pipeline.py -v
+```
+
+### Test Coverage Highlights:
+- **ML & Data Pipeline Tests** (`tests/test_*.py`): Coordinate bounds, temporal feature engineering, spatial group split validation, and model serialization.
+- **Backend API Tests** (`tests/test_api_*.py`): Validation schemas, spatial bounding box queries, decoupled ML fallback handling, alert lifecycle state transitions, and real-time analytics aggregation.
+- **End-to-End Integration Test** (`tests/test_end_to_end_pipeline.py`): Ingests raw satellite observation $\rightarrow$ executes ML inference $\rightarrow$ stores in database $\rightarrow$ queries spatial GIS API $\rightarrow$ evaluates operational alert $\rightarrow$ mutates human verification status $\rightarrow$ verifies live analytics.
+
+---
+
+## 10. Operational Verification & AI Governance
+
+> [!IMPORTANT]
+> **Safety & AI Governance Policy**:
+> 1. All thermal detections and classification outputs are **AI-Generated Probabilistic Predictions**, not ground-truth verified incidents.
+> 2. Detections and alerts carry an explicit verification lifecycle:
+>    - `REQUIRES_VERIFICATION` (Initial state upon AI detection)
+>    - `UNDER_REVIEW` (Human analyst assigned or field drone dispatched)
+>    - `VERIFIED` (Ground truth confirmed by industrial authorities or ground sensors)
+>    - `DISMISSED` (False positive or authorized agricultural burn)
+> 3. The React dashboard and REST API explicitly display `"Requires Verification"` badges to maintain complete situational awareness and prevent operational overreaction.
+
+---
+
+## 11. Key Methodology & Domain Details
 
 1. **Why NASA FIRMS has No Native Target Labels**:
    NASA FIRMS satellites (MODIS and VIIRS) only record thermal radiance anomalies. They do not know the root cause of heat. In PS 26162, classification is achieved by calculating **multi-temporal spatial persistence** (fixed facilities emit heat continuously over months) and **radiative power surges** (anomalous FRP spikes $\ge 2.5\sigma$ indicate industrial accidents).
 2. **Data Leakage Prevention**:
    Standard random train/test splitting causes catastrophic spatial leakage in satellite data (the same physical steel plant appears in both train and test). We enforce **Spatial Group Splitting** (`GroupShuffleSplit` on `spatial_cluster_id`) so geographic clusters are strictly disjoint across splits.
 3. **Non-Accuracy Metric Optimization**:
-   Because industrial fires are rare events, optimizing purely for accuracy is misleading. Our models are evaluated and selected based on **Macro F1-Score** and **Industrial Fire Recall** to minimize hazardous false negatives.
+   Because industrial fires are rare events, optimizing purely for accuracy is misleading. Our models are evaluated and selected based on **Macro F1-Score** and **Industrial Fire Recall** to minimize hazardous false negatives.
