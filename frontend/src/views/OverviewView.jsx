@@ -58,7 +58,7 @@ export function OverviewView({
 
         <KpiCard
           title="Critical Alerts"
-          value={analytics?.critical_alerts ?? 0}
+          value={analytics?.verification_breakdown?.critical_alerts ?? 0}
           subtext="Requires field verification"
           icon={ShieldAlert}
           accentColor="red"
@@ -67,7 +67,7 @@ export function OverviewView({
 
         <KpiCard
           title="Industrial Fires"
-          value={analytics?.industrial_fires ?? 0}
+          value={analytics?.industrial_fire_predictions ?? 0}
           subtext="AI-predicted industrial events"
           icon={Factory}
           accentColor="amber"
@@ -76,7 +76,7 @@ export function OverviewView({
 
         <KpiCard
           title="Persistent Hotspots"
-          value={analytics?.persistent_sources ?? 0}
+          value={analytics?.persistent_source_predictions ?? 0}
           subtext="Flares & high recurrence zones"
           icon={Activity}
           accentColor="purple"
