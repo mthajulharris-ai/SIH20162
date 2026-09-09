@@ -14,6 +14,7 @@ data/processed/*
 !data/processed/.gitkeep
 data/samples/*
 !data/samples/.gitkeep
+!data/samples/*.csv
 
 # Model weights
 models/saved_models/*
