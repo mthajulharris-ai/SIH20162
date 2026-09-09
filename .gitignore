@@ -19,6 +19,8 @@ data/samples/*
 # Model weights
 models/saved_models/*
 !models/saved_models/.gitkeep
+src/ml/models/*
+!src/ml/models/.gitkeep
 
 # Testing / IDE
 .pytest_cache/
