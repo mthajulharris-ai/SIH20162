@@ -29,3 +29,7 @@ src/ml/models/*
 .pytest_cache/
 .vscode/
 .idea/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
