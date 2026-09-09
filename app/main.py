@@ -10,7 +10,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from contextlib import asynccontextmanager
 from app.core.config import settings
+from app.db.init_db import init_db
 from app.api.v1.router import api_router
 from app.api.v1.endpoints.health import router as health_router
 
@@ -20,6 +22,19 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("thermal_detection_api")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager:
+    Initializes database tables on startup.
+    """
+    logger.info("Application starting: initializing database tables...")
+    init_db()
+    yield
+    logger.info("Application shutting down.")
+
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -32,6 +47,7 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
+    lifespan=lifespan,
 )
 
 # Configure CORS for React frontend integration

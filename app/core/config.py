@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
     
+    # Database Configuration
+    DATABASE_URL: str = "sqlite:///./thermal_detections.db"
+    
     # CORS Configuration (allows frontend development servers)
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
