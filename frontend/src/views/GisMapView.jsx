@@ -11,6 +11,7 @@ import {
   Activity,
   Info,
   Sliders,
+  AlertCircle,
 } from 'lucide-react';
 import { getDetections } from '../services/api';
 import { StatusBadge, ClassBadge } from '../components/StatusBadge';
