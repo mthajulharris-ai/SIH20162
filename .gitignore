@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.env
+.venv/
+venv/
+env/
+
+# Data directories (keep directory structure, ignore raw bulk data)
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/samples/*
+!data/samples/.gitkeep
+
+# Model weights
+models/saved_models/*
+!models/saved_models/.gitkeep
+
+# Testing / IDE
+.pytest_cache/
+.vscode/
+.idea/
