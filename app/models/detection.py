@@ -5,6 +5,7 @@ PS 26162: AI-Based Detection and Classification of Industrial Fires & Persistent
 from datetime import datetime, timezone
 from typing import Dict, Any, Optional
 from sqlalchemy import Column, Integer, Float, String, Boolean, DateTime, Index
+from sqlalchemy.orm import synonym, validates
 from app.db.base import Base
 
 
@@ -44,14 +45,56 @@ class Detection(Base):
         nullable=False,
     )
 
-    # Composite indices for common query patterns (e.g. date + classification, spatial bounding)
+    # Synonyms / Aliases for seamless developer ergonomics
+    acquisition_date = synonym("acq_date")
+    acquisition_time = synonym("acq_time")
+    satellite = synonym("source")
+
+    # Composite indices for common query patterns (date + classification, spatial bounding)
     __table_args__ = (
         Index("idx_detections_date_class", "acq_date", "predicted_class"),
         Index("idx_detections_spatial", "latitude", "longitude"),
     )
 
+    # Model-level data integrity validators
+    @validates("latitude")
+    def validate_latitude(self, key: str, value: Any) -> float:
+        if value is None:
+            raise ValueError("Latitude cannot be None.")
+        lat = float(value)
+        if not (-90.0 <= lat <= 90.0):
+            raise ValueError(f"Latitude must be between -90.0 and 90.0, got {lat}.")
+        return lat
+
+    @validates("longitude")
+    def validate_longitude(self, key: str, value: Any) -> float:
+        if value is None:
+            raise ValueError("Longitude cannot be None.")
+        lon = float(value)
+        if not (-180.0 <= lon <= 180.0):
+            raise ValueError(f"Longitude must be between -180.0 and 180.0, got {lon}.")
+        return lon
+
+    @validates("brightness")
+    def validate_brightness(self, key: str, value: Any) -> float:
+        if value is None:
+            raise ValueError("Brightness cannot be None.")
+        b = float(value)
+        if b <= 0.0:
+            raise ValueError(f"Brightness must be positive (> 0 Kelvin), got {b}.")
+        return b
+
+    @validates("prediction_confidence")
+    def validate_prediction_confidence(self, key: str, value: Any) -> float:
+        if value is not None:
+            conf = float(value)
+            if not (0.0 <= conf <= 1.0):
+                raise ValueError(f"Prediction confidence must be between 0.0 and 1.0, got {conf}.")
+            return conf
+        return value
+
     def to_dict(self) -> Dict[str, Any]:
-        """Convert ORM model instance into a Python dictionary."""
+        """Convert ORM model instance into a Python dictionary with standard and alias keys."""
         return {
             "id": self.id,
             "latitude": self.latitude,
@@ -59,8 +102,11 @@ class Detection(Base):
             "brightness": self.brightness,
             "confidence": self.confidence,
             "acq_date": self.acq_date,
+            "acquisition_date": self.acq_date,
             "acq_time": self.acq_time,
+            "acquisition_time": self.acq_time,
             "source": self.source,
+            "satellite": self.source,
             "instrument": self.instrument,
             "frp": self.frp,
             "daynight": self.daynight,
@@ -75,3 +121,4 @@ class Detection(Base):
             f"<Detection(id={self.id}, lat={self.latitude}, lon={self.longitude}, "
             f"class='{self.predicted_class}', conf={self.prediction_confidence:.2f})>"
         )
+
