@@ -159,3 +159,47 @@ def test_complete_end_to_end_pipeline_integration(client):
     assert analytics_data["verification_breakdown"]["under_review"] == 1
     assert analytics_data["verification_breakdown"]["unverified_predictions"] == 0
     assert len(analytics_data["geographic_distribution"]) >= 1
+
+
+def test_live_trained_model_end_to_end(client):
+    """
+    Validates complete end-to-end flow using Swathi's REAL trained ML pipeline:
+    Sample observation -> Live ML Model -> SQLite DB -> Detections API -> Alerts & Analytics.
+    """
+    # Sample clearly labelled test observation
+    sample_obs = {
+        "latitude": 21.1702,
+        "longitude": 72.8311,
+        "brightness": 385.0,
+        "bright_t31": 310.0,
+        "frp": 85.0,
+        "confidence": "high",
+        "acq_date": "2026-09-10",
+        "acq_time": "1100",
+        "source": "SAMPLE_TEST_VIIRS_SNPP",
+    }
+
+    # Step 1: Ingest observation directly into real ML model inference endpoint
+    resp = client.post("/api/v1/inference/predict-and-store", json=sample_obs)
+    assert resp.status_code == 201
+    data = resp.json()
+
+    assert data["status"] == "SUCCESS"
+    assert "prediction" in data
+    assert "detection" in data
+    det_id = data["detection"]["id"]
+    assert det_id is not None
+    assert data["detection"]["model_version"] is not None
+
+    # Step 2: Retrieve through detection REST API
+    det_resp = client.get(f"/api/v1/detections/{det_id}")
+    assert det_resp.status_code == 200
+    retrieved = det_resp.json()
+    assert retrieved["id"] == det_id
+    assert retrieved["source"] == "SAMPLE_TEST_VIIRS_SNPP"
+
+    # Step 3: Check analytics summary
+    analytics_resp = client.get("/api/v1/analytics/summary")
+    assert analytics_resp.status_code == 200
+    assert analytics_resp.json()["total_detections"] >= 1
+

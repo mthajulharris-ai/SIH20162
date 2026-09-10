@@ -263,7 +263,11 @@ Default configuration points to a local SQLite database: `sqlite:///./data/proce
 
 ### Step 6.2: Start the FastAPI Server
 ```powershell
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+# Using the canonical backend package:
+python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
+
+# Or via backward-compatible forwarder:
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
 - **Backend API Base**: `http://127.0.0.1:8000`
@@ -272,6 +276,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 - **System Health Check**: `http://127.0.0.1:8000/api/health`
 
 On startup, FastAPI automatically executes database table provisioning via SQLAlchemy lifecycle hooks.
+
 
 ---
 
@@ -341,16 +346,22 @@ python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/tes
 ---
 
 ## 10. Operational Verification & AI Governance
-
+ 
 > [!IMPORTANT]
 > **Safety & AI Governance Policy**:
 > 1. All thermal detections and classification outputs are **AI-Generated Probabilistic Predictions**, not ground-truth verified incidents.
-> 2. Detections and alerts carry an explicit verification lifecycle:
+> 2. **Data Labelling Categories**:
+>    - **Real Satellite Data**: Raw observation streams from NASA FIRMS (VIIRS & MODIS) containing physical sensor radiance anomalies (brightness temperature, FRP), without ground-truth labels.
+>    - **Sample / Demo Data**: Records with prefix `SAMPLE_TEST_*` or `DEMO_*` used for pipeline integration testing and live UI walkthroughs. They must never be represented as real-world industrial accidents.
+>    - **AI-Predicted Classifications**: Probabilistic categories assigned by the baseline ML model (`1.0.0-baseline`).
+> 3. **Prototype Accuracy Disclaimer**: Model evaluation metrics reflect cross-validation over prototype datasets and must not be claimed as certified real-world operational accuracy.
+> 4. Detections and alerts carry an explicit verification lifecycle:
 >    - `REQUIRES_VERIFICATION` (Initial state upon AI detection)
 >    - `UNDER_REVIEW` (Human analyst assigned or field drone dispatched)
 >    - `VERIFIED` (Ground truth confirmed by industrial authorities or ground sensors)
 >    - `DISMISSED` (False positive or authorized agricultural burn)
-> 3. The React dashboard and REST API explicitly display `"Requires Verification"` badges to maintain complete situational awareness and prevent operational overreaction.
+> 5. The React dashboard and REST API explicitly display `"Requires Verification"` badges to maintain complete situational awareness and prevent operational overreaction.
+
 
 ---
 
