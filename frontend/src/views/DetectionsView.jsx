@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Flame, Search, Filter, RefreshCw, ExternalLink } from 'lucide-react';
 import { ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 
-export function DetectionsView({ detections = [], onRefresh, loading = false }) {
+export function DetectionsView({ detections = [], onRefresh, loading = false, onFocusDetection }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
@@ -105,6 +105,7 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
                 <th>Satellite</th>
                 <th>Model</th>
                 <th>Acquired (UTC)</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -140,6 +141,19 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
                     </td>
                     <td className="mono-cell" style={{ fontSize: '11.5px' }}>
                       {d.acq_date} {d.acq_time}
+                    </td>
+                    <td>
+                      {onFocusDetection && (
+                        <button
+                          onClick={() => onFocusDetection(d)}
+                          className="btn-secondary"
+                          style={{ padding: '3px 8px', fontSize: '11px', gap: '4px' }}
+                          title="Rotate 3D Earth to this hotspot location"
+                        >
+                          <span>🌍</span>
+                          <span>Focus</span>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -9,12 +9,13 @@ import {
   Satellite,
   Radio,
   Cpu,
+  Globe,
 } from 'lucide-react';
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true }) {
   const navItems = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'gis-map', label: 'GIS Hotspot Map', icon: MapPin },
+    { id: 'gis-map', label: '3D Earth & GIS', icon: Globe },
+    { id: 'overview', label: 'Telemetry Overview', icon: LayoutDashboard },
     { id: 'detections', label: 'Thermal Detections', icon: Flame },
     { id: 'alerts', label: 'Active Alerts', icon: AlertTriangle, badge: alertCount },
     { id: 'analytics', label: 'Analytics & KPIs', icon: BarChart3 },
@@ -26,11 +27,11 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
       {/* Brand Header */}
       <div className="sidebar-header">
         <div className="brand-icon">
-          <Satellite size={20} />
+          <Globe size={20} style={{ color: 'var(--accent-cyan)' }} />
         </div>
         <div>
-          <div className="brand-title">SIH PS 26162</div>
-          <div className="brand-subtitle">Satellite Thermal AI</div>
+          <div className="brand-title">SENTRIX</div>
+          <div className="brand-subtitle">Satellite Thermal Intelligence</div>
         </div>
       </div>
 

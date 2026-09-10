@@ -12,14 +12,20 @@ import {
   Info,
   Sliders,
   AlertCircle,
+  Globe,
+  Map as MapIcon,
 } from 'lucide-react';
 import { getDetections } from '../services/api';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
+import { EarthGlobe3D } from '../components/EarthGlobe3D';
 
-export function GisMapView() {
+export function GisMapView({ initialSelectedDetection = null }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layerGroupRef = useRef(null);
+
+  // Visualization Mode: '3d' (Earth Globe) or '2d' (Leaflet GIS)
+  const [viewMode, setViewMode] = useState('3d');
 
   // Filter States
   const [sourceType, setSourceType] = useState('');
@@ -35,6 +41,13 @@ export function GisMapView() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // Sync external selection if provided
+  useEffect(() => {
+    if (initialSelectedDetection) {
+      setSelectedDetection(initialSelectedDetection);
+    }
+  }, [initialSelectedDetection]);
 
   // Fetch detections from the FastAPI Backend API
   const fetchMapData = useCallback(async () => {
@@ -228,10 +241,85 @@ export function GisMapView() {
     }
   }, [mapDetections]);
 
+  // When switching to 2D mode, invalidate Leaflet map size and focus selected detection if present
+  useEffect(() => {
+    if (viewMode === '2d' && mapInstanceRef.current) {
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+          if (selectedDetection) {
+            const lat = parseFloat(selectedDetection.latitude);
+            const lon = parseFloat(selectedDetection.longitude);
+            if (!isNaN(lat) && !isNaN(lon)) {
+              mapInstanceRef.current.setView([lat, lon], 9);
+            }
+          }
+        }
+      }, 150);
+    }
+  }, [viewMode, selectedDetection]);
+
   return (
     <div>
-      {/* Dynamic Filter Toolbar */}
-      <div className="filter-bar">
+      {/* Dynamic Filter Toolbar with 3D/2D Mode Switcher */}
+      <div className="filter-bar" style={{ flexWrap: 'wrap', gap: '10px' }}>
+        {/* Visualization Switcher */}
+        <div
+          style={{
+            display: 'flex',
+            background: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '8px',
+            padding: '2px',
+            gap: '2px',
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setViewMode('3d')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              background: viewMode === '3d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              color: viewMode === '3d' ? '#38BDF8' : '#94A3B8',
+              border: viewMode === '3d' ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="3D Rotating Earth Globe Visualization"
+          >
+            <Globe size={14} />
+            <span>3D Earth</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('2d')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '12px',
+              fontWeight: 600,
+              background: viewMode === '2d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              color: viewMode === '2d' ? '#38BDF8' : '#94A3B8',
+              border: viewMode === '2d' ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="2D Operational Leaflet GIS Map"
+          >
+            <MapIcon size={14} />
+            <span>2D Map</span>
+          </button>
+        </div>
+
         {/* Source Type Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <Satellite size={15} style={{ color: 'var(--accent-cyan)' }} />
@@ -352,8 +440,21 @@ export function GisMapView() {
         </button>
       </div>
 
-      {/* Map Viewport Container */}
-      <div className="map-viewport-wrapper">
+      {/* 3D Photorealistic Rotating Earth Globe */}
+      {viewMode === '3d' && (
+        <EarthGlobe3D
+          detections={mapDetections}
+          selectedDetection={selectedDetection}
+          onSelectDetection={setSelectedDetection}
+          onSwitchTo2D={() => setViewMode('2d')}
+        />
+      )}
+
+      {/* 2D Operational Leaflet Map Viewport Container */}
+      <div
+        className="map-viewport-wrapper"
+        style={{ display: viewMode === '2d' ? 'block' : 'none' }}
+      >
         <div ref={mapContainerRef} id="leaflet-map" />
 
         {/* Floating Map HUD Legend */}
@@ -416,8 +517,8 @@ export function GisMapView() {
         </div>
       )}
 
-      {/* Selected Anomaly Telemetry Inspector Sheet */}
-      {selectedDetection && (
+      {/* Selected Anomaly Telemetry Inspector Sheet (in 2D mode) */}
+      {viewMode === '2d' && selectedDetection && (
         <div
           className="card-panel"
           style={{

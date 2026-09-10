@@ -19,11 +19,18 @@ import {
 } from './services/api';
 
 export function App() {
-  const [currentTab, setCurrentTab] = useState('overview');
+  const [currentTab, setCurrentTab] = useState('gis-map');
+  const [focusedDetection, setFocusedDetection] = useState(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isIngesting, setIsIngesting] = useState(false);
   const isFetchingRef = useRef(false);
+
+  // Focus a detection on 3D Earth / GIS Map
+  const handleFocusDetection = (detection) => {
+    setFocusedDetection(detection);
+    setCurrentTab('gis-map');
+  };
 
   // Core Data States
   const [analytics, setAnalytics] = useState(null);
@@ -140,10 +147,10 @@ export function App() {
 
   const getPageTitle = () => {
     switch (currentTab) {
+      case 'gis-map':
+        return '3D Earth Satellite Monitoring & GIS';
       case 'overview':
         return 'System Overview & Telemetry';
-      case 'gis-map':
-        return 'Interactive GIS Thermal Anomaly Map';
       case 'detections':
         return 'Satellite Thermal Hotspot Records';
       case 'alerts':
@@ -188,13 +195,13 @@ export function App() {
               recentAlerts={recentAlerts}
               onNavigate={setCurrentTab}
               onUpdateAlertStatus={handleUpdateAlertStatus}
+              onFocusDetection={handleFocusDetection}
             />
           )}
 
           {currentTab === 'gis-map' && (
             <GisMapView
-              detections={detections}
-              onSelectDetection={(d) => setCurrentTab('detections')}
+              initialSelectedDetection={focusedDetection}
             />
           )}
 
@@ -203,6 +210,7 @@ export function App() {
               detections={detections}
               onRefresh={loadDashboardData}
               loading={loading}
+              onFocusDetection={handleFocusDetection}
             />
           )}
 
@@ -212,6 +220,7 @@ export function App() {
               onUpdateAlertStatus={handleUpdateAlertStatus}
               onRefresh={loadDashboardData}
               loading={loading}
+              onFocusDetection={handleFocusDetection}
             />
           )}
 
