@@ -2,7 +2,7 @@
 ## AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources using Satellite Data
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-113%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-117%20passed-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
 This repository contains the complete end-to-end platform for Smart India Hackathon (SIH) 2026 Problem Statement **PS 26162**:
@@ -11,9 +11,9 @@ This repository contains the complete end-to-end platform for Smart India Hackat
 The platform integrates:
 1. **NASA FIRMS Real Satellite Data Ingestion & Preprocessing Pipeline** (VIIRS & MODIS)
 2. **Strict Data Provenance Tracking** (`REAL_FIRMS`, `SAMPLE`, `PROTOTYPE_LABELLED`)
-3. **AI/ML Multi-Temporal Persistence & Classification Model** (Random Forest / Gradient Boosting)
-4. **High-Performance FastAPI REST Backend** with SQLite Database Storage
-5. **Autonomous Operational Alert Evaluation Engine**
+3. **AI/ML Multi-Temporal Persistence & Classification Model v2** (`2.0.0-scientific-prototype` with v1 fallback)
+4. **High-Performance FastAPI REST Backend** with SQLite Database Storage (`backend/` canonical, `app/` compatibility forwarder)
+5. **Autonomous Operational Alert Evaluation Engine** (`REQUIRES_VERIFICATION` lifecycle)
 6. **Interactive Mission-Control React GIS Dashboard** with Leaflet Maps, Live Telemetry, Filtering, and Analytics
 
 ---
@@ -36,7 +36,7 @@ The platform integrates:
   (0.01° grid clustering, active day counts, persistence ratios, FRP z-scores, diurnal cycle)
            │
            ▼
-[ Trained AI/ML Classifier ]
+[ Model v2: 2.0.0-scientific-prototype ]
   (Predicts: Industrial Fire [CRITICAL] / Persistent Thermal Source [MEDIUM] / Other [LOW])
            │
            ▼
@@ -49,7 +49,7 @@ The platform integrates:
 [ SQLite Persistence & Operational Alerts ] (REQUIRES_VERIFICATION triage)
            │
            ▼
-[ React GIS Mission-Control Dashboard ] (Live Leaflet map, telemetry, alerts, analytics)
+[ React GIS Mission-Control Dashboard ] (Live Leaflet map, telemetry, alerts, analytics, history/export)
 ```
 
 ---
@@ -58,7 +58,7 @@ The platform integrates:
 
 ```text
 SIH20162/
-├── app/                          # FastAPI Backend Architecture
+├── backend/                      # Canonical FastAPI Backend Architecture
 │   ├── api/v1/
 │   │   ├── endpoints/
 │   │   │   ├── health.py         # System health check (/api/health, /api/v1/health)
@@ -81,9 +81,10 @@ SIH20162/
 │   │   ├── observation.py        # Raw satellite observation input schema
 │   │   └── alert.py              # Alert response and status update schemas
 │   ├── services/
-│   │   ├── ml_service.py         # Decoupled ML inference adapter with fallback handling
+│   │   ├── ml_service.py         # Decoupled ML inference adapter with Model v2 and fallback
 │   │   └── alert_service.py      # Automated alert generation and triage logic
 │   └── main.py                   # FastAPI application initialization and CORS
+├── app/                          # Compatibility forwarders to backend/
 ├── frontend/                     # Modern React + Vite GIS Web Application
 │   ├── src/
 │   │   ├── components/
@@ -444,10 +445,10 @@ curl -X POST "http://127.0.0.1:8000/api/v1/inference/predict-and-store" ^
 
 ## 11. Running the Automated Test Suite
 
-The repository contains comprehensive unit, API, ML, and end-to-end integration tests (113 passing tests):
+The repository contains comprehensive unit, API, ML, and end-to-end integration tests (117 passing tests):
 
 ```powershell
-# Run complete test suite (113 tests)
+# Run complete test suite (117 tests)
 python -m pytest -v
 
 # Run Phase 3 scientific validation suite specifically
