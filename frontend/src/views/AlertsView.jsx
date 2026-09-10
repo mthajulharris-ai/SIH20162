@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { AlertTriangle, ShieldAlert, CheckCircle2, Clock, XCircle, Info, Edit3 } from 'lucide-react';
-import { StatusBadge } from '../components/StatusBadge';
+import { StatusBadge, ProvenanceBadge } from '../components/StatusBadge';
 
 export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loading = false }) {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
   const [selectedSeverityFilter, setSelectedSeverityFilter] = useState('');
+  const [selectedProvenanceFilter, setSelectedProvenanceFilter] = useState('');
   const [updatingAlertId, setUpdatingAlertId] = useState(null);
   const [modalAlert, setModalAlert] = useState(null);
   const [newStatus, setNewStatus] = useState('UNDER_REVIEW');
@@ -13,6 +14,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
   const filtered = alerts.filter((a) => {
     if (selectedStatusFilter && a.verification_status !== selectedStatusFilter) return false;
     if (selectedSeverityFilter && a.alert_level !== selectedSeverityFilter) return false;
+    if (selectedProvenanceFilter && a.data_provenance !== selectedProvenanceFilter) return false;
     return true;
   });
 
@@ -69,6 +71,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
           <option value="CRITICAL">Critical Only</option>
           <option value="HIGH">High Severity Only</option>
           <option value="MEDIUM">Medium Severity Only</option>
+          <option value="LOW_CONFIDENCE_REVIEW">Low-Confidence Review Only</option>
         </select>
 
         <select
@@ -81,6 +84,17 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
           <option value="UNDER_REVIEW">Under Review</option>
           <option value="VERIFIED">Ground Verified</option>
           <option value="DISMISSED">Dismissed</option>
+        </select>
+
+        <select
+          value={selectedProvenanceFilter}
+          onChange={(e) => setSelectedProvenanceFilter(e.target.value)}
+          className="filter-input"
+        >
+          <option value="">All Data Origins</option>
+          <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+          <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
+          <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
       </div>
 
@@ -101,9 +115,10 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
             <thead>
               <tr>
                 <th>Alert Level</th>
-                <th>Alert Title & Description</th>
+                <th>Alert Title & Telemetry</th>
                 <th>AI Classification</th>
                 <th>Confidence</th>
+                <th>Origin</th>
                 <th>FRP (MW)</th>
                 <th>Verification State</th>
                 <th>Action</th>
@@ -116,7 +131,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
                     <td>
                       <StatusBadge status={alert.alert_level} type="severity" />
                     </td>
-                    <td style={{ maxWidth: '380px' }}>
+                    <td style={{ maxWidth: '360px' }}>
                       <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginBottom: '3px' }}>
                         {alert.title}
                       </div>
@@ -124,7 +139,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
                         {alert.message}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-                        {alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)} | {alert.acq_date} {alert.acq_time} UTC
+                        {parseFloat(alert.latitude).toFixed(4)}, {parseFloat(alert.longitude).toFixed(4)} | {alert.acq_date} {alert.acq_time} UTC &bull; {alert.model_version || '2.0.0'}
                       </div>
                     </td>
                     <td>
@@ -133,10 +148,13 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
                       </span>
                     </td>
                     <td className="mono-cell" style={{ fontWeight: 700 }}>
-                      {(alert.confidence * 100).toFixed(1)}%
+                      {(parseFloat(alert.confidence || 0) * 100).toFixed(1)}%
+                    </td>
+                    <td>
+                      <ProvenanceBadge provenance={alert.data_provenance} />
                     </td>
                     <td className="mono-cell" style={{ color: 'var(--accent-orange)' }}>
-                      {alert.frp ? `${alert.frp.toFixed(1)} MW` : '—'}
+                      {alert.frp !== null && alert.frp !== undefined ? `${parseFloat(alert.frp).toFixed(1)} MW` : '—'}
                     </td>
                     <td>
                       <StatusBadge status={alert.verification_status} type="verification" />
@@ -160,7 +178,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
                 ))
               ) : (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
                     No alerts match the selected criteria.
                   </td>
                 </tr>

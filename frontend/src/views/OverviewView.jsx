@@ -10,7 +10,7 @@ import {
   Info,
 } from 'lucide-react';
 import { KpiCard } from '../components/KpiCard';
-import { StatusBadge, ClassBadge } from '../components/StatusBadge';
+import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 
 export function OverviewView({
   analytics,
@@ -40,8 +40,8 @@ export function OverviewView({
         <Info size={18} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
         <div>
           <strong style={{ color: '#FFFFFF' }}>PS 26162 Operational Notice:</strong> Thermal anomalies shown are
-          detected by satellite sensors and categorized by the AI classification model. All flagged alerts require
-          ground / multi-spectral field verification.
+          detected by satellite sensors and categorized by AI classification model v2 (<code>2.0.0-scientific-prototype</code>).
+          All unverified detections are flagged <strong>"Requires Verification"</strong> and require ground inspection.
         </div>
       </div>
 
@@ -57,38 +57,65 @@ export function OverviewView({
         />
 
         <KpiCard
-          title="Critical Alerts"
-          value={analytics?.verification_breakdown?.critical_alerts ?? 0}
-          subtext="Requires field verification"
-          icon={ShieldAlert}
-          accentColor="red"
-          badgeText="Live DB"
-        />
-
-        <KpiCard
           title="Industrial Fires"
           value={analytics?.industrial_fire_predictions ?? 0}
           subtext="AI-predicted industrial events"
           icon={Factory}
-          accentColor="amber"
+          accentColor="red"
           badgeText="Live DB"
         />
 
         <KpiCard
           title="Persistent Hotspots"
           value={analytics?.persistent_source_predictions ?? 0}
-          subtext="Flares & high recurrence zones"
+          subtext="Refinery flares & smelters"
           icon={Activity}
-          accentColor="purple"
+          accentColor="amber"
           badgeText="Live DB"
+        />
+
+        <KpiCard
+          title="Other / Vegetation"
+          value={analytics?.other_predictions ?? 0}
+          subtext="Background & seasonal thermal"
+          icon={Radio}
+          accentColor="cyan"
+          badgeText="Live DB"
+        />
+
+        <KpiCard
+          title="Critical Alerts"
+          value={analytics?.verification_breakdown?.critical_alerts ?? 0}
+          subtext="High-risk thermal anomalies"
+          icon={ShieldAlert}
+          accentColor="red"
+          badgeText="Live DB"
+        />
+
+        <KpiCard
+          title="Requires Verification"
+          value={analytics?.verification_breakdown?.unverified_predictions ?? 0}
+          subtext="Awaiting ground/drone triage"
+          icon={AlertTriangle}
+          accentColor="purple"
+          badgeText="Pending"
+        />
+
+        <KpiCard
+          title="Ground Verified"
+          value={analytics?.verification_breakdown?.confirmed_incidents ?? 0}
+          subtext="Human field-verified incidents"
+          icon={ShieldAlert}
+          accentColor="emerald"
+          badgeText="Confirmed"
         />
 
         <KpiCard
           title="Avg Radiative Power"
           value={`${analytics?.avg_frp_mw ?? 0} MW`}
           subtext={`Peak recorded: ${analytics?.max_frp_mw ?? 0} MW`}
-          icon={Radio}
-          accentColor="emerald"
+          icon={Flame}
+          accentColor="amber"
           badgeText="Live DB"
         />
       </div>
@@ -134,7 +161,10 @@ export function OverviewView({
                         {alert.title}
                       </span>
                     </div>
-                    <StatusBadge status={alert.verification_status} type="verification" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <ProvenanceBadge provenance={alert.data_provenance} />
+                      <StatusBadge status={alert.verification_status} type="verification" />
+                    </div>
                   </div>
 
                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
@@ -152,9 +182,9 @@ export function OverviewView({
                     }}
                   >
                     <span>
-                      Coord: {alert.latitude.toFixed(4)}, {alert.longitude.toFixed(4)} | FRP: {alert.frp || 0} MW
+                      Coord: {parseFloat(alert.latitude).toFixed(4)}, {parseFloat(alert.longitude).toFixed(4)} | FRP: {alert.frp || 0} MW
                     </span>
-                    <span>{alert.acq_date} {alert.acq_time} UTC</span>
+                    <span>{alert.acq_date} {alert.acq_time} UTC &bull; {alert.model_version || 'v2.0.0'}</span>
                   </div>
                 </div>
               ))}

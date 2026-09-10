@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
 import { Flame, Search, Filter, RefreshCw, ExternalLink } from 'lucide-react';
-import { ClassBadge } from '../components/StatusBadge';
+import { ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 
 export function DetectionsView({ detections = [], onRefresh, loading = false }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [provenanceFilter, setProvenanceFilter] = useState('');
 
   const filtered = detections.filter((d) => {
     if (sourceFilter && d.source !== sourceFilter) return false;
     if (classFilter && d.predicted_class !== classFilter) return false;
+    if (provenanceFilter && d.data_provenance !== provenanceFilter) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       const matchCoord = `${d.latitude},${d.longitude}`.includes(q);
       const matchClass = (d.predicted_class || '').toLowerCase().includes(q);
       const matchSource = (d.source || '').toLowerCase().includes(q);
-      return matchCoord || matchClass || matchSource;
+      const matchProv = (d.data_provenance || '').toLowerCase().includes(q);
+      return matchCoord || matchClass || matchSource || matchProv;
     }
     return true;
   });
@@ -44,6 +47,7 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
           <option value="">All Satellite Sources</option>
           <option value="VIIRS_SNPP_NRT">VIIRS S-NPP</option>
           <option value="VIIRS_NOAA20_NRT">VIIRS NOAA-20</option>
+          <option value="VIIRS_NOAA21_NRT">VIIRS NOAA-21</option>
           <option value="MODIS_NRT">MODIS Terra/Aqua</option>
         </select>
 
@@ -56,6 +60,17 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
           <option value="Industrial Fire">Industrial Fire</option>
           <option value="Persistent Thermal Source">Persistent Thermal Source</option>
           <option value="Other">Other / Vegetation</option>
+        </select>
+
+        <select
+          value={provenanceFilter}
+          onChange={(e) => setProvenanceFilter(e.target.value)}
+          className="filter-input"
+        >
+          <option value="">All Data Origins</option>
+          <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+          <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
+          <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
 
         <button onClick={onRefresh} disabled={loading} className="btn-secondary">
@@ -84,9 +99,11 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
                 <th>Coordinates</th>
                 <th>AI Predicted Class</th>
                 <th>Confidence</th>
+                <th>Origin</th>
                 <th>FRP (MW)</th>
                 <th>Brightness (K)</th>
                 <th>Satellite</th>
+                <th>Model</th>
                 <th>Acquired (UTC)</th>
               </tr>
             </thead>
@@ -96,24 +113,30 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
                   <tr key={d.id}>
                     <td className="mono-cell">#{d.id}</td>
                     <td className="mono-cell" style={{ color: '#FFFFFF' }}>
-                      {d.latitude?.toFixed(4)}, {d.longitude?.toFixed(4)}
+                      {parseFloat(d.latitude).toFixed(4)}, {parseFloat(d.longitude).toFixed(4)}
                     </td>
                     <td>
                       <ClassBadge predictedClass={d.predicted_class} />
                     </td>
                     <td className="mono-cell" style={{ fontWeight: 600 }}>
-                      {(d.prediction_confidence * 100).toFixed(1)}%
+                      {(parseFloat(d.prediction_confidence || 0) * 100).toFixed(1)}%
+                    </td>
+                    <td>
+                      <ProvenanceBadge provenance={d.data_provenance} />
                     </td>
                     <td className="mono-cell" style={{ color: 'var(--accent-orange)' }}>
-                      {d.frp ? `${d.frp.toFixed(1)} MW` : '—'}
+                      {d.frp !== null && d.frp !== undefined ? `${parseFloat(d.frp).toFixed(1)} MW` : '—'}
                     </td>
                     <td className="mono-cell">
-                      {d.brightness ? `${d.brightness.toFixed(1)} K` : '—'}
+                      {d.brightness ? `${parseFloat(d.brightness).toFixed(1)} K` : '—'}
                     </td>
                     <td>
                       <span style={{ fontSize: '12px', color: 'var(--accent-cyan)' }}>
                         {d.source || 'VIIRS'}
                       </span>
+                    </td>
+                    <td className="mono-cell" style={{ fontSize: '11px', color: '#94A3B8' }}>
+                      {d.model_version || '2.0.0-scientific-prototype'}
                     </td>
                     <td className="mono-cell" style={{ fontSize: '11.5px' }}>
                       {d.acq_date} {d.acq_time}
@@ -122,7 +145,7 @@ export function DetectionsView({ detections = [], onRefresh, loading = false }) 
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                  <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                     No thermal detection records match current filters.
                   </td>
                 </tr>

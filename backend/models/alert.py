@@ -59,12 +59,15 @@ class Alert(Base):
         default="AI detected thermal signature. Requires ground/field verification.",
         nullable=False,
     )
+    data_provenance: str = Column(String(32), default="SAMPLE", nullable=False, index=True)
+    model_version: Optional[str] = Column(String(32), default="2.0.0-scientific-prototype", nullable=True)
 
     created_at: datetime = Column(
         DateTime,
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
 
     # Relationship to parent Detection
     detection = relationship("Detection", backref="alerts")
@@ -93,6 +96,9 @@ class Alert(Base):
             "brightness": self.brightness,
             "acq_date": self.acq_date,
             "acq_time": self.acq_time,
+            "data_provenance": self.data_provenance or "SAMPLE",
+            "model_version": self.model_version or "2.0.0-scientific-prototype",
             "disclaimer": self.disclaimer,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+

@@ -32,6 +32,12 @@ export function Header({
           {utcTime}
         </div>
 
+        {/* Model Version Badge */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+          <span style={{ color: 'var(--text-muted)' }}>Model:</span>
+          <strong style={{ color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>2.0.0-scientific-prototype</strong>
+        </div>
+
         {/* Backend Connectivity Status */}
         <div className="live-pill">
           <span

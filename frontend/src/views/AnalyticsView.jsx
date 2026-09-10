@@ -207,6 +207,137 @@ export function AnalyticsView({ analytics }) {
         </div>
       </div>
 
+      {/* Class Distribution & Alert Severity Distribution */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+        {/* Class Distribution */}
+        <div className="card-panel" style={{ marginBottom: 0 }}>
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">
+                <BarChart3 size={18} style={{ color: 'var(--accent-cyan)' }} />
+                AI Thermal Class Distribution
+              </div>
+              <div className="panel-subtitle">Model v2 predictions across classified categories</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
+            {/* Industrial Fire */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600, color: '#F87171' }}>Industrial Fire</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                  {indFires} ({total > 0 ? ((indFires / total) * 100).toFixed(1) : '0.0'}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${total > 0 ? (indFires / total) * 100 : 0}%`,
+                    height: '100%',
+                    backgroundColor: '#EF4444',
+                    borderRadius: '4px',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Persistent Thermal Source */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600, color: '#FBBF24' }}>Persistent Thermal Source (Flare/Smelter)</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                  {persistentSources} ({total > 0 ? ((persistentSources / total) * 100).toFixed(1) : '0.0'}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${total > 0 ? (persistentSources / total) * 100 : 0}%`,
+                    height: '100%',
+                    backgroundColor: '#F59E0B',
+                    borderRadius: '4px',
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Other / Vegetation */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
+                <span style={{ fontWeight: 600, color: '#22D3EE' }}>Other / Vegetation Thermal Sources</span>
+                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
+                  {otherPreds} ({total > 0 ? ((otherPreds / total) * 100).toFixed(1) : '0.0'}%)
+                </span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${total > 0 ? (otherPreds / total) * 100 : 0}%`,
+                    height: '100%',
+                    backgroundColor: '#06B6D4',
+                    borderRadius: '4px',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Provenance & Severity Distribution */}
+        <div className="card-panel" style={{ marginBottom: 0 }}>
+          <div className="panel-header">
+            <div>
+              <div className="panel-title">
+                <Radio size={18} style={{ color: 'var(--accent-orange)' }} />
+                Data Provenance & Alert Severities
+              </div>
+              <div className="panel-subtitle">Real satellite ingest vs synthetic benchmark breakdown</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
+            {/* Provenance breakdown */}
+            <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Data Origins
+              </div>
+              {analytics?.provenance_distribution && Object.keys(analytics.provenance_distribution).length > 0 ? (
+                Object.entries(analytics.provenance_distribution).map(([prov, cnt]) => (
+                  <div key={prov} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ color: prov === 'REAL_FIRMS' ? '#34D399' : prov.includes('PROTOTYPE') ? '#A5B4FC' : '#FCD34D', fontWeight: 600 }}>
+                      {prov}
+                    </span>
+                    <span className="mono-cell">{cnt}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No data logged</div>
+              )}
+            </div>
+
+            {/* Severity breakdown */}
+            <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
+                Alert Severities
+              </div>
+              {analytics?.severity_distribution && Object.keys(analytics.severity_distribution).length > 0 ? (
+                Object.entries(analytics.severity_distribution).map(([sev, cnt]) => (
+                  <div key={sev} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
+                    <span style={{ color: sev === 'CRITICAL' ? '#F87171' : sev === 'HIGH' ? '#FB923C' : sev === 'LOW_CONFIDENCE_REVIEW' ? '#FDE047' : '#FBBF24', fontWeight: 600 }}>
+                      {sev}
+                    </span>
+                    <span className="mono-cell">{cnt}</span>
+                  </div>
+                ))
+              ) : (
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No alerts logged</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '24px' }}>
         {/* Geographic Distribution */}
         <div className="card-panel">

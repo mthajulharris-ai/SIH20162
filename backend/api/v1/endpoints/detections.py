@@ -114,6 +114,18 @@ def get_detections(
         None,
         description="Filter by persistent thermal anomaly flag",
     ),
+    data_provenance: Optional[str] = Query(
+        None,
+        description="Filter by data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+    ),
+    alert_level: Optional[str] = Query(
+        None,
+        description="Filter by alert level ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'LOW_CONFIDENCE_REVIEW')",
+    ),
+    model_version: Optional[str] = Query(
+        None,
+        description="Filter by model version",
+    ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=1000, description="Max number of records to return"),
 ) -> DetectionListResponse:
@@ -155,6 +167,18 @@ def get_detections(
     # 6. Persistence filter
     if is_persistent is not None:
         query = query.filter(Detection.is_persistent == is_persistent)
+
+    # 7. Provenance filter
+    if data_provenance:
+        query = query.filter(Detection.data_provenance == data_provenance)
+
+    # 8. Alert level filter
+    if alert_level:
+        query = query.filter(Detection.alert_level == alert_level)
+
+    # 9. Model version filter
+    if model_version:
+        query = query.filter(Detection.model_version == model_version)
 
     # Total count for pagination
     total = query.count()

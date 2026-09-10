@@ -42,6 +42,10 @@ def get_alerts(
         None,
         description="Filter by predicted class",
     ),
+    data_provenance: Optional[str] = Query(
+        None,
+        description="Filter by data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+    ),
     start_date: Optional[str] = Query(
         None,
         pattern=r"^\d{4}-\d{2}-\d{2}$",
@@ -66,6 +70,8 @@ def get_alerts(
         query = query.filter(Alert.verification_status == verification_status.upper())
     if predicted_class:
         query = query.filter(Alert.predicted_class == predicted_class)
+    if data_provenance:
+        query = query.filter(Alert.data_provenance == data_provenance.upper())
     if start_date:
         query = query.filter(Alert.acq_date >= start_date)
     if end_date:

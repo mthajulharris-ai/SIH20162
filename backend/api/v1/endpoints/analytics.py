@@ -119,6 +119,22 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
     )
     source_distribution = {source: count for source, count in source_counts}
 
+    # 7b. Alert Severity Breakdown
+    severity_counts = (
+        db.query(Alert.alert_level, func.count(Alert.id))
+        .group_by(Alert.alert_level)
+        .all()
+    )
+    severity_distribution = {level: count for level, count in severity_counts}
+
+    # 7c. Provenance Breakdown
+    provenance_counts = (
+        db.query(Detection.data_provenance, func.count(Detection.id))
+        .group_by(Detection.data_provenance)
+        .all()
+    )
+    provenance_distribution = {prov or "UNKNOWN": count for prov, count in provenance_counts}
+
     # 8. Detections Over Time (Grouped by acquisition date)
     date_trend_query = (
         db.query(
@@ -198,6 +214,8 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
         # Categorical distributions
         "class_distribution": class_distribution,
         "source_distribution": source_distribution,
+        "severity_distribution": severity_distribution,
+        "provenance_distribution": provenance_distribution,
         
         # Trends & Geography
         "detections_over_time": detections_over_time,

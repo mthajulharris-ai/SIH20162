@@ -41,6 +41,19 @@ def evaluate_detection_for_alert(detection: Detection) -> Optional[Dict[str, Any
     frp_val = float(detection.frp or 0.0)
     brightness_val = float(detection.brightness or 0.0)
 
+    # 0. Uncertainty / Low-Confidence Review Evaluation (Model v2 uncertainty behavior)
+    if conf < 0.60:
+        if p_class in ["industrial fire", "industrial_fire", "persistent thermal source", "persistent_thermal_source"] or frp_val >= 30.0:
+            return {
+                "alert_level": "LOW_CONFIDENCE_REVIEW",
+                "title": f"Low-Confidence Prediction: {detection.predicted_class} (Requires Review)",
+                "message": (
+                    f"AI model predicted '{detection.predicted_class}' with low confidence "
+                    f"({conf * 100:.1f}% < 60% threshold). Observation flagged for expert review."
+                ),
+            }
+        return None
+
     # 1. Industrial Fire Evaluation
     if p_class in ["industrial fire", "industrial_fire"]:
         if conf >= 0.85 or frp_val >= 50.0 or brightness_val >= 380.0:
@@ -122,6 +135,8 @@ def create_alert_if_eligible(db: Session, detection: Detection) -> Optional[Aler
         brightness=detection.brightness,
         acq_date=detection.acq_date,
         acq_time=detection.acq_time,
+        data_provenance=detection.data_provenance or "SAMPLE",
+        model_version=detection.model_version or "2.0.0-scientific-prototype",
         disclaimer="AI detected thermal signature. Requires ground/field verification.",
     )
 

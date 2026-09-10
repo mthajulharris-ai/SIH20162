@@ -80,6 +80,14 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
 
           <div className="telemetry-row">
             <span className="telemetry-label">
+              <Cpu size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
+              AI Model
+            </span>
+            <span className="telemetry-val" style={{ color: 'var(--accent-cyan)' }}>v2.0.0-prototype</span>
+          </div>
+
+          <div className="telemetry-row">
+            <span className="telemetry-label">
               <Satellite size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />
               Constellation
             </span>

@@ -496,6 +496,32 @@ body {
   border: 1px solid rgba(100, 116, 139, 0.35);
 }
 
+.badge-real-firms {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.6);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.badge-prototype {
+  background: rgba(99, 102, 241, 0.2);
+  color: #A5B4FC;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+}
+
+.badge-sample {
+  background: rgba(245, 158, 11, 0.18);
+  color: #FCD34D;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.badge-low-conf {
+  background: rgba(234, 179, 8, 0.2);
+  color: #FDE047;
+  border: 1px solid rgba(234, 179, 8, 0.5);
+}
+
 /* Tables */
 .table-container {
   overflow-x: auto;

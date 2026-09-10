@@ -26,10 +26,21 @@ class AlertBase(BaseModel):
     brightness: float = Field(..., description="Brightness temperature (Kelvin)")
     acq_date: str = Field(..., description="Acquisition date (YYYY-MM-DD)")
     acq_time: str = Field(..., description="Acquisition time (HHMM)")
+    data_provenance: str = Field(
+        default="SAMPLE",
+        description="Data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+        examples=["REAL_FIRMS"],
+    )
+    model_version: Optional[str] = Field(
+        default="2.0.0-scientific-prototype",
+        description="AI model version that triggered the alert",
+        examples=["2.0.0-scientific-prototype"],
+    )
     disclaimer: str = Field(
         default="AI detected thermal signature. Requires ground/field verification.",
         description="Operational safety disclaimer",
     )
+
 
 
 class AlertResponse(AlertBase):

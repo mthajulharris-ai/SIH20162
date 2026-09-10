@@ -26,6 +26,12 @@ export function StatusBadge({ status, type = 'verification' }) {
             <Clock size={12} /> Medium
           </span>
         );
+      case 'LOW_CONFIDENCE_REVIEW':
+        return (
+          <span className="badge badge-low-conf" title="Model uncertainty flag: prediction confidence < 60%">
+            <AlertCircle size={12} /> Low-Confidence Review
+          </span>
+        );
       default:
         return <span className="badge badge-low">{status}</span>;
     }
@@ -60,6 +66,31 @@ export function StatusBadge({ status, type = 'verification' }) {
     default:
       return <span className="badge badge-low">{status}</span>;
   }
+}
+
+export function ProvenanceBadge({ provenance }) {
+  if (!provenance) return <span className="badge badge-sample">DEMO / SAMPLE</span>;
+
+  const upper = provenance.toUpperCase();
+  if (upper === 'REAL_FIRMS') {
+    return (
+      <span className="badge badge-real-firms" title="Live NASA FIRMS satellite observation">
+        REAL_FIRMS
+      </span>
+    );
+  }
+  if (upper.includes('PROTOTYPE')) {
+    return (
+      <span className="badge badge-prototype" title="Prototype ground-truth labelled benchmark">
+        PROTOTYPE_LABELLED
+      </span>
+    );
+  }
+  return (
+    <span className="badge badge-sample" title="Synthetic demonstration observation">
+      DEMO / SAMPLE DATA
+    </span>
+  );
 }
 
 export function ClassBadge({ predictedClass }) {

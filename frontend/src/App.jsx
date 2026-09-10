@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { OverviewView } from './views/OverviewView';
@@ -23,6 +23,7 @@ export function App() {
   const [isBackendHealthy, setIsBackendHealthy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isIngesting, setIsIngesting] = useState(false);
+  const isFetchingRef = useRef(false);
 
   // Core Data States
   const [analytics, setAnalytics] = useState(null);
@@ -32,6 +33,8 @@ export function App() {
 
   // Fetch all backend data
   const loadDashboardData = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
     try {
       setLoading(true);
 
@@ -76,6 +79,7 @@ export function App() {
       }
     } finally {
       setLoading(false);
+      isFetchingRef.current = false;
     }
   }, []);
 
@@ -107,13 +111,16 @@ export function App() {
         confidence: 'high',
         acq_date: now.toISOString().slice(0, 10),
         acq_time: `${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}`,
-        source: 'VIIRS_SNPP_NRT',
-        instrument: 'VIIRS',
+        source: 'SAMPLE_TEST_HOTSPOT',
+        instrument: 'VIIRS_SIMULATED',
         frp: site.frp,
         daynight: now.getUTCHours() >= 6 && now.getUTCHours() < 18 ? 'D' : 'N',
         predicted_class: site.cls,
         prediction_confidence: 0.92 + Math.random() * 0.07,
         is_persistent: site.cls.includes('Persistent'),
+        data_provenance: 'SAMPLE',
+        model_version: '2.0.0-scientific-prototype',
+        alert_level: 'CRITICAL',
       };
 
       await createDetection(payload);

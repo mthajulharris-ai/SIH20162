@@ -94,13 +94,32 @@ def predict_and_store(
             detail=f"ML Inference Failed: {str(mse)}",
         )
 
-    # 3. Extract classification metadata
+    # 3. Extract classification metadata and provenance
     predicted_class_name = prediction_result.get("predicted_class", "Unknown")
     predicted_conf = float(prediction_result.get("confidence", 0.0))
     is_persistent = (
         predicted_class_name.lower() == "persistent thermal source"
         or prediction_result.get("predicted_class_id") == 1
     )
+
+    # Determine data provenance (REAL_FIRMS, SAMPLE, PROTOTYPE_LABELLED)
+    if observation.data_provenance:
+        data_provenance = observation.data_provenance.upper()
+    elif (observation.source or "").upper().startswith(("SAMPLE", "DEMO")):
+        data_provenance = "SAMPLE"
+    elif any(k in (observation.source or "").upper() for k in ["REAL", "FIRMS_LIVE", "NASA_FIRMS"]):
+        data_provenance = "REAL_FIRMS"
+    else:
+        data_provenance = "PROTOTYPE_LABELLED"
+
+    # Step 7: Low confidence handling (< 0.60 -> LOW_CONFIDENCE_REVIEW)
+    base_alert_level = prediction_result.get("alert_level", "LOW")
+    if predicted_conf < 0.60:
+        alert_level = "LOW_CONFIDENCE_REVIEW"
+    else:
+        alert_level = base_alert_level
+
+    model_ver = prediction_result.get("model_version", "2.0.0-scientific-prototype")
 
     # 4. Save into SQLite database
     db_detection = Detection(
@@ -117,13 +136,14 @@ def predict_and_store(
         predicted_class=predicted_class_name,
         prediction_confidence=predicted_conf,
         is_persistent=is_persistent,
-        model_version=prediction_result.get("model_version", "1.0.0-baseline"),
+        model_version=model_ver,
+        data_provenance=data_provenance,
+        alert_level=alert_level,
     )
 
     db.add(db_detection)
     db.commit()
     db.refresh(db_detection)
-
 
     # 4b. Evaluate if observation qualifies for an operational alert
     from backend.services.alert_service import create_alert_if_eligible
@@ -134,11 +154,12 @@ def predict_and_store(
         predicted_class=predicted_class_name,
         predicted_class_id=int(prediction_result.get("predicted_class_id", 0)),
         confidence=predicted_conf,
-        alert_level=prediction_result.get("alert_level", "LOW"),
+        alert_level=alert_level,
         class_probabilities=prediction_result.get("class_probabilities", {}),
-        model_version=prediction_result.get("model_version", "1.0.0"),
+        model_version=model_ver,
         prediction_timestamp=prediction_result.get("prediction_timestamp", ""),
     )
+
 
     return ClassifyAndStoreResponse(
         status="SUCCESS",

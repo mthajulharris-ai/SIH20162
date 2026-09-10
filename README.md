@@ -350,17 +350,22 @@ python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/tes
 > [!IMPORTANT]
 > **Safety & AI Governance Policy**:
 > 1. All thermal detections and classification outputs are **AI-Generated Probabilistic Predictions**, not ground-truth verified incidents.
-> 2. **Data Labelling Categories**:
->    - **Real Satellite Data**: Raw observation streams from NASA FIRMS (VIIRS & MODIS) containing physical sensor radiance anomalies (brightness temperature, FRP), without ground-truth labels.
->    - **Sample / Demo Data**: Records with prefix `SAMPLE_TEST_*` or `DEMO_*` used for pipeline integration testing and live UI walkthroughs. They must never be represented as real-world industrial accidents.
->    - **AI-Predicted Classifications**: Probabilistic categories assigned by the baseline ML model (`1.0.0-baseline`).
-> 3. **Prototype Accuracy Disclaimer**: Model evaluation metrics reflect cross-validation over prototype datasets and must not be claimed as certified real-world operational accuracy.
-> 4. Detections and alerts carry an explicit verification lifecycle:
->    - `REQUIRES_VERIFICATION` (Initial state upon AI detection)
->    - `UNDER_REVIEW` (Human analyst assigned or field drone dispatched)
->    - `VERIFIED` (Ground truth confirmed by industrial authorities or ground sensors)
->    - `DISMISSED` (False positive or authorized agricultural burn)
-> 5. The React dashboard and REST API explicitly display `"Requires Verification"` badges to maintain complete situational awareness and prevent operational overreaction.
+> 2. **Data Provenance Categories**:
+>    - **`REAL_FIRMS`**: Live satellite observations acquired from NASA FIRMS (VIIRS 375m & MODIS 1km) containing physical sensor radiance anomalies (brightness temperature, FRP) without native ground-truth labels.
+>    - **`PROTOTYPE_LABELLED`**: Benchmark calibration dataset curated from spatially clustered thermal hotspots and historical plant coordinates.
+>    - **`SAMPLE`**: Synthetic demonstration observations (prefixed `SAMPLE_TEST_*` or `DEMO_*`) used for pipeline verification and UI testing. They must never be represented as real-world industrial accidents.
+> 3. **AI Classification Model v2 (`2.0.0-scientific-prototype`)**:
+>    - Incorporates multi-temporal persistence ratios, diurnal variation, and FRP density z-scores.
+>    - Fallback compatibility with baseline model (`1.0.0-baseline`) preserved.
+> 4. **Model Uncertainty Handling**:
+>    - Model probability is not interpreted as ground truth.
+>    - Detections with prediction confidence `< 0.60` automatically trigger a **`LOW_CONFIDENCE_REVIEW`** operational alert level, indicating model uncertainty requiring manual review.
+> 5. **Human-in-the-Loop Verification Lifecycle**:
+>    - AI predictions are never automatically marked as `VERIFIED`.
+>    - Initial state: `REQUIRES_VERIFICATION`.
+>    - Operational review: `UNDER_REVIEW` (inspection dispatched).
+>    - Final resolution: `VERIFIED` (confirmed on field) or `DISMISSED` (benign / controlled flaring).
+> 6. The React GIS dashboard and REST APIs explicitly display `"Requires Verification"` notices and provenance badges to maintain complete situational awareness and operational safety.
 
 
 ---

@@ -92,10 +92,21 @@ class DetectionBase(BaseModel):
         examples=[False],
     )
     model_version: Optional[str] = Field(
-        default="1.0.0-baseline",
+        default="2.0.0-scientific-prototype",
         description="AI model version used for classification",
-        examples=["1.0.0-baseline"],
+        examples=["2.0.0-scientific-prototype"],
     )
+    data_provenance: str = Field(
+        default="SAMPLE",
+        description="Data origin provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+        examples=["REAL_FIRMS"],
+    )
+    alert_level: Optional[str] = Field(
+        default="LOW",
+        description="Operational alert severity ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'LOW_CONFIDENCE_REVIEW')",
+        examples=["CRITICAL"],
+    )
+
 
 
 

@@ -14,7 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { getDetections } from '../services/api';
-import { StatusBadge, ClassBadge } from '../components/StatusBadge';
+import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 
 export function GisMapView() {
   const mapContainerRef = useRef(null);
@@ -24,6 +24,8 @@ export function GisMapView() {
   // Filter States
   const [sourceType, setSourceType] = useState('');
   const [detectionType, setDetectionType] = useState('');
+  const [provenanceFilter, setProvenanceFilter] = useState('');
+  const [alertLevelFilter, setAlertLevelFilter] = useState('');
   const [minConfidence, setMinConfidence] = useState(0.0);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -44,6 +46,8 @@ export function GisMapView() {
       };
       if (sourceType) params.source = sourceType;
       if (detectionType) params.predicted_class = detectionType;
+      if (provenanceFilter) params.data_provenance = provenanceFilter;
+      if (alertLevelFilter) params.alert_level = alertLevelFilter;
       if (minConfidence > 0) params.min_confidence = minConfidence;
       if (startDate) params.start_date = startDate;
       if (endDate) params.end_date = endDate;
@@ -56,7 +60,7 @@ export function GisMapView() {
     } finally {
       setLoading(false);
     }
-  }, [sourceType, detectionType, minConfidence, startDate, endDate]);
+  }, [sourceType, detectionType, provenanceFilter, alertLevelFilter, minConfidence, startDate, endDate]);
 
   // Initial Load
   useEffect(() => {
@@ -116,7 +120,6 @@ export function GisMapView() {
       )
       .addTo(map);
 
-
     const layerGroup = L.layerGroup().addTo(map);
     layerGroupRef.current = layerGroup;
     mapInstanceRef.current = map;
@@ -139,7 +142,8 @@ export function GisMapView() {
     mapDetections.forEach((d) => {
       const lat = parseFloat(d.latitude);
       const lon = parseFloat(d.longitude);
-      if (isNaN(lat) || isNaN(lon)) return;
+      // Ensure invalid coordinates never render
+      if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
 
       bounds.push([lat, lon]);
 
@@ -158,7 +162,7 @@ export function GisMapView() {
 
       // Radius scaled with Fire Radiative Power (MW)
       const frpVal = parseFloat(d.frp || 15);
-      const radius = Math.max(7, Math.min(22, Math.sqrt(frpVal) * 2.5));
+      const radius = Math.max(7, Math.min(24, Math.sqrt(frpVal) * 2.5));
 
       const circle = L.circleMarker([lat, lon], {
         radius: radius,
@@ -169,20 +173,37 @@ export function GisMapView() {
         fillOpacity: 0.75,
       });
 
-      // Construct rich popup with all required fields
+      const provenanceBadgeColor =
+        d.data_provenance === 'REAL_FIRMS' ? '#34D399' : d.data_provenance === 'PROTOTYPE_LABELLED' ? '#818CF8' : '#FBBF24';
+      const provenanceLabel =
+        d.data_provenance === 'REAL_FIRMS'
+          ? 'REAL_FIRMS'
+          : d.data_provenance === 'PROTOTYPE_LABELLED'
+          ? 'PROTOTYPE_LABELLED'
+          : 'DEMO / SAMPLE DATA';
+
+      // Construct rich popup with all required fields (Step 3)
       const popupHtml = `
-        <div style="font-family: Inter, sans-serif; font-size: 12px; color: #F8FAFC; min-width: 240px; line-height: 1.55;">
-          <div style="font-size: 13.5px; font-weight: 700; color: ${markerColor}; margin-bottom: 6px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
-            ${d.predicted_class || 'Thermal Anomaly'}
+        <div style="font-family: Inter, sans-serif; font-size: 12px; color: #F8FAFC; min-width: 250px; line-height: 1.55;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
+            <span style="font-size: 13.5px; font-weight: 700; color: ${markerColor};">
+              ${d.predicted_class || 'Thermal Anomaly'}
+            </span>
+            <span style="font-size: 10px; font-weight: 700; color: ${provenanceBadgeColor}; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">
+              ${provenanceLabel}
+            </span>
           </div>
-          <div><strong>Detection Type:</strong> ${d.predicted_class || 'Unknown'}</div>
-          <div><strong>Confidence:</strong> ${(d.prediction_confidence * 100).toFixed(1)}% (Sensor: ${d.confidence || 'nominal'})</div>
-          <div><strong>Brightness:</strong> ${d.brightness ? d.brightness.toFixed(1) + ' K' : 'N/A'}</div>
-          <div><strong>Fire Radiative Power (FRP):</strong> ${d.frp ? d.frp.toFixed(1) + ' MW' : 'N/A'}</div>
-          <div><strong>Satellite / Source:</strong> ${d.source || 'VIIRS'}</div>
-          <div><strong>Acquisition Date / Time:</strong> ${d.acq_date} ${d.acq_time} UTC</div>
-          <div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid #334155; font-size: 11px; color: #FBBF24;">
-            <strong>Status:</strong> ${detectionStatus}
+          <div><strong>Classification:</strong> ${d.predicted_class || 'Unknown'}</div>
+          <div><strong>AI Confidence:</strong> ${(parseFloat(d.prediction_confidence || 0) * 100).toFixed(1)}% (Sensor: ${d.confidence || 'nominal'})</div>
+          <div><strong>FRP:</strong> ${d.frp !== null && d.frp !== undefined ? parseFloat(d.frp).toFixed(1) + ' MW' : 'N/A'}</div>
+          <div><strong>Brightness Temp:</strong> ${d.brightness ? parseFloat(d.brightness).toFixed(1) + ' K' : 'N/A'}</div>
+          <div><strong>Satellite / Instrument:</strong> ${d.source || 'VIIRS'} / ${d.instrument || 'VIIRS'}</div>
+          <div><strong>Acquisition Time:</strong> ${d.acq_date} ${d.acq_time} UTC</div>
+          <div><strong>Data Provenance:</strong> <span style="color: ${provenanceBadgeColor}; font-weight: 600;">${d.data_provenance || 'SAMPLE'}</span></div>
+          <div><strong>Model Version:</strong> <span style="color: #94A3B8; font-family: monospace;">${d.model_version || '2.0.0-scientific-prototype'}</span></div>
+          <div><strong>Verification Status:</strong> <span style="color: #C084FC;">Requires Verification</span></div>
+          <div style="margin-top: 8px; padding: 5px 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; color: #FCA5A5; font-size: 10.5px; font-weight: 600; text-align: center;">
+            ⚠️ AI prediction &mdash; Requires Verification
           </div>
         </div>
       `;
@@ -244,6 +265,40 @@ export function GisMapView() {
           </select>
         </div>
 
+        {/* Data Provenance Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <ShieldAlert size={15} style={{ color: 'var(--accent-cyan)' }} />
+          <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Data:</span>
+          <select
+            value={provenanceFilter}
+            onChange={(e) => setProvenanceFilter(e.target.value)}
+            className="filter-input"
+          >
+            <option value="">All Data Origins</option>
+            <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+            <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
+            <option value="SAMPLE">DEMO / SAMPLE</option>
+          </select>
+        </div>
+
+        {/* Alert Severity Filter */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <AlertCircle size={15} style={{ color: 'var(--accent-red)' }} />
+          <span style={{ fontSize: '12.5px', color: 'var(--text-secondary)' }}>Severity:</span>
+          <select
+            value={alertLevelFilter}
+            onChange={(e) => setAlertLevelFilter(e.target.value)}
+            className="filter-input"
+          >
+            <option value="">All Severities</option>
+            <option value="CRITICAL">Critical</option>
+            <option value="HIGH">High</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="LOW">Low</option>
+            <option value="LOW_CONFIDENCE_REVIEW">Low-Confidence Review</option>
+          </select>
+        </div>
+
         {/* Confidence Filter */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Sliders size={15} style={{ color: 'var(--text-muted)' }} />
@@ -255,9 +310,9 @@ export function GisMapView() {
             step="0.05"
             value={minConfidence}
             onChange={(e) => setMinConfidence(parseFloat(e.target.value))}
-            style={{ width: '100px' }}
+            style={{ width: '90px' }}
           />
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#FFFFFF', minWidth: '35px' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: '#FFFFFF', minWidth: '32px' }}>
             {(minConfidence * 100).toFixed(0)}%
           </span>
         </div>
@@ -399,39 +454,58 @@ export function GisMapView() {
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Coordinates</span>
               <strong className="mono-cell" style={{ color: '#FFFFFF' }}>
-                {selectedDetection.latitude.toFixed(4)}, {selectedDetection.longitude.toFixed(4)}
+                {parseFloat(selectedDetection.latitude).toFixed(4)}, {parseFloat(selectedDetection.longitude).toFixed(4)}
               </strong>
             </div>
 
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>AI Confidence</span>
               <strong className="mono-cell">
-                {(selectedDetection.prediction_confidence * 100).toFixed(1)}%
+                {(parseFloat(selectedDetection.prediction_confidence || 0) * 100).toFixed(1)}%
               </strong>
             </div>
 
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Fire Radiative Power (FRP)</span>
               <strong className="mono-cell" style={{ color: 'var(--accent-orange)' }}>
-                {selectedDetection.frp ? `${selectedDetection.frp.toFixed(1)} MW` : 'N/A'}
+                {selectedDetection.frp !== null && selectedDetection.frp !== undefined ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}
               </strong>
             </div>
 
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Brightness Temperature</span>
               <strong className="mono-cell">
-                {selectedDetection.brightness ? `${selectedDetection.brightness.toFixed(1)} K` : 'N/A'}
+                {selectedDetection.brightness ? `${parseFloat(selectedDetection.brightness).toFixed(1)} K` : 'N/A'}
               </strong>
             </div>
 
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Satellite & Sensor</span>
-              <span style={{ color: 'var(--accent-cyan)' }}>{selectedDetection.source}</span>
+              <span style={{ color: 'var(--accent-cyan)' }}>
+                {selectedDetection.source} ({selectedDetection.instrument || 'VIIRS'})
+              </span>
             </div>
 
             <div>
               <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Acquisition Timestamp</span>
               <span className="mono-cell">{selectedDetection.acq_date} {selectedDetection.acq_time} UTC</span>
+            </div>
+
+            <div>
+              <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Data Provenance</span>
+              <ProvenanceBadge provenance={selectedDetection.data_provenance} />
+            </div>
+
+            <div>
+              <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Model Version</span>
+              <span className="mono-cell" style={{ color: '#94A3B8' }}>
+                {selectedDetection.model_version || '2.0.0-scientific-prototype'}
+              </span>
+            </div>
+
+            <div>
+              <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Alert Severity</span>
+              <StatusBadge status={selectedDetection.alert_level || 'LOW'} type="severity" />
             </div>
 
             <div style={{ gridColumn: '1 / -1', marginTop: '6px', paddingTop: '10px', borderTop: '1px solid var(--border-color)' }}>

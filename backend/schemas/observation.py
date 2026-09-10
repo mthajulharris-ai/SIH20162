@@ -70,6 +70,12 @@ class ThermalObservationInput(BaseModel):
         description="Sensor instrument ('VIIRS', 'MODIS')",
         examples=["VIIRS"],
     )
+    data_provenance: Optional[str] = Field(
+        default=None,
+        description="Data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+        examples=["REAL_FIRMS"],
+    )
+
     scan: Optional[float] = Field(
         default=0.375,
         gt=0.0,
