@@ -24,10 +24,11 @@ import numpy as np
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from src.config import MODELS_DIR, BASE_DIR, PROCESSED_DATA_DIR
+from src.config import MODELS_DIR, BASE_DIR, PROCESSED_DATA_DIR, PROVENANCE_PROTOTYPE_LABELLED
 from src.data_pipeline.dataset_builder import CLASS_MAP, ML_FEATURE_NAMES
 from src.ml.evaluate import evaluate_classifier, ModelEvaluationMetrics
 
@@ -73,6 +74,69 @@ def get_candidate_models(random_state: int = 42) -> Dict[str, Pipeline]:
     return models
 
 
+def cross_validate_and_select_best(
+    X: pd.DataFrame,
+    y: pd.Series,
+    groups: np.ndarray,
+    n_splits: int = 4,
+    random_state: int = 42
+) -> Tuple[str, Dict[str, Dict[str, float]]]:
+    """
+    Performs leakage-free Stratified Group K-Fold cross-validation across candidate models.
+    Evaluates Macro F1, Industrial Fire Recall, and Accuracy.
+    Returns (winning_model_name, full_cv_metrics_dict).
+    """
+    candidates = get_candidate_models(random_state=random_state)
+    sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+
+    cv_results: Dict[str, Dict[str, float]] = {}
+    best_name = ""
+    best_combined_score = -1.0
+
+    logger.info("Executing %d-Fold Stratified Group Cross-Validation across %d candidates...", n_splits, len(candidates))
+
+    for name, pipeline in candidates.items():
+        macro_f1s = []
+        fire_recalls = []
+        accuracies = []
+
+        for train_idx, val_idx in sgkf.split(X, y, groups=groups):
+            X_tr, y_tr = X.iloc[train_idx], y.iloc[train_idx]
+            X_va, y_va = X.iloc[val_idx], y.iloc[val_idx]
+
+            pipeline.fit(X_tr, y_tr)
+            metrics = evaluate_classifier(pipeline, X_va, y_va, model_name=name, dataset_split="cv_fold")
+            macro_f1s.append(metrics.macro_f1)
+            fire_recalls.append(metrics.industrial_fire_recall)
+            accuracies.append(metrics.accuracy)
+
+        mean_f1 = float(np.mean(macro_f1s))
+        std_f1 = float(np.std(macro_f1s))
+        mean_recall = float(np.mean(fire_recalls))
+        mean_acc = float(np.mean(accuracies))
+
+        cv_results[name] = {
+            "mean_macro_f1": round(mean_f1, 4),
+            "std_macro_f1": round(std_f1, 4),
+            "mean_industrial_fire_recall": round(mean_recall, 4),
+            "mean_accuracy": round(mean_acc, 4)
+        }
+
+        # Combined score: 60% Macro F1 + 40% Industrial Fire Recall (safety-critical bias)
+        combined_score = 0.60 * mean_f1 + 0.40 * mean_recall
+        logger.info(
+            "%s CV -> Macro F1: %.4f (+/-%.4f), Fire Recall: %.4f, Accuracy: %.4f (Combined: %.4f)",
+            name, mean_f1, std_f1, mean_recall, mean_acc, combined_score
+        )
+
+        if combined_score > best_combined_score:
+            best_combined_score = combined_score
+            best_name = name
+
+    logger.info("Cross-Validation Winner: %s (Combined Score: %.4f)", best_name, best_combined_score)
+    return best_name, cv_results
+
+
 def train_and_compare_baselines(
     X_train: pd.DataFrame,
     y_train: pd.Series,
@@ -101,7 +165,7 @@ def train_and_compare_baselines(
         metrics = evaluate_classifier(pipeline, X_val, y_val, model_name=name, dataset_split="validation")
         val_results[name] = metrics
 
-        # Selection criterion: Macro F1-score (not raw accuracy)
+        # Selection criterion: Macro F1-score
         score = metrics.macro_f1
         logger.info("%s -> Validation Macro F1: %.4f, Accuracy: %.4f", name, score, metrics.accuracy)
 
@@ -119,7 +183,13 @@ def save_trained_model(
     model_name: str,
     test_metrics: ModelEvaluationMetrics,
     feature_names: list = ML_FEATURE_NAMES,
-    filename: str = "satellite_fire_classifier.joblib"
+    filename: str = "satellite_fire_classifier.joblib",
+    model_version: str = "1.0.0-baseline",
+    data_provenance: str = PROVENANCE_PROTOTYPE_LABELLED,
+    split_methodology: str = "Stratified Group Split (StratifiedGroupKFold on spatial_cluster_id)",
+    training_sample_count: Optional[int] = None,
+    validation_metrics: Optional[Dict[str, Any]] = None,
+    scientific_limitations: Optional[list] = None
 ) -> Tuple[Path, Path]:
     """
     Serializes model pipeline via joblib and saves metadata.
@@ -137,24 +207,39 @@ def save_trained_model(
     joblib.dump(model_pipeline, src_path)
 
     metadata = {
+        "model_version": model_version,
         "model_name": model_name,
         "filename": filename,
+        "algorithm": str(model_pipeline.named_steps.get("classifier", model_name)),
+        "data_provenance": data_provenance,
+        "split_methodology": split_methodology,
         "features": feature_names,
         "target_classes": CLASS_MAP,
+        "training_sample_count": training_sample_count,
         "test_performance": {
             "accuracy": test_metrics.accuracy,
             "macro_precision": test_metrics.macro_precision,
             "macro_recall": test_metrics.macro_recall,
             "macro_f1": test_metrics.macro_f1,
-            "weighted_f1": test_metrics.weighted_f1
+            "industrial_fire_recall": test_metrics.industrial_fire_recall,
+            "industrial_fire_f1": test_metrics.industrial_fire_f1,
+            "weighted_f1": test_metrics.weighted_f1,
+            "per_class_metrics": test_metrics.per_class_metrics,
+            "confusion_matrix": test_metrics.confusion_matrix
         },
+        "validation_comparison": validation_metrics or {},
+        "scientific_limitations": scientific_limitations or [
+            "Trained on prototype-labeled benchmark data; not certified field ground truth.",
+            "NASA FIRMS provides radiometry, not direct incident cause labels.",
+            "Real-world operational deployment requires human-in-the-loop analyst verification (REQUIRES_VERIFICATION)."
+        ],
         "saved_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     }
 
     with open(meta_path, "w") as f:
         json.dump(metadata, f, indent=2)
 
-    logger.info("Model saved successfully to %s and %s", target_path, src_path)
+    logger.info("Model saved successfully to %s and %s (version: %s)", target_path, src_path, model_version)
     return target_path, meta_path
 
 
@@ -164,7 +249,9 @@ def run_full_training_pipeline(
     X_val: pd.DataFrame,
     y_val: pd.Series,
     X_test: pd.DataFrame,
-    y_test: pd.Series
+    y_test: pd.Series,
+    model_version: str = "1.0.0-baseline",
+    filename: str = "satellite_fire_classifier.joblib"
 ) -> Tuple[str, Pipeline, Dict[str, ModelEvaluationMetrics], ModelEvaluationMetrics, Path]:
     """
     Orchestrates full training flow:
@@ -192,7 +279,11 @@ def run_full_training_pipeline(
     model_path, meta_path = save_trained_model(
         model_pipeline=final_pipeline,
         model_name=best_name,
-        test_metrics=test_metrics
+        test_metrics=test_metrics,
+        model_version=model_version,
+        filename=filename,
+        training_sample_count=len(X_train_full)
     )
 
     return best_name, final_pipeline, val_metrics_dict, test_metrics, model_path
+

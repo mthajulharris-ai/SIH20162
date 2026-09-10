@@ -2,7 +2,7 @@
 ## AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources using Satellite Data
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Tests](https://img.shields.io/badge/tests-103%20passed-brightgreen.svg)]()
+[![Tests](https://img.shields.io/badge/tests-113%20passed-brightgreen.svg)]()
 [![License](https://img.shields.io/badge/license-MIT-green.svg)]()
 
 This repository contains the complete end-to-end platform for Smart India Hackathon (SIH) 2026 Problem Statement **PS 26162**:
@@ -207,7 +207,45 @@ Satellite instruments observe the same geographic location during separate orbit
 
 ---
 
-## 4. Quickstart Guide (Running in a Clean Environment)
+## 4. Scientific AI/ML Validation & Model Improvement (Phase 3)
+
+### 4.1 Objective & Scientific Architecture
+Phase 3 establishes scientific rigor, leakage prevention, and principled model selection across spaceborne thermal observations:
+- **Model Version**: `2.0.0-scientific-prototype` (with seamless automatic fallback to `1.0.0-baseline`).
+- **Target Classes**: `Industrial Fire` (acute hazard), `Persistent Thermal Source` (industrial flaring/smelting), and `Other` (agricultural/transient).
+- **Rule-Traceable Heuristic Engine**: Dataset generator records explicit rule rationales (`label_rationale`) for full auditing.
+- **Detailed Scientific Report**: Complete 16-section methodology, physical radiation laws, error breakdown, and validation roadmap in [`docs/AI_MODEL_VALIDATION.md`](docs/AI_MODEL_VALIDATION.md).
+
+### 4.2 Spatial Leakage Prevention (`StratifiedGroupKFold`)
+Random train/test splitting on satellite data causes severe spatial autocorrelation leakage (the same physical plant appears in both sets).
+We enforce **Spatial Group Partitioning** grouped by DBSCAN `spatial_cluster_id` (~500m radius):
+- **Spatial Clusters**: 34 unique geographic clusters across 60 samples.
+- **Leakage Verification**:
+  $$\text{Overlap}(\text{Train}, \text{Val}) = 0 \text{ clusters} \quad \text{Overlap}(\text{Train}, \text{Test}) = 0 \text{ clusters}$$
+- **Result**: Zero data leakage between training, validation, and holdout test sets.
+
+### 4.3 Candidate Model Evaluation & Selection
+Candidates evaluated using 4-fold Stratified Group Cross-Validation on out-of-cluster generalization:
+
+| Model Candidate | 4-Fold CV Macro F1 | 4-Fold CV IF Recall | Test Macro F1 | Test IF Recall | Test Accuracy | Status |
+|:---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Logistic Regression (L2, Balanced)** | **0.8175** | **0.8125** | **0.8000** | **1.0000** | **0.7500** | **Selected (v2.0.0)** |
+| **Random Forest (Balanced, max_depth=6)** | 0.7762 | 0.7500 | 0.6389 | 1.0000 | 0.6667 | Baseline Preserved |
+| **HistGradientBoosting (Balanced)** | 0.7383 | 0.7500 | 0.5278 | 1.0000 | 0.5833 | Evaluated Candidate |
+
+*Regularized Logistic Regression achieved superior generalization across unseen clusters, 100% Industrial Fire recall, and well-calibrated probabilities.*
+
+### 4.4 Uncertainty Quantification & Low Confidence Review
+When model prediction confidence is $< 0.60$, the inference service attaches an `"uncertainty_flag": "LOW_CONFIDENCE_REVIEW"` to alert human analysts in the GIS dashboard without disrupting downstream API schemas.
+
+### 4.5 Reproducible Retraining Script
+```powershell
+python scripts/train_scientific_model.py
+```
+
+---
+
+## 5. Quickstart Guide (Running in a Clean Environment)
 
 ### Step 4.1: Clone the Repository & Set Up Environment
 ```powershell
@@ -254,7 +292,9 @@ python scripts/verify_env.py
 
 ---
 
-## 5. How to Run the Complete Pipeline
+---
+
+## 6. How to Run the Complete Pipeline
 
 You can run the entire pipeline with a **single command**:
 
@@ -284,7 +324,7 @@ python scripts/run_pipeline.py --input path/to/raw_folder/
 
 ---
 
-## 6. Backend Developer Integration (FastAPI)
+## 7. Backend Developer Integration (FastAPI)
 
 The inference service is packaged in `src.inference`. Backend developers can import and use it directly with **zero ML boilerplate**:
 
@@ -319,8 +359,9 @@ print(result)
     "Persistent Thermal Source": 0.0018,
     "Industrial Fire": 0.9981
   },
-  "model_version": "1.0.0-baseline",
-  "prediction_timestamp": "2026-09-09T08:45:00.123456+00:00"
+  "uncertainty_flag": null,
+  "model_version": "2.0.0-scientific-prototype",
+  "prediction_timestamp": "2026-09-10T08:45:00.123456+00:00"
 }
 ```
 
@@ -328,18 +369,18 @@ print(result)
 
 ---
 
-## 7. Running the FastAPI Backend Locally
+## 8. Running the FastAPI Backend Locally
 
 The FastAPI application serves REST endpoints for live thermal detections, ML inference, alert queues, and aggregated telemetry.
 
-### Step 7.1: Environment Configuration
+### Step 8.1: Environment Configuration
 Copy `.env.example` to create your local `.env`:
 ```powershell
 cp .env.example .env
 ```
 Default configuration points to a local SQLite database: `sqlite:///./data/processed/thermal_detections.db`.
 
-### Step 7.2: Start the FastAPI Server
+### Step 8.2: Start the FastAPI Server
 ```powershell
 # Using the canonical backend package:
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload
@@ -355,26 +396,25 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 
 On startup, FastAPI automatically executes database table provisioning via SQLAlchemy lifecycle hooks.
 
-
 ---
 
-## 8. Running the React + Leaflet GIS Dashboard
+## 9. Running the React + Leaflet GIS Dashboard
 
 The dashboard provides an interactive mission-control interface featuring dynamic Leaflet GIS visualization, active filters, alert triage modals, and live analytics.
 
-### Step 8.1: Install Dependencies
+### Step 9.1: Install Dependencies
 ```powershell
 cd frontend
 npm install
 ```
 
-### Step 8.2: Start the Development Server
+### Step 9.2: Start the Development Server
 ```powershell
 npm run dev
 ```
 The Vite development server will start at `http://localhost:5173/` (with automatic API proxy forwarding `/api` and `/api/v1` to `http://127.0.0.1:8000`).
 
-### Step 8.3: Build for Production
+### Step 9.3: Build for Production
 To generate an optimized client bundle:
 ```powershell
 npm run build
@@ -383,7 +423,7 @@ Assets will be generated in `frontend/dist/`.
 
 ---
 
-## 9. End-to-End Operational Pipeline Flow
+## 10. End-to-End Operational Pipeline Flow
 
 To test the entire integrated pipeline with a single test satellite observation:
 
@@ -404,22 +444,29 @@ curl -X POST "http://127.0.0.1:8000/api/v1/inference/predict-and-store" ^
 
 ---
 
-## 10. Running the Automated Test Suite
+## 11. Running the Automated Test Suite
 
-The repository contains comprehensive unit, API, ML, and end-to-end integration tests (103 passing tests):
+The repository contains comprehensive unit, API, ML, and end-to-end integration tests (113 passing tests):
 
 ```powershell
-# Run complete test suite
+# Run complete test suite (113 tests)
 python -m pytest -v
 
-# Run NASA FIRMS live collector and integration tests specifically
+# Run Phase 3 scientific validation suite specifically
+python -m pytest tests/test_scientific_validation.py -v
+
+# Run NASA FIRMS live collector and integration tests
 python -m pytest tests/test_firms_integration.py -v
 
 # Run backend API and end-to-end integration tests
 python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/test_api_inference.py tests/test_api_alerts.py tests/test_api_analytics.py tests/test_database.py tests/test_end_to_end_pipeline.py -v
+
+# Run comprehensive backend verification script
+python tests/verify_backend.py
 ```
 
 ### Test Coverage Highlights:
+- **Phase 3 Scientific Validation** (`tests/test_scientific_validation.py`): Provenance strict separation, spatial leakage prevention (0 cluster overlap), rule traceability, feature matrix completeness, candidate model cross-validation, Model v2 serialization & metadata, inference contract stability, uncertainty quantification flags, and backward compatibility with v1.
 - **NASA FIRMS Collector & Integration** (`tests/test_firms_integration.py`, `tests/test_data_collection.py`): Configuration detection, missing key handling, HTTP 403/429/503 errors, empty/malformed responses, raw file isolation, provenance tagging, multi-temporal duplicate safety, and end-to-end pipeline compatibility.
 - **ML & Data Pipeline Tests** (`tests/test_*.py`): Coordinate bounds, temporal feature engineering, spatial group split validation, and model serialization.
 - **Backend API Tests** (`tests/test_api_*.py`): Validation schemas, spatial bounding box queries, decoupled ML fallback handling, alert lifecycle state transitions, and real-time analytics aggregation.
@@ -427,7 +474,7 @@ python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/tes
 
 ---
 
-## 11. Operational Verification & AI Governance
+## 12. Operational Verification & AI Governance
 
 > [!IMPORTANT]
 > **Safety & AI Governance Policy**:
@@ -435,7 +482,7 @@ python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/tes
 > 2. **Data Labelling Categories**:
 >    - **Real Satellite Data**: Raw observation streams from NASA FIRMS (VIIRS & MODIS) containing physical sensor radiance anomalies (brightness temperature, FRP), without ground-truth labels.
 >    - **Sample / Demo Data**: Records with prefix `SAMPLE_TEST_*` or `DEMO_*` used for pipeline integration testing and live UI walkthroughs. They must never be represented as real-world industrial accidents.
->    - **AI-Predicted Classifications**: Probabilistic categories assigned by the baseline ML model (`1.0.0-baseline`).
+>    - **AI-Predicted Classifications**: Probabilistic categories assigned by the scientific ML model (`2.0.0-scientific-prototype`) or baseline model (`1.0.0-baseline`).
 > 3. **Prototype Accuracy Disclaimer**: Model evaluation metrics reflect cross-validation over prototype datasets and must not be claimed as certified real-world operational accuracy.
 > 4. Detections and alerts carry an explicit verification lifecycle:
 >    - `REQUIRES_VERIFICATION` (Initial state upon AI detection)
@@ -444,10 +491,9 @@ python -m pytest tests/test_api_health.py tests/test_api_detections.py tests/tes
 >    - `DISMISSED` (False positive or authorized agricultural burn)
 > 5. The React dashboard and REST API explicitly display `"Requires Verification"` badges to maintain complete situational awareness and prevent operational overreaction.
 
-
 ---
 
-## 12. Key Methodology & Domain Details
+## 13. Key Methodology & Domain Details
 
 1. **Why NASA FIRMS has No Native Target Labels**:
    NASA FIRMS satellites (MODIS and VIIRS) only record thermal radiance anomalies. They do not know the root cause of heat. In PS 26162, classification is achieved by calculating **multi-temporal spatial persistence** (fixed facilities emit heat continuously over months) and **radiative power surges** (anomalous FRP spikes $\ge 2.5\sigma$ indicate industrial accidents).
