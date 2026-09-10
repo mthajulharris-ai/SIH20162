@@ -91,6 +91,12 @@ class DetectionBase(BaseModel):
         description="Flag indicating whether this location is a persistent thermal cluster",
         examples=[False],
     )
+    model_version: Optional[str] = Field(
+        default="1.0.0-baseline",
+        description="AI model version used for classification",
+        examples=["1.0.0-baseline"],
+    )
+
 
 
 class DetectionCreate(DetectionBase):

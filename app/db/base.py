@@ -1,11 +1,8 @@
 """
-SQLAlchemy Base Model Definition.
+SQLAlchemy Base Model Definition (Single Source of Truth from backend).
 """
-from sqlalchemy.orm import DeclarativeBase
+from backend.db.base import Base
+from backend.models.detection import Detection  # noqa: F401
+from backend.models.alert import Alert  # noqa: F401
 
-
-class Base(DeclarativeBase):
-    """
-    Base class for all SQLAlchemy ORM models.
-    """
-    pass
+__all__ = ["Base"]
