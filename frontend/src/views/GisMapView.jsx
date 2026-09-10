@@ -251,7 +251,7 @@ export function GisMapView({ initialSelectedDetection = null }) {
             const lat = parseFloat(selectedDetection.latitude);
             const lon = parseFloat(selectedDetection.longitude);
             if (!isNaN(lat) && !isNaN(lon)) {
-              mapInstanceRef.current.setView([lat, lon], 9);
+              mapInstanceRef.current.flyTo([lat, lon], 10, { duration: 1.2 });
             }
           }
         }
@@ -553,9 +553,9 @@ export function GisMapView({ initialSelectedDetection = null }) {
             }}
           >
             <div>
-              <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Coordinates</span>
-              <strong className="mono-cell" style={{ color: '#FFFFFF' }}>
-                {parseFloat(selectedDetection.latitude).toFixed(4)}, {parseFloat(selectedDetection.longitude).toFixed(4)}
+              <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px' }}>Canonical Coordinates</span>
+              <strong className="mono-cell" style={{ color: '#FFFFFF', letterSpacing: '0.02em' }}>
+                {parseFloat(selectedDetection.latitude).toFixed(6)}°, {parseFloat(selectedDetection.longitude).toFixed(6)}°
               </strong>
             </div>
 
