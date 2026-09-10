@@ -6,8 +6,8 @@ import pytest
 from datetime import datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.db.base import Base
-from app.models.detection import Detection
+from backend.db.base import Base
+from backend.models.detection import Detection
 
 
 @pytest.fixture
@@ -260,7 +260,7 @@ def test_validation_invalid_prediction_confidence():
 
 def test_init_db_creates_tables():
     """Test init_db creates all required tables on a fresh engine."""
-    from app.db.init_db import init_db
+    from backend.db.init_db import init_db
     test_engine = create_engine("sqlite:///:memory:")
     init_db(engine=test_engine)
     assert "detections" in Base.metadata.tables
