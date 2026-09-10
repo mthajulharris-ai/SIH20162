@@ -117,11 +117,13 @@ def predict_and_store(
         predicted_class=predicted_class_name,
         prediction_confidence=predicted_conf,
         is_persistent=is_persistent,
+        model_version=prediction_result.get("model_version", "1.0.0-baseline"),
     )
 
     db.add(db_detection)
     db.commit()
     db.refresh(db_detection)
+
 
     # 4b. Evaluate if observation qualifies for an operational alert
     from backend.services.alert_service import create_alert_if_eligible

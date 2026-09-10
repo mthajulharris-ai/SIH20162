@@ -37,6 +37,7 @@ class Detection(Base):
     predicted_class: str = Column(String(64), nullable=False, index=True)
     prediction_confidence: float = Column(Float, nullable=False)  # Model probability: 0.0 - 1.0
     is_persistent: bool = Column(Boolean, default=False, nullable=False, index=True)
+    model_version: Optional[str] = Column(String(32), default="1.0.0-baseline", nullable=True)
     
     # Ingestion Metadata
     created_at: datetime = Column(
@@ -44,6 +45,7 @@ class Detection(Base):
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
 
     # Synonyms / Aliases for seamless developer ergonomics
     acquisition_date = synonym("acq_date")
@@ -113,8 +115,10 @@ class Detection(Base):
             "predicted_class": self.predicted_class,
             "prediction_confidence": self.prediction_confidence,
             "is_persistent": self.is_persistent,
+            "model_version": self.model_version,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
 
     def __repr__(self) -> str:
         return (
