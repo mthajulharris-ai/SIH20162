@@ -22,7 +22,13 @@ from typing import Dict, Any, Optional, Union, List, Tuple
 import pandas as pd
 import requests
 
-from src.config import RAW_DATA_DIR, NASA_FIRMS_MAP_KEY, SUPPORTED_SOURCES
+from src.config import (
+    RAW_DATA_DIR,
+    NASA_FIRMS_MAP_KEY,
+    SUPPORTED_SOURCES,
+    STANDARD_COLUMNS,
+    PROVENANCE_REAL_FIRMS
+)
 
 logger = logging.getLogger("satellite_pipeline.collector")
 
@@ -76,6 +82,84 @@ class FirmsDataCollector:
                 "   or pass it directly: FirmsDataCollector(map_key='your_key')"
             )
 
+    def _process_response(
+        self,
+        response: requests.Response,
+        source: str,
+        identifier: str,
+        day_range: int,
+        date_str: Optional[str],
+        save_to_raw: bool
+    ) -> Tuple[pd.DataFrame, Optional[Path]]:
+        """
+        Parses and validates raw HTTP response from NASA FIRMS API.
+        Enforces strict zero-fabrication and sets explicit data provenance.
+        """
+        # Specific HTTP status error checks
+        if response.status_code == 403:
+            raise FirmsAPIError(
+                "NASA FIRMS API request failed: HTTP 403 Forbidden. "
+                "The supplied MAP_KEY is invalid or unauthorized."
+            )
+        elif response.status_code == 429:
+            raise FirmsAPIError(
+                "NASA FIRMS API rate limit exceeded (HTTP 429). "
+                "Please wait before submitting additional satellite queries."
+            )
+        elif response.status_code in (500, 502, 503, 504):
+            raise FirmsAPIError(
+                f"NASA FIRMS API server error (HTTP {response.status_code}). "
+                "NASA Earthdata services may be undergoing maintenance."
+            )
+
+        response.raise_for_status()
+        text_content = response.text.strip()
+
+        # Handle empty response (0 fire detections in requested area/date)
+        if not text_content:
+            logger.info("NASA FIRMS returned 0 observations (empty response) for %s.", identifier)
+            empty_df = pd.DataFrame(columns=STANDARD_COLUMNS + ["data_provenance"])
+            return empty_df, None
+
+        # Check for HTML error payload
+        if text_content.startswith("<") and ("<html" in text_content.lower() or "<!doctype" in text_content.lower()):
+            raise FirmsAPIError(f"NASA FIRMS API returned unexpected HTML error instead of CSV: {text_content[:200]}")
+
+        # Check for textual API error messages returned with HTTP 200
+        if "Bad map_key" in text_content or "Invalid" in text_content or "Error" in text_content or "not authorized" in text_content.lower():
+            raise FirmsAPIError(f"NASA FIRMS API returned an error: {text_content}")
+
+        # Parse CSV response
+        try:
+            df = pd.read_csv(io.StringIO(text_content))
+        except Exception as exc:
+            raise FirmsAPIError(f"Failed to parse NASA FIRMS CSV response: {exc}") from exc
+
+        # Handle header-only response (0 rows detected)
+        if df.empty:
+            logger.info("NASA FIRMS returned CSV header only (0 hotspot detections) for %s.", identifier)
+            df["data_provenance"] = pd.Series(dtype="object")
+            return df, None
+
+        logger.info("Successfully fetched %d satellite thermal records for '%s'.", len(df), identifier)
+
+        # Save unmodified raw data into data/raw/
+        saved_path = None
+        if save_to_raw:
+            timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            date_tag = date_str or f"last_{day_range}d"
+            filename = f"raw_firms_{source}_{identifier}_{date_tag}_{timestamp_str}.csv"
+            saved_path = self.raw_dir / filename
+            # Save exact byte content directly to preserve NASA raw record integrity
+            with open(saved_path, "w", encoding="utf-8") as f:
+                f.write(text_content + "\n")
+            logger.info("Stored untouched raw satellite data to: %s", saved_path)
+
+        # Tag in-memory observations with explicit data provenance (Phase 2C)
+        df["data_provenance"] = PROVENANCE_REAL_FIRMS
+
+        return df, saved_path
+
     def fetch_country_data(
         self,
         country_code: str = "IND",
@@ -114,27 +198,16 @@ class FirmsDataCollector:
 
         try:
             response = requests.get(request_url, timeout=45)
-            response.raise_for_status()
-
-            text_content = response.text.strip()
-            if not text_content or "Bad map_key" in text_content or "Invalid" in text_content or "Error" in text_content:
-                raise FirmsAPIError(f"NASA FIRMS API returned an error: {text_content}")
-
-            df = pd.read_csv(io.StringIO(text_content))
-            logger.info("Successfully fetched %d satellite thermal records for country '%s'.", len(df), country_code)
-
-            saved_path = None
-            if save_to_raw and not df.empty:
-                timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                date_tag = date_str or f"last_{day_range}d"
-                filename = f"raw_firms_{source}_{country_code}_{date_tag}_{timestamp_str}.csv"
-                saved_path = self.raw_dir / filename
-                # Save unaltered CSV into data/raw/
-                df.to_csv(saved_path, index=False)
-                logger.info("Stored untouched raw satellite data to: %s", saved_path)
-
-            return df, saved_path
-
+            return self._process_response(
+                response=response,
+                source=source,
+                identifier=country_code,
+                day_range=day_range,
+                date_str=date_str,
+                save_to_raw=save_to_raw
+            )
+        except FirmsAPIError:
+            raise
         except requests.RequestException as exc:
             logger.error("Network or HTTP error communicating with NASA FIRMS API: %s", exc)
             raise FirmsAPIError(f"Network error communicating with NASA FIRMS API: {exc}") from exc
@@ -182,26 +255,16 @@ class FirmsDataCollector:
 
         try:
             response = requests.get(request_url, timeout=45)
-            response.raise_for_status()
-
-            text_content = response.text.strip()
-            if not text_content or "Bad map_key" in text_content or "Invalid" in text_content or "Error" in text_content:
-                raise FirmsAPIError(f"NASA FIRMS API returned an error: {text_content}")
-
-            df = pd.read_csv(io.StringIO(text_content))
-            logger.info("Successfully fetched %d satellite thermal records for area '%s'.", len(df), region_tag)
-
-            saved_path = None
-            if save_to_raw and not df.empty:
-                timestamp_str = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-                date_tag = date_str or f"last_{day_range}d"
-                filename = f"raw_firms_{source}_{region_tag}_{date_tag}_{timestamp_str}.csv"
-                saved_path = self.raw_dir / filename
-                df.to_csv(saved_path, index=False)
-                logger.info("Stored untouched raw satellite data to: %s", saved_path)
-
-            return df, saved_path
-
+            return self._process_response(
+                response=response,
+                source=source,
+                identifier=region_tag,
+                day_range=day_range,
+                date_str=date_str,
+                save_to_raw=save_to_raw
+            )
+        except FirmsAPIError:
+            raise
         except requests.RequestException as exc:
             logger.error("Network or HTTP error communicating with NASA FIRMS API: %s", exc)
             raise FirmsAPIError(f"Network error communicating with NASA FIRMS API: {exc}") from exc

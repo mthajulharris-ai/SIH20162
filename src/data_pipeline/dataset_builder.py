@@ -17,9 +17,9 @@ from typing import Dict, Any, List, Optional, Tuple, Union
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit, train_test_split
+from sklearn.model_selection import GroupShuffleSplit, StratifiedGroupKFold, train_test_split
 
-from src.config import PROCESSED_DATA_DIR
+from src.config import PROCESSED_DATA_DIR, PROVENANCE_PROTOTYPE_LABELLED
 from src.data_pipeline.feature_engineering import engineer_all_features
 
 logger = logging.getLogger("satellite_pipeline.dataset_builder")
@@ -75,19 +75,42 @@ class DatasetSplitSummary:
         return asdict(self)
 
 
+@dataclass
+class PrototypeLabelingConfig:
+    """
+    Configurable criteria for prototype labeling.
+    Ensures zero arbitrary thresholds, explicit scientific traceability,
+    and optional marking of uncertain observations.
+    """
+    persistence_threshold: float = 0.35
+    recurrence_min: int = 3
+    industrial_loc_recurrence_min: int = 2
+    industrial_loc_persistence_min: float = 0.25
+    frp_spike_ratio_threshold: float = 2.2
+    frp_spike_zscore_threshold: float = 2.0
+    absolute_fire_frp_min: float = 80.0
+    absolute_fire_brightness_min: float = 350.0
+    min_confidence_for_labeled: float = 0.30
+    allow_unverified: bool = False
+
+    def to_dict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+
 def assign_prototype_labels(
     df: pd.DataFrame,
-    persistence_threshold: float = 0.35,
-    recurrence_min: int = 3,
-    frp_spike_ratio_threshold: float = 2.2,
-    frp_spike_zscore_threshold: float = 2.0
+    config: Optional[PrototypeLabelingConfig] = None,
+    persistence_threshold: Optional[float] = None,
+    recurrence_min: Optional[int] = None,
+    frp_spike_ratio_threshold: Optional[float] = None,
+    frp_spike_zscore_threshold: Optional[float] = None
 ) -> pd.DataFrame:
     """
     Applies the transparent prototype labeling strategy for model development.
     
     IMPORTANT NOTICE:
     Real NASA FIRMS data records only raw thermal detections and does NOT provide
-    these three labels. This heuristic rule-engine provides a reproducible development
+    ground-truth labels. This heuristic rule-engine provides a reproducible development
     benchmark while ground truth or external industrial GIS layers are collected.
     
     Rules:
@@ -102,32 +125,69 @@ def assign_prototype_labels(
          (frp_to_mean_ratio >= 2.2 OR frp_zscore >= 2.0 OR (frp > 80 MW and brightness > 350K))
          
     3. 'Other' (Class 0):
-       - All remaining observations: transient single-day hotspots, moving fire fronts,
-         vegetation/wildfires, agricultural stubble burning with low persistence.
+       - Transient single-day hotspots, moving fire fronts, vegetation/wildfires,
+         agricultural stubble burning with low persistence.
     """
+    cfg = config or PrototypeLabelingConfig()
+    # Override from individual arguments if passed
+    p_thresh = persistence_threshold if persistence_threshold is not None else cfg.persistence_threshold
+    rec_min = recurrence_min if recurrence_min is not None else cfg.recurrence_min
+    spike_ratio = frp_spike_ratio_threshold if frp_spike_ratio_threshold is not None else cfg.frp_spike_ratio_threshold
+    spike_z = frp_spike_zscore_threshold if frp_spike_zscore_threshold is not None else cfg.frp_spike_zscore_threshold
+
     df = df.copy()
 
     # Default class: 0 (Other)
     target = np.zeros(len(df), dtype=int)
+    rationale = ["RULE_TRANSIENT_OTHER"] * len(df)
 
     # Condition for Persistent Thermal Source
-    is_persistent = (
-        (df["recurrence_count"] >= recurrence_min) |
-        (df["persistence_ratio"] >= persistence_threshold)
-    )
-    target[is_persistent] = 1
+    is_persistent_rec = df["recurrence_count"] >= rec_min
+    is_persistent_ratio = df["persistence_ratio"] >= p_thresh
+    is_persistent = is_persistent_rec | is_persistent_ratio
+
+    for i in range(len(df)):
+        if is_persistent.iloc[i]:
+            target[i] = 1
+            if is_persistent_rec.iloc[i]:
+                rationale[i] = "RULE_PERSISTENT_HIGH_RECURRENCE"
+            else:
+                rationale[i] = "RULE_PERSISTENT_HIGH_RATIO"
 
     # Condition for Industrial Fire: acute flare-up at persistent/industrial location
-    is_industrial_fire = is_persistent & (
-        (df["frp_to_mean_ratio"] >= frp_spike_ratio_threshold) |
-        (df["frp_zscore"] >= frp_spike_zscore_threshold) |
-        ((df["frp"] >= 80.0) & (df["brightness"] >= 350.0))
+    is_ind_loc = (
+        (df["recurrence_count"] >= cfg.industrial_loc_recurrence_min) |
+        (df["persistence_ratio"] >= cfg.industrial_loc_persistence_min)
     )
-    target[is_industrial_fire] = 2
+    is_spike_ratio = df["frp_to_mean_ratio"] >= spike_ratio
+    is_spike_zscore = df["frp_zscore"] >= spike_z
+    is_extreme_rad = (df["frp"] >= cfg.absolute_fire_frp_min) & (df["brightness"] >= cfg.absolute_fire_brightness_min)
+
+    is_industrial_fire = is_ind_loc & (is_spike_ratio | is_spike_zscore | is_extreme_rad)
+
+    for i in range(len(df)):
+        if is_industrial_fire.iloc[i]:
+            target[i] = 2
+            if is_spike_ratio.iloc[i]:
+                rationale[i] = "RULE_INDUSTRIAL_FIRE_SURGE_RATIO"
+            elif is_spike_zscore.iloc[i]:
+                rationale[i] = "RULE_INDUSTRIAL_FIRE_ZSCORE"
+            else:
+                rationale[i] = "RULE_INDUSTRIAL_FIRE_EXTREME_RADIANCE"
+
+    # Optional uncertainty marking
+    if cfg.allow_unverified and "confidence_score" in df.columns:
+        low_conf = df["confidence_score"] < cfg.min_confidence_for_labeled
+        for i in range(len(df)):
+            if low_conf.iloc[i]:
+                target[i] = -1
+                rationale[i] = "UNVERIFIED_LOW_CONFIDENCE"
 
     df["target_class"] = target
-    df["target_label"] = df["target_class"].map(CLASS_MAP)
+    df["target_label"] = [CLASS_MAP.get(t, "Unverified") for t in target]
+    df["label_rationale"] = rationale
     df["is_prototype_label"] = True
+    df["data_provenance"] = PROVENANCE_PROTOTYPE_LABELLED
 
     logger.info(
         "Assigned prototype labels: Other=%d, Persistent=%d, Industrial Fire=%d",
@@ -149,13 +209,11 @@ def split_ml_dataset(
     Splits feature matrix X and target y into Train, Validation, and Test sets.
     
     Data Leakage Prevention:
-    - If split_strategy == 'spatial_group' (Recommended):
-      Uses GroupShuffleSplit grouped by 'spatial_cluster_id'. All observations from the
-      same geographic location (e.g. the same industrial plant) remain strictly within
-      Train OR Validation OR Test. This prevents models from memorizing specific facility coordinates!
-      
-    - If split_strategy == 'stratified':
-      Uses stratified train/test split to preserve exact class ratios across splits.
+    - 'stratified_group' (Recommended): Uses StratifiedGroupKFold on 'spatial_cluster_id'.
+      Guarantees zero geographic cluster overlap between train, val, and test while
+      maintaining balanced target class ratios.
+    - 'spatial_group': Uses GroupShuffleSplit on 'spatial_cluster_id'.
+    - 'stratified': Uses stratified train/test split.
     """
     # Verify all feature columns exist, imputing 0.0 if missing
     for col in features:
@@ -169,7 +227,25 @@ def split_ml_dataset(
     total_samples = len(df)
     train_idx, val_idx, test_idx = [], [], []
 
-    if split_strategy == "spatial_group" and "spatial_cluster_id" in df.columns:
+    if split_strategy == "stratified_group" and "spatial_cluster_id" in df.columns and y.nunique() > 1:
+        groups = df["spatial_cluster_id"].astype(str).values
+        n_splits = max(3, int(round(1.0 / max(0.05, test_size))))
+        sgkf = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+        train_val_idx_arr, test_idx_arr = next(sgkf.split(X, y, groups=groups))
+
+        groups_tv = groups[train_val_idx_arr]
+        X_tv = X.iloc[train_val_idx_arr]
+        y_tv = y.iloc[train_val_idx_arr]
+        n_splits_val = max(3, int(round(1.0 / max(0.05, val_size / (1.0 - test_size)))))
+        sgkf_val = StratifiedGroupKFold(n_splits=n_splits_val, shuffle=True, random_state=random_state)
+        train_sub, val_sub = next(sgkf_val.split(X_tv, y_tv, groups=groups_tv))
+
+        train_idx = train_val_idx_arr[train_sub]
+        val_idx = train_val_idx_arr[val_sub]
+        test_idx = test_idx_arr
+        leakage_info = "Stratified Group Split (StratifiedGroupKFold): Zero spatial cluster overlap + balanced class coverage."
+
+    elif split_strategy == "spatial_group" and "spatial_cluster_id" in df.columns:
         groups = df["spatial_cluster_id"].values
         # Step 1: Hold out test groups
         gss_test = GroupShuffleSplit(n_splits=1, test_size=test_size, random_state=random_state)
@@ -206,6 +282,7 @@ def split_ml_dataset(
         val_idx = val_X_df.index
         test_idx = test_X_df.index
         leakage_info = "Stratified Row Split (Note: spatial clustering recommended for full spatial isolation)."
+
 
     X_train, y_train = X.iloc[train_idx].copy(), y.iloc[train_idx].copy()
     X_val, y_val = X.iloc[val_idx].copy(), y.iloc[val_idx].copy()

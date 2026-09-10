@@ -21,7 +21,13 @@ from pathlib import Path
 from typing import Dict, Any, Optional, Union, Tuple
 import pandas as pd
 
-from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, SAMPLES_DATA_DIR
+from src.config import (
+    RAW_DATA_DIR,
+    PROCESSED_DATA_DIR,
+    SAMPLES_DATA_DIR,
+    PROVENANCE_REAL_FIRMS,
+    PROVENANCE_SAMPLE
+)
 from src.data_pipeline.loader import load_csv, load_raw_directory
 from src.data_pipeline.preprocessor import SatelliteDataCleaner, DataQualityReport
 from src.data_pipeline.feature_engineering import engineer_all_features
@@ -102,7 +108,9 @@ class SatelliteMLPipeline:
         self,
         input_path: Optional[Union[str, Path]] = None,
         output_filename: str = "classified_satellite_hotspots.csv",
-        save_results: bool = True
+        save_results: bool = True,
+        data_provenance: Optional[str] = None,
+        raw_dataframe: Optional[pd.DataFrame] = None
     ) -> Tuple[pd.DataFrame, PipelineRunSummary]:
         """
         Executes the entire data pipeline and ML prediction workflow.
@@ -112,6 +120,8 @@ class SatelliteMLPipeline:
                         If None, checks data/raw/ and falls back to data/samples/.
             output_filename: Filename for the processed and classified output CSV.
             save_results: Whether to persist outputs to data/processed/.
+            data_provenance: Explicit provenance tag ('REAL_FIRMS', 'SAMPLE', etc.)
+            raw_dataframe: Optional pre-loaded or in-memory DataFrame of observations.
             
         Returns:
             Tuple of (classified_dataframe, run_summary)
@@ -124,7 +134,10 @@ class SatelliteMLPipeline:
         # -------------------------------------------------------------
         input_source_desc = ""
         try:
-            if input_path:
+            if raw_dataframe is not None:
+                df_raw = raw_dataframe.copy()
+                input_source_desc = f"In-Memory Satellite DataFrame ({len(df_raw)} records)"
+            elif input_path:
                 p = Path(input_path)
                 if not p.exists():
                     raise FileNotFoundError(f"Specified input path does not exist: {p}")
@@ -152,8 +165,17 @@ class SatelliteMLPipeline:
             if df_raw.empty:
                 raise PipelineExecutionError("Input satellite data contains zero observation records.")
 
+            # Assign or preserve data provenance (Phase 2C)
+            if data_provenance:
+                df_raw["data_provenance"] = data_provenance
+            elif "data_provenance" not in df_raw.columns:
+                if "sample" in input_source_desc.lower():
+                    df_raw["data_provenance"] = PROVENANCE_SAMPLE
+                else:
+                    df_raw["data_provenance"] = PROVENANCE_REAL_FIRMS
+
             total_raw = len(df_raw)
-            logger.info("Step 1 Complete: Ingested %d raw observations.", total_raw)
+            logger.info("Step 1 Complete: Ingested %d raw observations (provenance: %s).", total_raw, df_raw["data_provenance"].iloc[0] if "data_provenance" in df_raw.columns else "N/A")
 
         except Exception as e:
             logger.error("Pipeline failed during Step 1 (Ingestion): %s", e)
@@ -216,6 +238,9 @@ class SatelliteMLPipeline:
             ]
             df_classified["model_version"] = [p["model_version"] for p in predictions]
             df_classified["prediction_timestamp"] = [p["prediction_timestamp"] for p in predictions]
+
+            if "data_provenance" not in df_classified.columns:
+                df_classified["data_provenance"] = df_raw["data_provenance"].iloc[0] if "data_provenance" in df_raw.columns else PROVENANCE_REAL_FIRMS
 
             # Summary counts
             count_fire = int((df_classified["predicted_class_id"] == 2).sum())

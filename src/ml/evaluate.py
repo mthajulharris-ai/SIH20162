@@ -41,19 +41,37 @@ class ModelEvaluationMetrics:
     confusion_matrix: List[List[int]]
     target_names: List[str]
 
+    @property
+    def industrial_fire_recall(self) -> float:
+        """Returns recall score specifically for Industrial Fire class."""
+        if "Industrial Fire" in self.per_class_metrics:
+            return float(self.per_class_metrics["Industrial Fire"].get("recall", 0.0))
+        return 0.0
+
+    @property
+    def industrial_fire_f1(self) -> float:
+        """Returns F1-score specifically for Industrial Fire class."""
+        if "Industrial Fire" in self.per_class_metrics:
+            return float(self.per_class_metrics["Industrial Fire"].get("f1", 0.0))
+        return 0.0
+
     def to_dict(self) -> Dict[str, Any]:
-        return asdict(self)
+        d = asdict(self)
+        d["industrial_fire_recall"] = self.industrial_fire_recall
+        d["industrial_fire_f1"] = self.industrial_fire_f1
+        return d
 
     def to_text_report(self) -> str:
         lines = [
             "=" * 65,
             f"       EVALUATION REPORT: {self.model_name.upper()} ({self.dataset_split.upper()} SET)",
             "=" * 65,
-            f"Overall Accuracy:       {self.accuracy:.4f} ({self.accuracy * 100:.2f}%)",
-            f"Macro Precision:        {self.macro_precision:.4f}",
-            f"Macro Recall:           {self.macro_recall:.4f}",
-            f"Macro F1-Score:         {self.macro_f1:.4f}  <-- PRIMARY SELECTION METRIC",
-            f"Weighted F1-Score:      {self.weighted_f1:.4f}",
+            f"Overall Accuracy:          {self.accuracy:.4f} ({self.accuracy * 100:.2f}%)",
+            f"Macro Precision:           {self.macro_precision:.4f}",
+            f"Macro Recall:              {self.macro_recall:.4f}",
+            f"Macro F1-Score:            {self.macro_f1:.4f}  <-- PRIMARY SELECTION METRIC",
+            f"Industrial Fire Recall:    {self.industrial_fire_recall:.4f}  <-- SAFETY SENSITIVITY",
+            f"Weighted F1-Score:         {self.weighted_f1:.4f}",
             "-" * 65,
             "Per-Class Performance Breakdown:",
             f"  {'Class Name':<28} {'Precision':<10} {'Recall':<10} {'F1-Score':<10}"

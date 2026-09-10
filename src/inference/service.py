@@ -31,6 +31,8 @@ logger = logging.getLogger("satellite_inference.service")
 # Default service and model version
 MODEL_VERSION = "1.0.0-baseline"
 
+MODEL_V2_PATH = MODELS_DIR / "satellite_fire_classifier_v2.joblib"
+METADATA_V2_PATH = MODELS_DIR / "satellite_fire_classifier_v2_metadata.json"
 DEFAULT_MODEL_PATH = MODELS_DIR / "satellite_fire_classifier.joblib"
 FALLBACK_MODEL_PATH = BASE_DIR / "src" / "ml" / "models" / "satellite_fire_classifier.joblib"
 METADATA_PATH = MODELS_DIR / "satellite_fire_classifier_metadata.json"
@@ -52,27 +54,35 @@ class ThermalPredictionService:
         self.model_version = self._load_version_metadata()
 
     def _resolve_model_path(self, custom_path: Optional[Union[str, Path]]) -> Path:
-        """Finds valid model artifact path."""
+        """Finds valid model artifact path, prioritizing version 2 when present."""
         if custom_path and Path(custom_path).exists():
             return Path(custom_path)
+        if MODEL_V2_PATH.exists():
+            return MODEL_V2_PATH
         if DEFAULT_MODEL_PATH.exists():
             return DEFAULT_MODEL_PATH
         if FALLBACK_MODEL_PATH.exists():
             return FALLBACK_MODEL_PATH
         raise FileNotFoundError(
-            f"No trained model artifact found at {DEFAULT_MODEL_PATH} or {FALLBACK_MODEL_PATH}. "
-            "Please run 'python scripts/train_baseline.py' first."
+            f"No trained model artifact found at {MODEL_V2_PATH}, {DEFAULT_MODEL_PATH} or {FALLBACK_MODEL_PATH}. "
+            "Please run 'python scripts/train_baseline.py' or 'python scripts/train_scientific_model.py' first."
         )
 
     def _load_version_metadata(self) -> str:
         """Reads model version from metadata if available."""
-        if METADATA_PATH.exists():
-            try:
-                with open(METADATA_PATH, "r") as f:
-                    meta = json.load(f)
-                    return meta.get("model_version", MODEL_VERSION)
-            except Exception:
-                pass
+        meta_candidates = [
+            self.model_path.parent / f"{self.model_path.stem}_metadata.json",
+            METADATA_V2_PATH,
+            METADATA_PATH
+        ]
+        for meta_file in meta_candidates:
+            if meta_file.exists():
+                try:
+                    with open(meta_file, "r") as f:
+                        meta = json.load(f)
+                        return meta.get("model_version", MODEL_VERSION)
+                except Exception:
+                    pass
         return MODEL_VERSION
 
     def _derive_missing_features(self, row: Dict[str, Any]) -> Dict[str, Any]:
@@ -187,7 +197,7 @@ class ThermalPredictionService:
             else:
                 alert_level = "LOW"
 
-            results.append({
+            obs_result = {
                 "status": "SUCCESS",
                 "predicted_class": class_name,
                 "predicted_class_id": class_id,
@@ -196,7 +206,11 @@ class ThermalPredictionService:
                 "class_probabilities": prob_dict,
                 "model_version": self.model_version,
                 "prediction_timestamp": now_utc
-            })
+            }
+            if conf < 0.60:
+                obs_result["uncertainty_flag"] = "LOW_CONFIDENCE_REVIEW"
+
+            results.append(obs_result)
 
         return results
 

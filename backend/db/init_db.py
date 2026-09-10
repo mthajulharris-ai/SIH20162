@@ -20,6 +20,21 @@ def init_db(engine: Engine = default_engine) -> None:
     """
     logger.info("Initializing database tables for PS 26162...")
     Base.metadata.create_all(bind=engine)
+    
+    # Ensure existing sqlite databases have any newly added model columns
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            # Check for model_version in detections
+            res = conn.execute(text("PRAGMA table_info(detections);")).fetchall()
+            col_names = [row[1] for row in res]
+            if col_names and "model_version" not in col_names:
+                conn.execute(text("ALTER TABLE detections ADD COLUMN model_version VARCHAR(32) DEFAULT '1.0.0-baseline';"))
+                conn.commit()
+                logger.info("Added missing column 'model_version' to detections table.")
+    except Exception as e:
+        logger.debug("Schema migration check notice: %s", e)
+
     logger.info("Database tables successfully initialized: %s", list(Base.metadata.tables.keys()))
 
 
