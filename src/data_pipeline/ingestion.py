@@ -22,7 +22,13 @@ from typing import Dict, Any, List, Optional, Union, Tuple
 import pandas as pd
 import numpy as np
 
-from src.config import RAW_DATA_DIR, PROCESSED_DATA_DIR, SAMPLES_DATA_DIR
+from src.config import (
+    RAW_DATA_DIR,
+    PROCESSED_DATA_DIR,
+    SAMPLES_DATA_DIR,
+    PROVENANCE_REAL_FIRMS,
+    PROVENANCE_SAMPLE
+)
 from src.data_pipeline.loader import load_csv, load_raw_directory, fetch_firms_api
 
 logger = logging.getLogger("satellite_pipeline.ingestion")
@@ -292,7 +298,8 @@ class ThermalDataIngestionPipeline:
     def ingest_from_csv(
         self,
         filepath: Union[str, Path],
-        output_filename: Optional[str] = None
+        output_filename: Optional[str] = None,
+        data_provenance: Optional[str] = None
     ) -> Tuple[pd.DataFrame, IngestionAuditSummary]:
         """
         Ingests a satellite CSV file without modifying the source raw file.
@@ -310,6 +317,15 @@ class ThermalDataIngestionPipeline:
         retained = len(df_valid)
         dropped_total = total_raw - retained
         retention_pct = round((retained / total_raw) * 100.0, 2) if total_raw > 0 else 0.0
+
+        # Assign data provenance if not already set
+        if data_provenance:
+            df_valid["data_provenance"] = data_provenance
+        elif "data_provenance" not in df_valid.columns or df_valid["data_provenance"].isna().any():
+            if "sample" in str(path).lower():
+                df_valid["data_provenance"] = PROVENANCE_SAMPLE
+            else:
+                df_valid["data_provenance"] = PROVENANCE_REAL_FIRMS
 
         out_path_str = None
         if output_filename:
@@ -341,7 +357,8 @@ class ThermalDataIngestionPipeline:
         payload: Union[List[Dict[str, Any]], Dict[str, Any]],
         source_label: str = "NASA_FIRMS_API_STREAM",
         save_raw_backup: bool = True,
-        output_filename: Optional[str] = None
+        output_filename: Optional[str] = None,
+        data_provenance: str = PROVENANCE_REAL_FIRMS
     ) -> Tuple[pd.DataFrame, IngestionAuditSummary]:
         """
         Ingests satellite observations from an API-compatible JSON/dictionary payload.
@@ -364,6 +381,9 @@ class ThermalDataIngestionPipeline:
         retained = len(df_valid)
         dropped_total = total_raw - retained
         retention_pct = round((retained / total_raw) * 100.0, 2) if total_raw > 0 else 0.0
+
+        if "data_provenance" not in df_valid.columns:
+            df_valid["data_provenance"] = data_provenance
 
         out_path_str = None
         if output_filename:
@@ -389,3 +409,4 @@ class ThermalDataIngestionPipeline:
         )
 
         return df_valid, summary
+
