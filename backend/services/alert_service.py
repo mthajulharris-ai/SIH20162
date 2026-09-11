@@ -76,7 +76,29 @@ def evaluate_detection_for_alert(detection: Detection) -> Optional[Dict[str, Any
                 ),
             }
 
-    # 2. Persistent Thermal Source Evaluation (Refinery Flaring / Smelting)
+    # 2. Forest Fire Evaluation (Wildland / Canopy Fire)
+    if p_class in ["forest fire", "forest_fire", "wildfire"]:
+        if conf >= 0.80 or frp_val >= 40.0:
+            return {
+                "alert_level": "HIGH",
+                "title": "AI-Detected Active Forest Fire (Requires Verification)",
+                "message": (
+                    f"AI detected intense wildland thermal anomaly predicted as 'Forest Fire' "
+                    f"with {conf * 100:.1f}% confidence and FRP {frp_val:.1f} MW. "
+                    "Requires rapid aerial / forestry team verification."
+                ),
+            }
+        elif conf >= 0.65:
+            return {
+                "alert_level": "MEDIUM",
+                "title": "AI-Detected Forest Fire Anomaly (Requires Verification)",
+                "message": (
+                    f"AI detected vegetation thermal signature predicted as 'Forest Fire' "
+                    f"with {conf * 100:.1f}% confidence. Logged for forest monitoring."
+                ),
+            }
+
+    # 3. Persistent Thermal Source Evaluation (Refinery Flaring / Smelting)
     if p_class in ["persistent thermal source", "persistent_thermal_source"]:
         if frp_val >= 50.0:
             return {

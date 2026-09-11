@@ -53,14 +53,20 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
         if "industrial" in p_class.lower()
     )
 
-    # 2. Persistent Thermal Source Predictions
-    persistent_source_predictions = sum(
+    # 2. Forest Fire Predictions
+    forest_fire_predictions = sum(
         count for p_class, count in class_distribution.items()
-        if "persistent" in p_class.lower()
+        if "forest" in p_class.lower() or "wildfire" in p_class.lower()
     )
 
-    # 3. Other Predictions
-    other_predictions = total_detections - (industrial_fire_predictions + persistent_source_predictions)
+    # 3. Persistent Thermal Source Predictions
+    persistent_source_predictions = sum(
+        count for p_class, count in class_distribution.items()
+        if "persistent" in p_class.lower() or "flare" in p_class.lower()
+    )
+
+    # 4. Other Predictions
+    other_predictions = total_detections - (industrial_fire_predictions + forest_fire_predictions + persistent_source_predictions)
     if other_predictions < 0:
         other_predictions = 0
 
@@ -144,6 +150,9 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
                 case((Detection.predicted_class.ilike("%industrial%"), 1), else_=0)
             ).label("industrial"),
             func.sum(
+                case((Detection.predicted_class.ilike("%forest%"), 1), else_=0)
+            ).label("forest"),
+            func.sum(
                 case((Detection.predicted_class.ilike("%persistent%"), 1), else_=0)
             ).label("persistent"),
         )
@@ -157,7 +166,8 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
             "date": row[0],
             "total": int(row[1] or 0),
             "industrial": int(row[2] or 0),
-            "persistent": int(row[3] or 0),
+            "forest": int(row[3] or 0),
+            "persistent": int(row[4] or 0),
         }
         for row in reversed(date_trend_query)
     ]
@@ -193,6 +203,7 @@ def get_analytics_summary(db: Session = Depends(get_db)) -> Dict[str, Any]:
     return {
         "total_detections": total_detections,
         "industrial_fire_predictions": industrial_fire_predictions,
+        "forest_fire_predictions": forest_fire_predictions,
         "persistent_source_predictions": persistent_source_predictions,
         "other_predictions": other_predictions,
         "high_confidence_detections": high_confidence_detections,

@@ -30,7 +30,7 @@ export function DetectionExplorerView({
 
   const filtered = detections.filter((d) => {
     if (sourceFilter && d.source !== sourceFilter) return false;
-    if (classFilter && d.predicted_class !== classFilter) return false;
+    if (classFilter && (d.predicted_class || '').toLowerCase() !== classFilter.toLowerCase()) return false;
     if (provenanceFilter && d.data_provenance !== provenanceFilter) return false;
     if (alertFilter && d.alert_level !== alertFilter) return false;
     if (searchTerm) {
@@ -125,8 +125,9 @@ export function DetectionExplorerView({
         >
           <option value="">All Classification Classes</option>
           <option value="Industrial Fire">Industrial Fire</option>
+          <option value="Forest Fire">Forest Fire</option>
           <option value="Persistent Thermal Source">Persistent Thermal Source</option>
-          <option value="Other">Other / Vegetation</option>
+          <option value="Other">Other</option>
         </select>
 
         <select

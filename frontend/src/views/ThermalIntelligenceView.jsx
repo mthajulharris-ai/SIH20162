@@ -171,9 +171,9 @@ export function ThermalIntelligenceView({
       if (classFilter !== 'ALL') {
         const cls = (d.predicted_class || '').toLowerCase();
         if (classFilter === 'Industrial Fire' && !cls.includes('industrial')) return false;
-        if (classFilter === 'Forest/Wildfire' && !cls.includes('forest') && !cls.includes('wildfire')) return false;
+        if (classFilter === 'Forest Fire' && !cls.includes('forest') && !cls.includes('wildfire')) return false;
         if (classFilter === 'Persistent Thermal Source' && !cls.includes('persistent') && !cls.includes('flare')) return false;
-        if (classFilter === 'Other' && (cls.includes('industrial') || cls.includes('forest') || cls.includes('persistent'))) return false;
+        if (classFilter === 'Other' && (cls.includes('industrial') || cls.includes('forest') || cls.includes('persistent') || cls.includes('flare'))) return false;
       }
 
       // Risk Filter
@@ -703,9 +703,9 @@ export function ThermalIntelligenceView({
     const total = totalCount || 1;
     const items = [
       { key: 'Industrial Fire', label: 'Industrial Fire', count: industrialCount, color: '#EF4444' },
-      { key: 'Forest/Wildfire', label: 'Forest/Wildfire', count: forestCount, color: '#22C55E' },
-      { key: 'Persistent Thermal Source', label: 'Persistent Source', count: persistentCount, color: '#F59E0B' },
-      { key: 'Other', label: 'Other Sources', count: Math.max(0, otherCount), color: '#38BDF8' },
+      { key: 'Forest Fire', label: 'Forest Fire', count: forestCount, color: '#10B981' },
+      { key: 'Persistent Thermal Source', label: 'Persistent Thermal Source', count: persistentCount, color: '#F59E0B' },
+      { key: 'Other', label: 'Other', count: Math.max(0, otherCount), color: '#38BDF8' },
     ];
     return items.map((item) => ({
       ...item,
@@ -1185,9 +1185,9 @@ export function ThermalIntelligenceView({
             >
               <option value="ALL">All Classes</option>
               <option value="Industrial Fire">Industrial Fire</option>
-              <option value="Forest/Wildfire">Forest / Wildfire</option>
-              <option value="Persistent Thermal Source">Persistent Flare / Source</option>
-              <option value="Other">Other Classes</option>
+              <option value="Forest Fire">Forest Fire</option>
+              <option value="Persistent Thermal Source">Persistent Thermal Source</option>
+              <option value="Other">Other</option>
             </select>
           </div>
 

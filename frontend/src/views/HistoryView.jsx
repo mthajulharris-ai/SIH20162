@@ -150,8 +150,9 @@ export function HistoryView({ detections = [], onQueryHistory }) {
         >
           <option value="">All Classes</option>
           <option value="Industrial Fire">Industrial Fire</option>
+          <option value="Forest Fire">Forest Fire</option>
           <option value="Persistent Thermal Source">Persistent Thermal Source</option>
-          <option value="Other">Other / Vegetation</option>
+          <option value="Other">Other</option>
         </select>
 
         {/* Satellite Filter */}

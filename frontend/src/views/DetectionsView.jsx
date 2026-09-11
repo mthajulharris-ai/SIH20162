@@ -10,7 +10,7 @@ export function DetectionsView({ detections = [], onRefresh, loading = false, on
 
   const filtered = detections.filter((d) => {
     if (sourceFilter && d.source !== sourceFilter) return false;
-    if (classFilter && d.predicted_class !== classFilter) return false;
+    if (classFilter && (d.predicted_class || '').toLowerCase() !== classFilter.toLowerCase()) return false;
     if (provenanceFilter && d.data_provenance !== provenanceFilter) return false;
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
@@ -58,8 +58,9 @@ export function DetectionsView({ detections = [], onRefresh, loading = false, on
         >
           <option value="">All Predicted Classes</option>
           <option value="Industrial Fire">Industrial Fire</option>
+          <option value="Forest Fire">Forest Fire</option>
           <option value="Persistent Thermal Source">Persistent Thermal Source</option>
-          <option value="Other">Other / Vegetation</option>
+          <option value="Other">Other</option>
         </select>
 
         <select

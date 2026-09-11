@@ -13,6 +13,7 @@ import {
   Check,
   Zap,
   Satellite,
+  Trees,
 } from 'lucide-react';
 import { KpiCard } from '../components/KpiCard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -20,6 +21,7 @@ import { StatusBadge } from '../components/StatusBadge';
 export function AnalyticsView({ analytics }) {
   const total = analytics?.total_detections || 0;
   const indFires = analytics?.industrial_fire_predictions || 0;
+  const forestFires = analytics?.forest_fire_predictions || 0;
   const persistentSources = analytics?.persistent_source_predictions || 0;
   const otherPreds = analytics?.other_predictions || 0;
   const highConf = analytics?.high_confidence_detections || 0;
@@ -97,6 +99,15 @@ export function AnalyticsView({ analytics }) {
         />
 
         <KpiCard
+          title="Forest Fires"
+          value={forestFires}
+          subtext="Wildfire & canopy events"
+          icon={Trees}
+          accentColor="emerald"
+          badgeText="Active"
+        />
+
+        <KpiCard
           title="Persistent Sources"
           value={persistentSources}
           subtext="Refinery flare recurrence"
@@ -106,9 +117,9 @@ export function AnalyticsView({ analytics }) {
         />
 
         <KpiCard
-          title="Other / Background"
+          title="Other"
           value={otherPreds}
-          subtext="Vegetation & seasonal"
+          subtext="Non-fire background sources"
           icon={Radio}
           accentColor="ice"
           badgeText="Nominal"
@@ -227,7 +238,17 @@ export function AnalyticsView({ analytics }) {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--warning)' }}>Persistent Thermal Source (Flare/Smelter)</span>
+                <span style={{ fontWeight: 600, color: '#10B981' }}>Forest Fire</span>
+                <span className="mono-cell">{forestFires} ({total > 0 ? ((forestFires / total) * 100).toFixed(1) : 0}%)</span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: `${total > 0 ? (forestFires / total) * 100 : 0}%`, height: '100%', backgroundColor: '#10B981' }} />
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--warning)' }}>Persistent Thermal Source</span>
                 <span className="mono-cell">{persistentSources} ({total > 0 ? ((persistentSources / total) * 100).toFixed(1) : 0}%)</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -237,7 +258,7 @@ export function AnalyticsView({ analytics }) {
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary-cyan)' }}>Other / Background Vegetation</span>
+                <span style={{ fontWeight: 600, color: 'var(--primary-cyan)' }}>Other</span>
                 <span className="mono-cell">{otherPreds} ({total > 0 ? ((otherPreds / total) * 100).toFixed(1) : 0}%)</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>

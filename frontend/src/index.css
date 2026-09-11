@@ -512,6 +512,12 @@ body {
   border: 1px solid rgba(249, 115, 22, 0.35);
 }
 
+.badge-forest {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
 .badge-medium {
   background: rgba(245, 158, 11, 0.15);
   color: #FBBF24;

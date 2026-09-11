@@ -399,8 +399,9 @@ export function GisMapView({ initialSelectedDetection = null }) {
           >
             <option value="">All Detection Types</option>
             <option value="Industrial Fire">Industrial Fire</option>
+            <option value="Forest Fire">Forest Fire</option>
             <option value="Persistent Thermal Source">Persistent Thermal Source</option>
-            <option value="Other">Other / Vegetation</option>
+            <option value="Other">Other</option>
           </select>
         </div>
 

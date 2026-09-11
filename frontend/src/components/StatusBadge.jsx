@@ -94,14 +94,17 @@ export function ProvenanceBadge({ provenance }) {
 }
 
 export function ClassBadge({ predictedClass }) {
-  if (!predictedClass) return <span className="badge badge-low">Unclassified</span>;
+  if (!predictedClass) return <span className="badge badge-low">🌡️ Other</span>;
 
   const lower = predictedClass.toLowerCase();
   if (lower.includes('industrial')) {
-    return <span className="badge badge-critical">{predictedClass}</span>;
+    return <span className="badge badge-critical">🔥 Industrial Fire</span>;
+  }
+  if (lower.includes('forest') || lower.includes('wildfire')) {
+    return <span className="badge badge-forest">🌲 Forest Fire</span>;
   }
   if (lower.includes('persistent') || lower.includes('flare')) {
-    return <span className="badge badge-medium">{predictedClass}</span>;
+    return <span className="badge badge-medium">♨️ Persistent Thermal Source</span>;
   }
-  return <span className="badge badge-low">{predictedClass}</span>;
+  return <span className="badge badge-low">🌡️ Other</span>;
 }
