@@ -25,13 +25,35 @@ def init_db(engine: Engine = default_engine) -> None:
     try:
         from sqlalchemy import text
         with engine.connect() as conn:
-            # Check for model_version in detections
+            # Check for columns in detections
             res = conn.execute(text("PRAGMA table_info(detections);")).fetchall()
             col_names = [row[1] for row in res]
-            if col_names and "model_version" not in col_names:
-                conn.execute(text("ALTER TABLE detections ADD COLUMN model_version VARCHAR(32) DEFAULT '1.0.0-baseline';"))
-                conn.commit()
-                logger.info("Added missing column 'model_version' to detections table.")
+            if col_names:
+                if "model_version" not in col_names:
+                    conn.execute(text("ALTER TABLE detections ADD COLUMN model_version VARCHAR(32) DEFAULT '2.0.0-scientific-prototype';"))
+                    conn.commit()
+                    logger.info("Added missing column 'model_version' to detections table.")
+                if "data_provenance" not in col_names:
+                    conn.execute(text("ALTER TABLE detections ADD COLUMN data_provenance VARCHAR(32) DEFAULT 'REAL_FIRMS';"))
+                    conn.commit()
+                    logger.info("Added missing column 'data_provenance' to detections table.")
+                if "alert_level" not in col_names:
+                    conn.execute(text("ALTER TABLE detections ADD COLUMN alert_level VARCHAR(32) DEFAULT 'LOW';"))
+                    conn.commit()
+                    logger.info("Added missing column 'alert_level' to detections table.")
+
+            # Check for columns in alerts
+            res_a = conn.execute(text("PRAGMA table_info(alerts);")).fetchall()
+            col_names_a = [row[1] for row in res_a]
+            if col_names_a:
+                if "data_provenance" not in col_names_a:
+                    conn.execute(text("ALTER TABLE alerts ADD COLUMN data_provenance VARCHAR(32) DEFAULT 'REAL_FIRMS';"))
+                    conn.commit()
+                    logger.info("Added missing column 'data_provenance' to alerts table.")
+                if "model_version" not in col_names_a:
+                    conn.execute(text("ALTER TABLE alerts ADD COLUMN model_version VARCHAR(32) DEFAULT '2.0.0-scientific-prototype';"))
+                    conn.commit()
+                    logger.info("Added missing column 'model_version' to alerts table.")
     except Exception as e:
         logger.debug("Schema migration check notice: %s", e)
 

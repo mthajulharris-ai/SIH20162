@@ -272,6 +272,11 @@ export function App() {
               detections={detections}
               analytics={analytics}
               onFocusDetection={handleFocusDetection}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onNavigate={handleTabChange}
+              onRefresh={loadDashboardData}
+              isBackendHealthy={isBackendHealthy}
             />
           )}
 
@@ -319,6 +324,7 @@ export function App() {
             <SatelliteDataView
               detections={detections}
               isBackendHealthy={isBackendHealthy}
+              onRefresh={loadDashboardData}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
             />
           )}

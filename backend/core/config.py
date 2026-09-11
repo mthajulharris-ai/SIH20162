@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
 
+    # NASA FIRMS API Configurations
+    NASA_FIRMS_BASE_URL: str = "https://firms.modaps.eosdis.nasa.gov/api"
+    NASA_FIRMS_MAP_KEY: str = ""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",

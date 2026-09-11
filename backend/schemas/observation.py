@@ -3,7 +3,7 @@ Pydantic Schemas for Raw Thermal Observation Inputs and ML Inference Responses.
 PS 26162: AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources.
 """
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from pydantic import BaseModel, Field
 from backend.schemas.detection import DetectionResponse
 
@@ -147,3 +147,54 @@ class ClassifyAndStoreResponse(BaseModel):
     message: str = Field(default="Thermal observation classified and saved successfully.", description="Status message")
     detection: DetectionResponse = Field(..., description="Persisted database record")
     prediction: MLPredictionDetails = Field(..., description="ML classification details")
+
+
+class ExactLocation(BaseModel):
+    latitude: float = Field(..., description="Exact latitude coordinate in decimal degrees")
+    longitude: float = Field(..., description="Exact longitude coordinate in decimal degrees")
+
+
+class ObservationMetadata(BaseModel):
+    acq_date: str
+    acq_time: str
+    satellite: str
+    instrument: str
+    daynight: Optional[str] = "D"
+
+
+class ThermalDataInfo(BaseModel):
+    frp: Optional[float] = None
+    brightness: float
+    bright_t31: Optional[float] = None
+
+
+class PredictionSummary(BaseModel):
+    predicted_class: str
+    confidence: float
+    model_version: str
+    class_probabilities: Dict[str, float] = Field(default_factory=dict)
+
+
+class RiskInfo(BaseModel):
+    alert_level: str
+    verification_status: str = "REQUIRES_VERIFICATION"
+
+
+class UploadAndAnalyzeResponse(BaseModel):
+    """
+    Standardized response for SATRA Upload & Analyze Core Pipeline:
+    Returns exact location, observation metadata, thermal data,
+    AI classification, risk/alert assessment, and database detection entity.
+    """
+    status: str = Field(default="SUCCESS")
+    message: str = Field(default="Satellite data analyzed and persisted successfully.")
+    exact_location: ExactLocation
+    observation: ObservationMetadata
+    thermal_data: ThermalDataInfo
+    prediction: PredictionSummary
+    risk: RiskInfo
+    provenance: str
+    detection: DetectionResponse
+    total_records: int = 1
+    all_detections: List[DetectionResponse] = Field(default_factory=list)
+

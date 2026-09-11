@@ -860,3 +860,95 @@ body {
   border: 1px solid var(--border-color);
 }
 
+/* ==========================================================================
+   Thermal Intelligence — Aerospace Global Monitor & Control Deck
+   ========================================================================== */
+
+.global-thermal-blue-tiles {
+  filter: brightness(0.65) hue-rotate(190deg) contrast(1.25);
+}
+
+.satra-thermal-map-container .leaflet-container {
+  background: #050B14 !important;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+/* Leaflet Custom Tooltip for Thermal Intelligence */
+.satra-thermal-tooltip.leaflet-tooltip {
+  background: rgba(11, 23, 38, 0.94) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(69, 200, 245, 0.35) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.75) !important;
+  color: var(--text-primary) !important;
+  padding: 8px 12px !important;
+  font-size: 11.5px !important;
+  line-height: 1.4 !important;
+}
+
+.satra-thermal-tooltip.leaflet-tooltip::before {
+  border-top-color: rgba(11, 23, 38, 0.94) !important;
+}
+
+/* Aerospace HUD Map Action Buttons */
+.thermal-hud-btn {
+  width: 32px;
+  height: 32px;
+  background: rgba(11, 23, 38, 0.88);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.thermal-hud-btn:hover {
+  background: rgba(19, 42, 62, 0.95);
+  border-color: var(--primary-cyan);
+  color: #FFFFFF;
+  box-shadow: 0 0 10px rgba(69, 200, 245, 0.25);
+}
+
+.thermal-hud-btn:active {
+  transform: scale(0.96);
+}
+
+/* Pulsing beacon keyframe for critical hotspots */
+@keyframes thermal-ripple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.6);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+.critical-pulse-marker {
+  position: relative;
+}
+
+.critical-pulse-ring {
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #FF1744;
+  animation: thermal-ripple 1.8s ease-out infinite;
+  pointer-events: none;
+}
+
+
