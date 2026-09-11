@@ -121,3 +121,24 @@ export async function updateAlertStatus(alertId, verificationStatus, verificatio
     }),
   });
 }
+
+// 6. NASA FIRMS Satellite Telemetry
+export async function getSatelliteStatus() {
+  return request(`${API_V1}/satellite/status`);
+}
+
+export async function getFirmsHealth() {
+  return request(`${API_V1}/satellite/firms/health`);
+}
+
+export async function syncSatelliteFirms(params = {}) {
+  const query = new URLSearchParams();
+  Object.entries(params).forEach(([key, val]) => {
+    if (val !== undefined && val !== null && val !== '') {
+      query.append(key, val);
+    }
+  });
+  const queryString = query.toString() ? `?${query.toString()}` : '';
+  return request(`${API_V1}/satellite/firms${queryString}`);
+}
+

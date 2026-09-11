@@ -2,7 +2,7 @@
 Central API v1 Router aggregation.
 """
 from fastapi import APIRouter
-from backend.api.v1.endpoints import health, detections, inference, alerts, analytics
+from backend.api.v1.endpoints import health, detections, inference, alerts, analytics, satellite
 
 api_router = APIRouter()
 
@@ -20,3 +20,7 @@ api_router.include_router(alerts.router, prefix="/alerts", tags=["Alerts & Statu
 
 # Include analytics endpoints
 api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics & KPIs"])
+
+# Include satellite constellation & NASA FIRMS telemetry endpoints
+api_router.include_router(satellite.router, prefix="/satellite", tags=["Satellite Telemetry"])
+
