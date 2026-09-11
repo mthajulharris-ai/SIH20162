@@ -25,8 +25,8 @@ class DetectionBase(BaseModel):
     )
 
     # Satellite sensor measurements
-    brightness: float = Field(
-        ...,
+    brightness: Optional[float] = Field(
+        None,
         gt=0.0,
         description="Brightness temperature in Kelvin",
         examples=[345.5],
@@ -68,6 +68,11 @@ class DetectionBase(BaseModel):
         pattern=r"^[DNdn]$",
         description="Observation daylight indicator ('D' for Day, 'N' for Night)",
         examples=["D"],
+    )
+    source_file: Optional[str] = Field(
+        None,
+        description="Source uploaded observation file name",
+        examples=["modis_2021_India.csv"],
     )
 
     # ML Prediction outputs

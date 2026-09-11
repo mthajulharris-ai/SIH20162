@@ -23,7 +23,7 @@ class Detection(Base):
     longitude: float = Column(Float, nullable=False, index=True)
     
     # Satellite Measurement Observations
-    brightness: float = Column(Float, nullable=False)  # Temperature in Kelvin
+    brightness: Optional[float] = Column(Float, nullable=True)  # Temperature in Kelvin
     confidence: Optional[str] = Column(String(32), nullable=True)  # Raw satellite detection confidence
     acq_date: str = Column(String(10), nullable=False, index=True)  # Format: YYYY-MM-DD
     acq_time: str = Column(String(8), nullable=False)  # Format: HHMM (e.g., "1430")
@@ -31,7 +31,8 @@ class Detection(Base):
     instrument: Optional[str] = Column(String(32), nullable=True)  # e.g., "VIIRS", "MODIS"
     frp: Optional[float] = Column(Float, nullable=True)  # Fire Radiative Power (MW)
     daynight: Optional[str] = Column(String(2), nullable=True)  # "D" (Day) or "N" (Night)
-    
+    source_file: Optional[str] = Column(String(255), nullable=True, index=True)  # Source uploaded filename
+
     # AI/ML Prediction Outputs
     # Examples: "industrial_fire", "persistent_thermal_source", "wildfire", "agricultural", "false_alarm"
     predicted_class: str = Column(String(64), nullable=False, index=True)
@@ -81,9 +82,9 @@ class Detection(Base):
         return lon
 
     @validates("brightness")
-    def validate_brightness(self, key: str, value: Any) -> float:
+    def validate_brightness(self, key: str, value: Any) -> Optional[float]:
         if value is None:
-            raise ValueError("Brightness cannot be None.")
+            return None
         b = float(value)
         if b <= 0.0:
             raise ValueError(f"Brightness must be positive (> 0 Kelvin), got {b}.")
@@ -115,6 +116,7 @@ class Detection(Base):
             "instrument": self.instrument,
             "frp": self.frp,
             "daynight": self.daynight,
+            "source_file": self.source_file,
             "predicted_class": self.predicted_class,
             "prediction_confidence": self.prediction_confidence,
             "is_persistent": self.is_persistent,

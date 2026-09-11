@@ -78,9 +78,18 @@ export async function predictAndStoreObservation(observationPayload) {
   });
 }
 
-export async function uploadAndAnalyzeSatelliteFile(file) {
+export async function uploadAndAnalyzeSatelliteFile(fileOrFiles) {
   const formData = new FormData();
-  formData.append('file', file);
+  if (Array.isArray(fileOrFiles)) {
+    if (fileOrFiles.length > 0) {
+      formData.append('file', fileOrFiles[0]);
+    }
+    fileOrFiles.forEach((f) => {
+      formData.append('files', f);
+    });
+  } else if (fileOrFiles) {
+    formData.append('file', fileOrFiles);
+  }
 
   const res = await fetch(`${API_V1}/inference/upload-and-analyze`, {
     method: 'POST',

@@ -95,11 +95,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     },
   ];
 
-  const handleProcessFile = async (file) => {
+  const handleProcessFile = async (files) => {
     try {
       setIsAnalyzing(true);
       setAnalysisError(null);
-      const result = await uploadAndAnalyzeSatelliteFile(file);
+      const filesToProcess = files instanceof FileList ? Array.from(files) : files;
+      const result = await uploadAndAnalyzeSatelliteFile(filesToProcess);
       setAnalysisResult(result);
       if (result?.detection) {
         handleSelectHotspot(result.detection);
@@ -112,20 +113,20 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
   };
 
   const handleFileSelect = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      handleProcessFile(file);
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
+      handleProcessFile(files);
     }
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      handleProcessFile(file);
+    const files = e.dataTransfer.files;
+    if (files && files.length > 0) {
+      setSelectedFile(files[0]);
+      handleProcessFile(files);
     }
   };
 
@@ -491,7 +492,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   <span>UPLOAD &amp; ANALYZE</span>
                 </div>
                 <div className="panel-subtitle" style={{ fontSize: '11px', marginTop: '2px' }}>
-                  Upload satellite data or thermal imagery for AI analysis
+                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV or JSON file
                 </div>
               </div>
             </div>
@@ -518,16 +519,34 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".csv,.json,.geojson"
+                multiple
+                accept=".csv,.json,.geojson,.txt"
                 style={{ display: 'none' }}
                 onChange={handleFileSelect}
               />
               <UploadCloud size={24} style={{ color: '#38BDF8', margin: '0 auto 6px auto', display: 'block' }} />
               <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FFFFFF' }}>
-                Drag and drop files here
+                Upload Satellite Observation Data
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                or click to browse (.csv, .json, .geojson)
+                Filename does not matter &mdash; auto-detects NASA FIRMS, MODIS &amp; VIIRS
+              </div>
+              <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+                {['CSV', 'JSON', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((badge) => (
+                  <span
+                    key={badge}
+                    style={{
+                      fontSize: '9.5px',
+                      padding: '1px 6px',
+                      borderRadius: '3px',
+                      background: 'rgba(56, 189, 248, 0.1)',
+                      color: 'var(--primary-cyan)',
+                      border: '1px solid rgba(56, 189, 248, 0.25)',
+                    }}
+                  >
+                    {badge}
+                  </span>
+                ))}
               </div>
             </div>
 

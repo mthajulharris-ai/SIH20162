@@ -97,16 +97,16 @@ class ThermalPredictionService:
 
         # 1. Temperature difference
         if "temp_diff" not in r or r["temp_diff"] is None:
-            if "brightness" in r and "bright_t31" in r and r["bright_t31"] is not None:
+            if r.get("brightness") is not None and r.get("bright_t31") is not None:
                 r["temp_diff"] = float(r["brightness"]) - float(r["bright_t31"])
             else:
                 r["temp_diff"] = 0.0
 
         # 2. FRP density
         if "frp_density" not in r or r["frp_density"] is None:
-            frp_val = float(r.get("frp", 0.0))
-            scan = float(r.get("scan", 0.375))
-            track = float(r.get("track", 0.375))
+            frp_val = float(r.get("frp") or 0.0)
+            scan = float(r.get("scan") or 0.375)
+            track = float(r.get("track") or 0.375)
             area = max(0.01, scan * track)
             r["frp_density"] = frp_val / area
 
@@ -114,17 +114,17 @@ class ThermalPredictionService:
         if "is_night" not in r or r["is_night"] is None:
             if "daynight" in r and str(r["daynight"]).upper() == "N":
                 r["is_night"] = 1
-            elif "hour_utc" in r and (r["hour_utc"] < 6 or r["hour_utc"] >= 18):
+            elif "hour_utc" in r and r.get("hour_utc") is not None and (r["hour_utc"] < 6 or r["hour_utc"] >= 18):
                 r["is_night"] = 1
             else:
                 r["is_night"] = 0
 
         # 4. Cyclical hour trigonometry
-        if ("hour_sin" not in r or r["hour_sin"] is None) and "hour_utc" in r:
+        if ("hour_sin" not in r or r["hour_sin"] is None) and r.get("hour_utc") is not None:
             h = float(r["hour_utc"])
             r["hour_sin"] = float(np.sin(2 * np.pi * h / 24.0))
             r["hour_cos"] = float(np.cos(2 * np.pi * h / 24.0))
-        elif "hour_sin" not in r:
+        elif "hour_sin" not in r or r["hour_sin"] is None:
             r["hour_sin"] = 0.0
             r["hour_cos"] = 0.0
 
@@ -132,7 +132,7 @@ class ThermalPredictionService:
         r.setdefault("recurrence_count", 1)
         r.setdefault("persistence_ratio", 0.05)
         r.setdefault("night_detection_ratio", 0.0)
-        r.setdefault("frp_local_mean", float(r.get("frp", 10.0)))
+        r.setdefault("frp_local_mean", float(r.get("frp") or 10.0))
         r.setdefault("frp_zscore", 0.0)
         r.setdefault("frp_to_mean_ratio", 1.0)
         r.setdefault("confidence_score", 0.60)

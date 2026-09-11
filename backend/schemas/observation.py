@@ -26,8 +26,8 @@ class ThermalObservationInput(BaseModel):
         description="Longitude in decimal degrees (-180.0 to 180.0)",
         examples=[72.8311],
     )
-    brightness: float = Field(
-        ...,
+    brightness: Optional[float] = Field(
+        None,
         gt=0.0,
         description="Brightness temperature in Kelvin (channel 21/22 for MODIS, I4 for VIIRS)",
         examples=[365.4],
@@ -74,6 +74,11 @@ class ThermalObservationInput(BaseModel):
         default=None,
         description="Data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
         examples=["REAL_FIRMS"],
+    )
+    source_file: Optional[str] = Field(
+        default=None,
+        description="Source uploaded observation file name",
+        examples=["modis_2021_India.csv"],
     )
 
     scan: Optional[float] = Field(
@@ -164,7 +169,7 @@ class ObservationMetadata(BaseModel):
 
 class ThermalDataInfo(BaseModel):
     frp: Optional[float] = None
-    brightness: float
+    brightness: Optional[float] = None
     bright_t31: Optional[float] = None
 
 
@@ -180,11 +185,95 @@ class RiskInfo(BaseModel):
     verification_status: str = "REQUIRES_VERIFICATION"
 
 
+class FileContributionSummary(BaseModel):
+    filename: str
+    record_count: int
+    format_detected: str
+
+
+class SpatialClusterSummary(BaseModel):
+    cluster_id: int
+    center_latitude: float
+    center_longitude: float
+    observation_count: int
+    peak_frp: Optional[float] = None
+
+
+class SpatialAnalysisSummary(BaseModel):
+    bounding_box: Dict[str, float] = Field(default_factory=dict)  # min_lat, max_lat, min_lon, max_lon
+    center: Dict[str, float] = Field(default_factory=dict)  # latitude, longitude
+    hotspot_density: float = 0.0  # hotspots per square degree / cluster
+    clusters: List[SpatialClusterSummary] = Field(default_factory=list)
+
+
+class HighRiskHotspotSummary(BaseModel):
+    latitude: float
+    longitude: float
+    predicted_class: str
+    confidence: float
+    alert_level: str
+    frp: Optional[float] = None
+    brightness: Optional[float] = None
+    source_file: Optional[str] = None
+
+
+class FRPAnalysisSummary(BaseModel):
+    min: float
+    max: float
+    mean: float
+    median: float
+    sum: float
+    unit: str = "MW"
+
+
+class BrightnessAnalysisSummary(BaseModel):
+    min: float
+    max: float
+    mean: float
+    unit: str = "K"
+
+
+class ConfidenceAnalysisSummary(BaseModel):
+    high_count: int = 0
+    nominal_count: int = 0
+    low_count: int = 0
+    mean_confidence: float = 0.0
+
+
+class TemporalAnalysisSummary(BaseModel):
+    earliest_date: Optional[str] = None
+    latest_date: Optional[str] = None
+    daily_distribution: Dict[str, int] = Field(default_factory=dict)
+    day_count: int = 0
+    night_count: int = 0
+
+
+class DatasetAnalysisSummary(BaseModel):
+    """
+    Dynamic analytics computed across all uploaded observations.
+    Gracefully omits or flags metrics where underlying data is unavailable.
+    """
+    total_records: int
+    files_summary: List[FileContributionSummary] = Field(default_factory=list)
+    available_fields: List[str] = Field(default_factory=list)
+    unavailable_fields: List[str] = Field(default_factory=list)
+    risk_distribution: Dict[str, int] = Field(default_factory=dict)
+    class_distribution: Dict[str, int] = Field(default_factory=dict)
+    frp_analysis: Optional[FRPAnalysisSummary] = None
+    brightness_analysis: Optional[BrightnessAnalysisSummary] = None
+    confidence_analysis: Optional[ConfidenceAnalysisSummary] = None
+    temporal_analysis: Optional[TemporalAnalysisSummary] = None
+    spatial_analysis: Optional[SpatialAnalysisSummary] = None
+    high_risk_areas: List[HighRiskHotspotSummary] = Field(default_factory=list)
+    satellite_sources: List[str] = Field(default_factory=list)
+
+
 class UploadAndAnalyzeResponse(BaseModel):
     """
     Standardized response for SATRA Upload & Analyze Core Pipeline:
     Returns exact location, observation metadata, thermal data,
-    AI classification, risk/alert assessment, and database detection entity.
+    AI classification, risk/alert assessment, dynamic dataset analysis,
+    and database detection entity.
     """
     status: str = Field(default="SUCCESS")
     message: str = Field(default="Satellite data analyzed and persisted successfully.")
@@ -197,4 +286,5 @@ class UploadAndAnalyzeResponse(BaseModel):
     detection: DetectionResponse
     total_records: int = 1
     all_detections: List[DetectionResponse] = Field(default_factory=list)
+    analysis_summary: Optional[DatasetAnalysisSummary] = None
 

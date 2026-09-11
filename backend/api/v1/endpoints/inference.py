@@ -8,7 +8,7 @@ import csv
 import io
 import json
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
@@ -25,6 +25,7 @@ from backend.schemas.observation import (
     ThermalDataInfo,
     PredictionSummary,
     RiskInfo,
+    DatasetAnalysisSummary,
 )
 from backend.schemas.detection import DetectionResponse
 from backend.services.ml_service import (
@@ -34,6 +35,8 @@ from backend.services.ml_service import (
     MLServiceException,
 )
 from backend.services.alert_service import create_alert_if_eligible
+from backend.utils.observation_normalizer import normalize_and_validate_file, NormalizedObservation
+from backend.utils.analysis_engine import compute_dataset_analysis
 from src.data_pipeline.ingestion import FIELD_ALIASES
 
 logger = logging.getLogger("backend.inference")
@@ -186,236 +189,105 @@ def predict_and_store(
     "/upload-and-analyze",
     response_model=UploadAndAnalyzeResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Upload Satellite Observation File & Execute SATRA AI Pipeline",
+    summary="Upload Satellite Observation File(s) & Execute SATRA AI Pipeline",
     description=(
-        "Core SATRA Pipeline: Accepts uploaded satellite data (CSV, JSON, GeoJSON), "
-        "validates geographic coordinates and physical thermal fields, extracts exact latitude/longitude, "
-        "executes AI thermal classification, evaluates alert level, persists detection, "
-        "and returns structured intelligence for Earth/GIS visualization."
+        "Core SATRA Pipeline: Accepts uploaded satellite data (single or multiple CSV, JSON, GeoJSON files), "
+        "validates geographic coordinates and physical thermal fields, automatically detects and normalizes "
+        "column variations across NASA FIRMS MODIS, VIIRS, and custom formats, executes AI thermal classification, "
+        "evaluates alert levels, persists detections, and returns structured intelligence and dynamic analytics."
     ),
 )
 async def upload_and_analyze(
     file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
     db: Session = Depends(get_db),
     ml_service: MLInferenceService = Depends(get_ml_service),
 ) -> UploadAndAnalyzeResponse:
     """
     End-to-End Pipeline for Uploaded Satellite Data:
-    1. Uploaded File Reception
-    2. Parsing & Comments Stripping
-    3. Strict Geographic Validation (Lat [-90, 90], Lon [-180, 180], Brightness > 0)
-    4. Exact Coordinate Extraction
+    1. Uploaded File(s) Reception (Single or Multi-file)
+    2. File Format Detection & Security Verification
+    3. Automatic Column Mapping & Normalization Layer (MODIS, VIIRS, User CSV/JSON)
+    4. Coordinate & Physical Range Validation
     5. SATRA AI Classification Model Inference
     6. Risk & Alert Assessment
-    7. Database Persistence
-    8. Structured Result Return
+    7. Database Persistence with Source File Traceability
+    8. Dynamic Dataset Analytics Computation
+    9. Structured Result Return
     """
-    if not file or not file.filename:
+    # 1. Collect all uploaded files from either single 'file' or multiple 'files' fields
+    target_files: List[UploadFile] = []
+    if file is not None and file.filename:
+        target_files.append(file)
+    if files:
+        for f in files:
+            if f is not None and f.filename and f not in target_files:
+                target_files.append(f)
+
+    if not target_files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No satellite observation file provided. Please upload a valid CSV or JSON file.",
         )
 
-    # 1. Read and decode content
-    try:
-        raw_bytes = await file.read()
-        if not raw_bytes or len(raw_bytes.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="The uploaded satellite file is empty.",
-            )
+    # 2. Parse, Normalize, and Validate each file
+    all_observations: List[NormalizedObservation] = []
+    files_info: List[Dict[str, Any]] = []
+    global_available_fields: Set[str] = set()
+    global_unavailable_fields: Set[str] = set()
+
+    for up_file in target_files:
         try:
-            content_str = raw_bytes.decode("utf-8")
-        except UnicodeDecodeError:
-            content_str = raw_bytes.decode("latin-1")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed to read uploaded file: %s", str(e))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read uploaded file content: {str(e)}",
-        )
+            raw_bytes = await up_file.read()
+            if not raw_bytes or len(raw_bytes.strip()) == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
+                )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error("Failed to read uploaded file %s: %s", up_file.filename, str(e))
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to read uploaded file content for '{up_file.filename}': {str(e)}",
+            )
 
-    # 2. Parse observations from CSV or JSON
-    filename_lower = (file.filename or "").lower()
-    raw_rows: List[Dict[str, Any]] = []
-
-    if filename_lower.endswith(".json") or filename_lower.endswith(".geojson") or content_str.strip().startswith(("{", "[")):
         try:
-            parsed_json = json.loads(content_str)
-            if isinstance(parsed_json, list):
-                raw_rows = parsed_json
-            elif isinstance(parsed_json, dict):
-                # Check for GeoJSON FeatureCollection
-                if "features" in parsed_json and isinstance(parsed_json["features"], list):
-                    for feat in parsed_json["features"]:
-                        row = dict(feat.get("properties", {}))
-                        if "geometry" in feat and feat["geometry"].get("type") == "Point":
-                            coords = feat["geometry"].get("coordinates", [])
-                            if len(coords) >= 2:
-                                row["longitude"] = coords[0]
-                                row["latitude"] = coords[1]
-                        raw_rows.append(row)
-                else:
-                    raw_rows = [parsed_json]
-        except Exception as err:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Malformed JSON in uploaded file: {str(err)}",
+            obs_list, avail_f, unavail_f, detected_flavor = normalize_and_validate_file(
+                raw_bytes, up_file.filename
             )
-    else:
-        # Parse CSV format (handle NASA FIRMS metadata/comment lines starting with #)
-        csv_lines = [line for line in content_str.splitlines() if line.strip() and not line.strip().startswith("#")]
-        if not csv_lines:
+            all_observations.extend(obs_list)
+            global_available_fields.update(avail_f)
+            global_unavailable_fields.update(unavail_f)
+            files_info.append({
+                "filename": up_file.filename,
+                "record_count": len(obs_list),
+                "format_detected": detected_flavor,
+            })
+        except ValueError as val_err:
+            logger.warning("Validation error on '%s': %s", up_file.filename, str(val_err))
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="No observation data rows found in uploaded CSV file.",
+                detail=str(val_err),
             )
 
-        reader = csv.DictReader(csv_lines)
-        if not reader.fieldnames:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Uploaded CSV file is missing header row.",
-            )
-        for row in reader:
-            raw_rows.append(row)
-
-    if not raw_rows:
+    if not all_observations:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Zero observation records found in uploaded file.",
+            detail="Zero valid observation records found in uploaded file(s).",
         )
 
-    # 3. Standardize and Validate Observations
-    validated_inputs: List[ThermalObservationInput] = []
-    validation_errors: List[str] = []
-
-    aliases = {
-        "bright_ti4": "brightness",
-        "bright_ti5": "bright_t31",
-        "lat": "latitude",
-        "lon": "longitude",
-        "long": "longitude",
-        "source": "satellite",
-        "temp": "brightness",
-    }
-
-    for idx, row in enumerate(raw_rows):
-        normalized_row: Dict[str, Any] = {}
-        for k, v in row.items():
-            if k is None:
-                continue
-            key_clean = str(k).strip().lower()
-            standard_key = aliases.get(key_clean, key_clean)
-            normalized_row[standard_key] = v
-
-        # Check for Latitude
-        if "latitude" not in normalized_row or normalized_row["latitude"] in (None, "", "null"):
-            validation_errors.append(f"Record {idx+1}: Missing required 'latitude' coordinate.")
-            continue
-        try:
-            lat = float(normalized_row["latitude"])
-            if lat < -90.0 or lat > 90.0:
-                validation_errors.append(f"Record {idx+1}: Latitude {lat}° is out of valid range [-90.0, +90.0].")
-                continue
-        except (ValueError, TypeError):
-            validation_errors.append(f"Record {idx+1}: Non-numeric latitude value '{normalized_row.get('latitude')}'.")
-            continue
-
-        # Check for Longitude
-        if "longitude" not in normalized_row or normalized_row["longitude"] in (None, "", "null"):
-            validation_errors.append(f"Record {idx+1}: Missing required 'longitude' coordinate.")
-            continue
-        try:
-            lon = float(normalized_row["longitude"])
-            if lon < -180.0 or lon > 180.0:
-                validation_errors.append(f"Record {idx+1}: Longitude {lon}° is out of valid range [-180.0, +180.0].")
-                continue
-        except (ValueError, TypeError):
-            validation_errors.append(f"Record {idx+1}: Non-numeric longitude value '{normalized_row.get('longitude')}'.")
-            continue
-
-        # Check for Brightness Temperature
-        raw_bright = normalized_row.get("brightness")
-        if raw_bright in (None, "", "null"):
-            validation_errors.append(f"Record {idx+1}: Missing thermal brightness temperature.")
-            continue
-        try:
-            brightness = float(raw_bright)
-            if brightness <= 0.0:
-                validation_errors.append(f"Record {idx+1}: Unphysical brightness temperature {brightness} K.")
-                continue
-        except (ValueError, TypeError):
-            validation_errors.append(f"Record {idx+1}: Non-numeric brightness value '{raw_bright}'.")
-            continue
-
-        # Extract optional fields
-        bright_t31 = None
-        if normalized_row.get("bright_t31") not in (None, "", "null"):
-            try:
-                bright_t31 = float(normalized_row["bright_t31"])
-            except (ValueError, TypeError):
-                pass
-
-        frp = None
-        if normalized_row.get("frp") not in (None, "", "null"):
-            try:
-                frp = float(normalized_row["frp"])
-            except (ValueError, TypeError):
-                pass
-
-        # Temporal fields (use file values or populate UTC now)
-        acq_date = str(normalized_row.get("acq_date") or "").strip() or None
-        acq_time = str(normalized_row.get("acq_time") or "").strip() or None
-        satellite_name = str(normalized_row.get("satellite") or "VIIRS_SNPP_NRT").strip()
-        instrument_name = str(normalized_row.get("instrument") or "VIIRS").strip()
-        daynight_val = str(normalized_row.get("daynight") or "D").strip().upper()
-        if daynight_val not in ("D", "N"):
-            daynight_val = "D"
-
-        # Determine provenance
-        if any(k in filename_lower for k in ["firms", "viirs", "modis", "real"]):
-            provenance = "REAL_FIRMS"
-        elif "sample" in filename_lower:
-            provenance = "SAMPLE"
-        else:
-            provenance = "PROTOTYPE_LABELLED"
-
-        obs_input = ThermalObservationInput(
-            latitude=lat,
-            longitude=lon,
-            brightness=brightness,
-            bright_t31=bright_t31,
-            frp=frp,
-            confidence=str(normalized_row.get("confidence") or "nominal"),
-            acq_date=acq_date,
-            acq_time=acq_time,
-            source=satellite_name,
-            instrument=instrument_name,
-            daynight=daynight_val,
-            data_provenance=provenance,
-        )
-        obs_input.populate_defaults_if_missing()
-        validated_inputs.append(obs_input)
-
-    # Check if any valid observation survived
-    if not validated_inputs:
-        error_detail = "Data Validation Failed. " + " ".join(validation_errors[:4])
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=error_detail,
-        )
-
-    # 4. Execute AI Inference and Persist in Database
+    # 3. Execute AI Inference and Persist in Database
     created_detections: List[Detection] = []
     primary_prediction_details: Optional[MLPredictionDetails] = None
+    all_predictions: List[Dict[str, Any]] = []
 
-    for obs in validated_inputs:
+    for obs in all_observations:
+        raw_input_dict = obs.to_input_dict()
         try:
-            raw_input_dict = obs.model_dump()
             prediction_result = ml_service.predict(raw_input_dict)
+            all_predictions.append(prediction_result)
         except Exception as e:
             logger.error("AI inference error on uploaded record: %s", str(e))
             raise HTTPException(
@@ -439,12 +311,13 @@ async def upload_and_analyze(
             longitude=obs.longitude,
             brightness=obs.brightness,
             confidence=obs.confidence,
-            acq_date=obs.acq_date,
-            acq_time=obs.acq_time,
-            source=obs.source or "VIIRS_SNPP_NRT",
+            acq_date=obs.acq_date or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            acq_time=obs.acq_time or datetime.now(timezone.utc).strftime("%H%M"),
+            source=obs.satellite or "VIIRS_SNPP_NRT",
             instrument=obs.instrument or "VIIRS",
             frp=obs.frp,
             daynight=obs.daynight,
+            source_file=obs.source_file,
             predicted_class=predicted_class_name,
             prediction_confidence=predicted_conf,
             is_persistent=is_persistent,
@@ -472,13 +345,26 @@ async def upload_and_analyze(
                 prediction_timestamp=prediction_result.get("prediction_timestamp", datetime.now(timezone.utc).isoformat()),
             )
 
+    # 4. Compute Dynamic Dataset Analysis
+    dataset_analysis = compute_dataset_analysis(
+        validated_records=all_observations,
+        detections=created_detections,
+        predictions=all_predictions,
+        files_info=files_info,
+        global_available_fields=global_available_fields,
+        global_unavailable_fields=global_unavailable_fields,
+    )
+
     # 5. Format and return standardized SATRA Analysis Result
     primary_det = created_detections[0]
-    primary_input = validated_inputs[0]
+    primary_obs = all_observations[0]
+
+    files_count = len(files_info)
+    source_summary_text = f" across {files_count} file(s)" if files_count > 1 else ""
 
     return UploadAndAnalyzeResponse(
         status="SUCCESS",
-        message=f"Successfully validated, processed, and classified {len(created_detections)} satellite observation(s).",
+        message=f"Successfully validated, normalized, and classified {len(created_detections)} satellite observation(s){source_summary_text}.",
         exact_location=ExactLocation(
             latitude=primary_det.latitude,
             longitude=primary_det.longitude,
@@ -493,7 +379,7 @@ async def upload_and_analyze(
         thermal_data=ThermalDataInfo(
             frp=primary_det.frp,
             brightness=primary_det.brightness,
-            bright_t31=primary_input.bright_t31,
+            bright_t31=primary_obs.bright_t31,
         ),
         prediction=PredictionSummary(
             predicted_class=primary_det.predicted_class,
@@ -509,5 +395,6 @@ async def upload_and_analyze(
         detection=DetectionResponse.model_validate(primary_det),
         total_records=len(created_detections),
         all_detections=[DetectionResponse.model_validate(d) for d in created_detections],
+        analysis_summary=dataset_analysis,
     )
 

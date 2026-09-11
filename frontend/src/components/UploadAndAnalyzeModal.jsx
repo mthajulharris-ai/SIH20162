@@ -16,6 +16,12 @@ import {
   Check,
   ChevronRight,
   Database,
+  Layers,
+  BarChart2,
+  MapPin,
+  Activity,
+  Trash2,
+  Info,
 } from 'lucide-react';
 import { uploadAndAnalyzeSatelliteFile, predictAndStoreObservation } from '../services/api';
 
@@ -67,6 +73,51 @@ const BUILT_IN_SATELLITE_SAMPLES = [
   },
 ];
 
+// Helper to normalize column names on client
+const COLUMN_ALIASES = {
+  latitude: 'latitude',
+  lat: 'latitude',
+  lat_deg: 'latitude',
+  y: 'latitude',
+  longitude: 'longitude',
+  lon: 'longitude',
+  long: 'longitude',
+  lng: 'longitude',
+  lon_deg: 'longitude',
+  x: 'longitude',
+  acq_date: 'acq_date',
+  acquisition_date: 'acq_date',
+  date: 'acq_date',
+  datetime: 'acq_date',
+  timestamp: 'acq_date',
+  acq_time: 'acq_time',
+  acquisition_time: 'acq_time',
+  time: 'acq_time',
+  confidence: 'confidence',
+  confidence_level: 'confidence',
+  conf: 'confidence',
+  frp: 'frp',
+  fire_radiative_power: 'frp',
+  power: 'frp',
+  brightness: 'brightness',
+  bright_ti4: 'brightness',
+  brightness_temperature: 'brightness',
+  temp: 'brightness',
+  temperature: 'brightness',
+  bright_t31: 'bright_t31',
+  bright_ti5: 'bright_t31',
+  satellite: 'satellite',
+  source: 'satellite',
+  instrument: 'instrument',
+  sensor: 'instrument',
+  daynight: 'daynight',
+};
+
+const cleanCol = (col) => {
+  if (!col) return '';
+  return String(col).trim().toLowerCase().replace(/[\s\-\.]+/g, '_').replace(/[^\w]/g, '');
+};
+
 export function UploadAndAnalyzeModal({
   isOpen,
   onClose,
@@ -74,10 +125,11 @@ export function UploadAndAnalyzeModal({
   onViewExactLocation,
 }) {
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'samples' | 'manual'
+  const [analysisViewTab, setAnalysisViewTab] = useState('summary'); // 'summary' | 'thermal' | 'spatial' | 'temporal'
 
-  // Upload State
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [parsedPreview, setParsedPreview] = useState(null);
+  // Upload State (multi-file capable)
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [filePreviews, setFilePreviews] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -102,94 +154,180 @@ export function UploadAndAnalyzeModal({
 
   if (!isOpen) return null;
 
-  // Handle client-side parsing & preview of uploaded file
-  const handleFileSelect = (file) => {
+  // Inspect and validate each selected file content
+  const processFiles = async (fileList) => {
     setErrorMsg(null);
     setAnalysisResult(null);
-    setSelectedFile(file);
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
+
+    const newSelectedFiles = [];
+    const newPreviews = [];
+
+    for (const file of filesArray) {
       try {
-        const text = e.target.result;
-        const lines = text.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'));
+        const text = await file.text();
+        const trimmed = text.trim();
 
-        if (lines.length < 2) {
-          setErrorMsg('Uploaded file has no data rows. Must contain headers and at least 1 observation row.');
-          setParsedPreview(null);
-          return;
+        if (!trimmed) {
+          throw new Error(`File '${file.name}' is empty.`);
         }
 
-        const headers = lines[0].split(',').map((h) => h.trim().toLowerCase());
-        const latIdx = headers.findIndex((h) => h === 'latitude' || h === 'lat');
-        const lonIdx = headers.findIndex((h) => h === 'longitude' || h === 'lon' || h === 'long');
-        const brightIdx = headers.findIndex((h) => h === 'brightness' || h === 'bright_ti4' || h === 'temp');
-        const frpIdx = headers.findIndex((h) => h === 'frp');
-        const dateIdx = headers.findIndex((h) => h === 'acq_date' || h === 'date');
-        const timeIdx = headers.findIndex((h) => h === 'acq_time' || h === 'time');
-        const satIdx = headers.findIndex((h) => h === 'satellite' || h === 'source');
+        let recordCount = 0;
+        let detectedFormat = 'CSV';
+        let sampleLat = null;
+        let sampleLon = null;
+        let sampleBright = null;
+        let sampleFrp = null;
+        let hasThermalSignal = false;
 
-        if (latIdx === -1 || lonIdx === -1) {
-          setErrorMsg('Missing required location columns: "latitude" and "longitude" must be present in the CSV.');
-          setParsedPreview(null);
-          return;
+        // Check JSON / GeoJSON
+        if (trimmed.startsWith('{') || trimmed.startsWith('[') || file.name.toLowerCase().endsWith('.json') || file.name.toLowerCase().endsWith('.geojson')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            let items = [];
+            if (Array.isArray(parsed)) {
+              items = parsed;
+              detectedFormat = 'JSON';
+            } else if (parsed.features && Array.isArray(parsed.features)) {
+              detectedFormat = 'GeoJSON';
+              items = parsed.features.map((f) => {
+                const p = { ...(f.properties || {}) };
+                if (f.geometry?.coordinates?.length >= 2) {
+                  p.longitude = f.geometry.coordinates[0];
+                  p.latitude = f.geometry.coordinates[1];
+                }
+                return p;
+              });
+            } else if (parsed.data || parsed.records || parsed.detections) {
+              detectedFormat = 'JSON';
+              items = parsed.data || parsed.records || parsed.detections;
+            } else {
+              items = [parsed];
+              detectedFormat = 'JSON';
+            }
+
+            if (!items.length) {
+              throw new Error(`Zero records found in JSON file '${file.name}'.`);
+            }
+
+            recordCount = items.length;
+            const first = items[0] || {};
+            const mappedKeys = Object.keys(first).map(cleanCol).map((k) => COLUMN_ALIASES[k] || k);
+            const hasLat = mappedKeys.includes('latitude');
+            const hasLon = mappedKeys.includes('longitude');
+            hasThermalSignal = mappedKeys.some((k) =>
+              ['brightness', 'bright_t31', 'frp', 'confidence', 'satellite', 'instrument', 'acq_date'].includes(k)
+            );
+
+            if (!hasLat || !hasLon || !hasThermalSignal) {
+              throw new Error(
+                `Unsupported observation format. We could not identify sufficient satellite thermal/fire observation fields in this file. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
+              );
+            }
+
+            sampleLat = parseFloat(first.latitude || first.lat);
+            sampleLon = parseFloat(first.longitude || first.lon || first.long);
+            sampleBright = first.brightness || first.bright_ti4 || first.temp ? parseFloat(first.brightness || first.bright_ti4 || first.temp) : null;
+            sampleFrp = first.frp ? parseFloat(first.frp) : null;
+          } catch (jsonErr) {
+            throw new Error(jsonErr.message || `Malformed JSON in file '${file.name}'.`);
+          }
+        } else {
+          // CSV / Plain text
+          const lines = trimmed.split(/\r?\n/).filter((l) => l.trim() && !l.trim().startsWith('#'));
+          if (lines.length < 2) {
+            throw new Error(`File '${file.name}' must contain a column header row and at least 1 observation row.`);
+          }
+
+          const rawHeaders = lines[0].split(',').map((h) => h.trim());
+          const mappedHeaders = rawHeaders.map(cleanCol).map((k) => COLUMN_ALIASES[k] || k);
+
+          const latIdx = mappedHeaders.indexOf('latitude');
+          const lonIdx = mappedHeaders.indexOf('longitude');
+          const brightIdx = mappedHeaders.indexOf('brightness');
+          const frpIdx = mappedHeaders.indexOf('frp');
+
+          const hasThermal = mappedHeaders.some((k) =>
+            ['brightness', 'bright_t31', 'frp', 'confidence', 'satellite', 'instrument', 'acq_date', 'daynight', 'scan'].includes(k)
+          );
+
+          if (latIdx === -1 || lonIdx === -1 || !hasThermal) {
+            throw new Error(
+              `Unsupported observation format. We could not identify sufficient satellite thermal/fire observation fields in this file. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
+            );
+          }
+
+          recordCount = lines.length - 1;
+          const firstRow = lines[1].split(',').map((v) => v.trim());
+          sampleLat = parseFloat(firstRow[latIdx]);
+          sampleLon = parseFloat(firstRow[lonIdx]);
+          sampleBright = brightIdx !== -1 && firstRow[brightIdx] ? parseFloat(firstRow[brightIdx]) : null;
+          sampleFrp = frpIdx !== -1 && firstRow[frpIdx] ? parseFloat(firstRow[frpIdx]) : null;
+
+          if (isNaN(sampleLat) || sampleLat < -90.0 || sampleLat > 90.0) {
+            throw new Error(`Invalid latitude ${firstRow[latIdx]} in '${file.name}'. Coordinate must be between -90° and +90°.`);
+          }
+          if (isNaN(sampleLon) || sampleLon < -180.0 || sampleLon > 180.0) {
+            throw new Error(`Invalid longitude ${firstRow[lonIdx]} in '${file.name}'. Coordinate must be between -180° and +180°.`);
+          }
+
+          if (rawHeaders.some((h) => cleanCol(h) === 'bright_ti4')) {
+            detectedFormat = 'VIIRS CSV';
+          } else if (rawHeaders.some((h) => cleanCol(h) === 'bright_t31')) {
+            detectedFormat = 'MODIS CSV';
+          } else {
+            detectedFormat = 'Thermal CSV';
+          }
         }
 
-        // Preview first row
-        const firstRow = lines[1].split(',').map((v) => v.trim());
-        const rawLat = parseFloat(firstRow[latIdx]);
-        const rawLon = parseFloat(firstRow[lonIdx]);
-
-        if (isNaN(rawLat) || rawLat < -90.0 || rawLat > 90.0) {
-          setErrorMsg(`Invalid latitude coordinate ${firstRow[latIdx]}. Range must be between -90° and +90°.`);
-          setParsedPreview(null);
-          return;
-        }
-        if (isNaN(rawLon) || rawLon < -180.0 || rawLon > 180.0) {
-          setErrorMsg(`Invalid longitude coordinate ${firstRow[lonIdx]}. Range must be between -180° and +180°.`);
-          setParsedPreview(null);
-          return;
-        }
-
-        setParsedPreview({
-          recordCount: lines.length - 1,
-          latitude: rawLat,
-          longitude: rawLon,
-          brightness: brightIdx !== -1 ? parseFloat(firstRow[brightIdx]) : null,
-          frp: frpIdx !== -1 ? parseFloat(firstRow[frpIdx]) : null,
-          acq_date: dateIdx !== -1 ? firstRow[dateIdx] : new Date().toISOString().slice(0, 10),
-          acq_time: timeIdx !== -1 ? firstRow[timeIdx] : '1200',
-          satellite: satIdx !== -1 ? firstRow[satIdx] : 'VIIRS',
+        newSelectedFiles.push(file);
+        newPreviews.push({
+          name: file.name,
+          sizeKb: Math.round(file.size / 1024) || 1,
+          recordCount,
+          format: detectedFormat,
+          sampleLat,
+          sampleLon,
+          sampleBright,
+          sampleFrp,
         });
       } catch (err) {
-        setErrorMsg(`Failed to parse satellite file: ${err.message}`);
-        setParsedPreview(null);
+        setErrorMsg(err.message);
+        return;
       }
-    };
-    reader.readAsText(file);
+    }
+
+    setSelectedFiles((prev) => [...prev, ...newSelectedFiles]);
+    setFilePreviews((prev) => [...prev, ...newPreviews]);
   };
 
-  // Drag & drop handlers
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const handleFileChange = (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      processFiles(e.target.files);
+    }
   };
-  const handleDragLeave = () => {
-    setIsDragging(false);
-  };
+
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      handleFileSelect(e.dataTransfer.files[0]);
+      processFiles(e.dataTransfer.files);
     }
+  };
+
+  const handleRemoveFile = (index) => {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setFilePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Select a built-in sample
   const handleSelectSample = (sample) => {
     const blob = new Blob([sample.csvContent], { type: 'text/csv' });
     const file = new File([blob], `${sample.id}.csv`, { type: 'text/csv' });
-    handleFileSelect(file);
+    setSelectedFiles([file]);
+    processFiles([file]);
     setActiveTab('upload');
   };
 
@@ -202,7 +340,6 @@ export function UploadAndAnalyzeModal({
       let result;
 
       if (activeTab === 'manual') {
-        // Validate manual fields
         const lat = parseFloat(manualForm.latitude);
         const lon = parseFloat(manualForm.longitude);
         const bright = parseFloat(manualForm.brightness);
@@ -233,7 +370,6 @@ export function UploadAndAnalyzeModal({
         };
 
         const response = await predictAndStoreObservation(payload);
-        // Format to standardized response shape
         result = {
           status: 'SUCCESS',
           message: 'Observation classified and stored successfully.',
@@ -251,13 +387,13 @@ export function UploadAndAnalyzeModal({
           thermal_data: {
             frp: response.detection.frp,
             brightness: response.detection.brightness,
-            bright_t31: response.detection.bright_t31,
+            bright_t31: payload.bright_t31,
           },
           prediction: {
             predicted_class: response.prediction.predicted_class,
             confidence: response.prediction.confidence,
             model_version: response.prediction.model_version,
-            class_probabilities: response.prediction.class_probabilities || {},
+            class_probabilities: response.prediction.class_probabilities,
           },
           risk: {
             alert_level: response.prediction.alert_level,
@@ -265,13 +401,14 @@ export function UploadAndAnalyzeModal({
           },
           provenance: response.detection.data_provenance,
           detection: response.detection,
+          total_records: 1,
+          all_detections: [response.detection],
         };
       } else {
-        // Upload File Path
-        if (!selectedFile) {
-          throw new Error('Please select or upload a satellite observation file first.');
+        if (!selectedFiles || selectedFiles.length === 0) {
+          throw new Error('Please select or upload at least one satellite observation file.');
         }
-        result = await uploadAndAnalyzeSatelliteFile(selectedFile);
+        result = await uploadAndAnalyzeSatelliteFile(selectedFiles);
       }
 
       setAnalysisResult(result);
@@ -286,15 +423,25 @@ export function UploadAndAnalyzeModal({
     }
   };
 
-  // User clicks "VIEW EXACT LOCATION"
-  const handleFocusClick = () => {
-    if (analysisResult && analysisResult.detection) {
+  const handleFocusClick = (detectionTarget) => {
+    const det = detectionTarget || analysisResult?.detection;
+    if (det) {
       if (onViewExactLocation) {
-        onViewExactLocation(analysisResult.detection);
+        onViewExactLocation(det);
       }
       onClose();
     }
   };
+
+  const handleResetUpload = () => {
+    setSelectedFiles([]);
+    setFilePreviews([]);
+    setAnalysisResult(null);
+    setErrorMsg(null);
+  };
+
+  const totalRecordsCount = filePreviews.reduce((sum, f) => sum + f.recordCount, 0);
+  const summaryData = analysisResult?.analysis_summary;
 
   return (
     <div
@@ -302,23 +449,23 @@ export function UploadAndAnalyzeModal({
         position: 'fixed',
         inset: 0,
         zIndex: 9999,
-        background: 'rgba(2, 6, 18, 0.82)',
+        background: 'rgba(2, 6, 18, 0.85)',
         backdropFilter: 'blur(16px)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '20px',
+        padding: '16px',
       }}
     >
       <div
         style={{
           width: '100%',
-          maxWidth: '820px',
-          maxHeight: '92vh',
+          maxWidth: '880px',
+          maxHeight: '94vh',
           overflowY: 'auto',
           background: 'linear-gradient(180deg, #0B1726 0%, #060E18 100%)',
           border: '1px solid rgba(56, 189, 248, 0.35)',
-          borderRadius: '12px',
+          borderRadius: '14px',
           boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 32px rgba(56, 189, 248, 0.15)',
           display: 'flex',
           flexDirection: 'column',
@@ -333,15 +480,15 @@ export function UploadAndAnalyzeModal({
             justifyContent: 'space-between',
             padding: '16px 24px',
             borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            background: 'rgba(15, 32, 50, 0.6)',
+            background: 'rgba(15, 32, 50, 0.65)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div
               style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '8px',
+                width: '36px',
+                height: '36px',
+                borderRadius: '10px',
                 background: 'rgba(56, 189, 248, 0.15)',
                 border: '1px solid rgba(56, 189, 248, 0.4)',
                 display: 'flex',
@@ -350,14 +497,30 @@ export function UploadAndAnalyzeModal({
                 color: 'var(--primary-cyan)',
               }}
             >
-              <UploadCloud size={18} />
+              <UploadCloud size={20} />
             </div>
             <div>
-              <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: '#FFFFFF' }}>
-                SATRA Core Pipeline &bull; Upload & Analyze
-              </h2>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                Automated Location Extraction &bull; AI Thermal Classification &bull; Exact Earth/GIS Spatial Sync
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: '#FFFFFF' }}>
+                  Upload Satellite Observation Data
+                </h2>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    padding: '2px 7px',
+                    borderRadius: '4px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    color: 'var(--primary-cyan)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  SATRA AI CORE
+                </span>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Upload any compatible NASA FIRMS / MODIS / VIIRS CSV or JSON file &bull; Filename does not matter
               </div>
             </div>
           </div>
@@ -373,8 +536,8 @@ export function UploadAndAnalyzeModal({
         </div>
 
         {/* Modal Body */}
-        <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Tabs Selector */}
+        <div style={{ padding: '22px', display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* Tabs Selector (Hidden after analysis result) */}
           {!analysisResult && (
             <div
               style={{
@@ -402,11 +565,10 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 <FileText size={14} />
-                <span>Upload Satellite File (.csv, .json)</span>
+                <span>Upload Observation Files (.csv, .json)</span>
               </button>
 
               <button
@@ -425,7 +587,6 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 <Database size={14} />
@@ -448,7 +609,6 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  transition: 'all 0.15s ease',
                 }}
               >
                 <Compass size={14} />
@@ -459,18 +619,21 @@ export function UploadAndAnalyzeModal({
 
           {/* TAB 1: UPLOAD SATELLITE FILE */}
           {!analysisResult && activeTab === 'upload' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
               {/* Drag & Drop Box */}
               <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setIsDragging(true);
+                }}
+                onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.3)'}`,
-                  background: isDragging ? 'rgba(56, 189, 248, 0.08)' : 'rgba(15, 23, 42, 0.5)',
-                  borderRadius: '10px',
-                  padding: '36px 20px',
+                  border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.35)'}`,
+                  background: isDragging ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.55)',
+                  borderRadius: '12px',
+                  padding: '32px 24px',
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
@@ -484,109 +647,140 @@ export function UploadAndAnalyzeModal({
                   type="file"
                   ref={fileInputRef}
                   style={{ display: 'none' }}
+                  multiple
                   accept=".csv,.txt,.json,.geojson"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      handleFileSelect(e.target.files[0]);
-                    }
-                  }}
+                  onChange={handleFileChange}
                 />
 
                 <div
                   style={{
-                    width: '48px',
-                    height: '48px',
+                    width: '50px',
+                    height: '50px',
                     borderRadius: '50%',
                     background: 'rgba(56, 189, 248, 0.15)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    border: '1px solid rgba(56, 189, 248, 0.35)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     color: 'var(--primary-cyan)',
-                    marginBottom: '12px',
+                    marginBottom: '10px',
                   }}
                 >
                   <UploadCloud size={24} />
                 </div>
 
-                <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
-                  {selectedFile ? selectedFile.name : 'Drop satellite observation file here, or browse'}
+                <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                  Upload Satellite Observation Data
                 </div>
-                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Supports standard NASA FIRMS CSVs (VIIRS 375m, MODIS 1km) and JSON
+                <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
+                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV or JSON file.
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  Filename does not matter &mdash; SATRA AI automatically detects the data format and required fields.
+                </div>
+
+                {/* Supported formats pill list */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    Supported formats:
+                  </span>
+                  {['CSV', 'JSON', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
+                    <span
+                      key={fmt}
+                      style={{
+                        fontSize: '10.5px',
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: 'rgba(56, 189, 248, 0.1)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        color: 'var(--primary-cyan)',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {fmt}
+                    </span>
+                  ))}
                 </div>
               </div>
 
-              {/* Parsed Pre-Validation Indicator */}
-              {parsedPreview && (
+              {/* Selected Files List with Badges */}
+              {filePreviews.length > 0 && (
                 <div
                   style={{
-                    background: 'rgba(15, 32, 50, 0.7)',
+                    background: 'rgba(15, 32, 50, 0.75)',
                     border: '1px solid rgba(56, 189, 248, 0.3)',
-                    borderRadius: '8px',
+                    borderRadius: '10px',
                     padding: '14px 18px',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '8px',
+                    gap: '10px',
                     fontSize: '12px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontWeight: 700 }}>
-                      <CheckCircle2 size={15} />
-                      <span>Data Validated & Ready for AI Inference</span>
+                      <CheckCircle2 size={16} />
+                      <span>{filePreviews.length} File{filePreviews.length > 1 ? 's' : ''} Ready for AI Analysis</span>
                     </div>
-                    <span style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)', fontSize: '11px' }}>
-                      {parsedPreview.recordCount} Observation{parsedPreview.recordCount > 1 ? 's' : ''} Detected
+                    <span style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>
+                      {totalRecordsCount} Total Observation{totalRecordsCount > 1 ? 's' : ''}
                     </span>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                      gap: '10px',
-                      marginTop: '4px',
-                      background: 'rgba(5, 11, 20, 0.6)',
-                      padding: '10px 14px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.05)',
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Exact Latitude</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#FFFFFF' }}>
-                        {parsedPreview.latitude.toFixed(4)}°
-                      </div>
-                    </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {filePreviews.map((p, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          background: 'rgba(5, 11, 20, 0.6)',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <FileText size={14} style={{ color: 'var(--primary-cyan)' }} />
+                          <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{p.name}</span>
+                          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>({p.sizeKb} KB)</span>
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              padding: '1px 6px',
+                              borderRadius: '4px',
+                              background: 'rgba(56, 189, 248, 0.15)',
+                              color: 'var(--ice-blue)',
+                              border: '1px solid rgba(56, 189, 248, 0.3)',
+                            }}
+                          >
+                            {p.format}
+                          </span>
+                        </div>
 
-                    <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Exact Longitude</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#FFFFFF' }}>
-                        {parsedPreview.longitude.toFixed(4)}°
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--ice-blue)', fontSize: '11px' }}>
+                            {p.recordCount} obs
+                          </span>
+                          <button
+                            onClick={() => handleRemoveFile(idx)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              cursor: 'pointer',
+                              padding: '2px',
+                              display: 'flex',
+                              alignItems: 'center',
+                            }}
+                            title="Remove file"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
                       </div>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Brightness Temp</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--ice-blue)' }}>
-                        {parsedPreview.brightness ? `${parsedPreview.brightness.toFixed(1)} K` : 'N/A'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Radiative Power (FRP)</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--warning-amber)' }}>
-                        {parsedPreview.frp ? `${parsedPreview.frp.toFixed(1)} MW` : 'N/A'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Timestamp</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#FFFFFF' }}>
-                        {parsedPreview.acq_date} {parsedPreview.acq_time} UTC
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -790,31 +984,35 @@ export function UploadAndAnalyzeModal({
             </div>
           )}
 
-          {/* Validation Error Alert */}
+          {/* Professional Error Notification */}
           {errorMsg && (
             <div
               style={{
                 background: 'rgba(239, 68, 68, 0.15)',
                 border: '1px solid rgba(239, 68, 68, 0.4)',
                 borderRadius: '8px',
-                padding: '12px 16px',
+                padding: '14px 18px',
                 display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
+                alignItems: 'flex-start',
+                gap: '12px',
                 color: '#FCA5A5',
                 fontSize: '12.5px',
+                lineHeight: 1.5,
               }}
             >
-              <AlertTriangle size={18} style={{ flexShrink: 0, color: 'var(--critical-red)' }} />
+              <AlertTriangle size={20} style={{ flexShrink: 0, color: 'var(--critical-red)', marginTop: '2px' }} />
               <div>
-                <strong>Validation Notice:</strong> {errorMsg}
+                <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>
+                  Validation Notice
+                </strong>
+                {errorMsg}
               </div>
             </div>
           )}
 
           {/* 
             ============================================================
-            SECTION 8: STANDARDIZED SATRA ANALYSIS RESULT VIEW
+            DYNAMIC SATRA INTELLIGENCE ANALYSIS RESULT VIEW
             ============================================================
           */}
           {analysisResult && (
@@ -822,7 +1020,7 @@ export function UploadAndAnalyzeModal({
               style={{
                 background: 'rgba(11, 23, 38, 0.95)',
                 border: '1px solid var(--primary-cyan)',
-                borderRadius: '10px',
+                borderRadius: '12px',
                 padding: '20px 24px',
                 boxShadow: '0 12px 40px rgba(0, 0, 0, 0.7), inset 0 0 24px rgba(56, 189, 248, 0.12)',
                 display: 'flex',
@@ -831,6 +1029,7 @@ export function UploadAndAnalyzeModal({
                 animation: 'fadeIn 0.25s ease-out',
               }}
             >
+              {/* Header Bar */}
               <div
                 style={{
                   display: 'flex',
@@ -838,144 +1037,429 @@ export function UploadAndAnalyzeModal({
                   justifyContent: 'space-between',
                   borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                   paddingBottom: '12px',
+                  flexWrap: 'wrap',
+                  gap: '10px',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <Zap size={18} style={{ color: 'var(--primary-cyan)' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
-                    SATRA ANALYSIS RESULT
+                  <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.06em', color: '#FFFFFF' }}>
+                    SATRA DYNAMIC INTELLIGENCE ANALYSIS
+                  </span>
+                  <span
+                    style={{
+                      fontSize: '11px',
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: 'var(--ice-blue)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                    }}
+                  >
+                    {analysisResult.total_records} Observation{analysisResult.total_records > 1 ? 's' : ''}
                   </span>
                 </div>
 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background: analysisResult.risk.alert_level === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.2)',
+                      color: analysisResult.risk.alert_level === 'CRITICAL' ? 'var(--thermal-red)' : 'var(--ice-blue)',
+                      border: `1px solid ${analysisResult.risk.alert_level === 'CRITICAL' ? 'var(--thermal-red)' : 'var(--primary-cyan)'}`,
+                    }}
+                  >
+                    RISK: {analysisResult.risk.alert_level}
+                  </div>
+                </div>
+              </div>
+
+              {/* Multi-file Source Traceability Strip */}
+              {summaryData?.files_summary && summaryData.files_summary.length > 0 && (
                 <div
                   style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '4px 10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '8px 12px',
                     borderRadius: '6px',
-                    background: analysisResult.risk.alert_level === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                    color: analysisResult.risk.alert_level === 'CRITICAL' ? 'var(--thermal-red)' : 'var(--ice-blue)',
-                    border: `1px solid ${analysisResult.risk.alert_level === 'CRITICAL' ? 'var(--thermal-red)' : 'var(--primary-cyan)'}`,
+                    background: 'rgba(5, 11, 20, 0.7)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    fontSize: '11px',
+                    flexWrap: 'wrap',
                   }}
                 >
-                  RISK: {analysisResult.risk.alert_level}
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Source Files:</span>
+                  {summaryData.files_summary.map((f, i) => (
+                    <span
+                      key={i}
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: '4px',
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        color: '#FFFFFF',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {f.filename} ({f.record_count} obs)
+                    </span>
+                  ))}
                 </div>
-              </div>
+              )}
 
-              {/* Grid of Section 8 Attributes */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                  gap: '16px',
-                }}
-              >
-                {/* 📍 EXACT LOCATION */}
-                <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Compass size={14} />
-                    <span>📍 EXACT LOCATION</span>
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontFamily: 'var(--font-mono)', color: '#FFFFFF' }}>
-                    Latitude: <strong>{analysisResult.exact_location.latitude.toFixed(6)}°</strong>
-                  </div>
-                  <div style={{ fontSize: '12.5px', fontFamily: 'var(--font-mono)', color: '#FFFFFF', marginTop: '2px' }}>
-                    Longitude: <strong>{analysisResult.exact_location.longitude.toFixed(6)}°</strong>
-                  </div>
-                </div>
-
-                {/* 🕐 OBSERVATION */}
-                <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={14} />
-                    <span>🕐 OBSERVATION</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#FFFFFF' }}>
-                    Date: <strong>{analysisResult.observation.acq_date}</strong>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#FFFFFF', marginTop: '2px' }}>
-                    Time: <strong>{analysisResult.observation.acq_time} UTC</strong>
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Satellite: {analysisResult.observation.satellite}
-                  </div>
-                </div>
-
-                {/* 🔥 AI CLASSIFICATION */}
-                <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--thermal-red)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Flame size={14} />
-                    <span>🔥 AI CLASSIFICATION</span>
-                  </div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF' }}>
-                    {analysisResult.prediction.predicted_class}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '2px' }}>
-                    Confidence: <strong>{(analysisResult.prediction.confidence * 100).toFixed(1)}%</strong>
-                  </div>
-                </div>
-
-                {/* 🌡 THERMAL DATA */}
-                <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Radio size={14} />
-                    <span>🌡 THERMAL DATA</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#FFFFFF' }}>
-                    FRP: <strong>{analysisResult.thermal_data.frp ? `${parseFloat(analysisResult.thermal_data.frp).toFixed(1)} MW` : 'N/A'}</strong>
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#FFFFFF', marginTop: '2px' }}>
-                    Brightness: <strong>{analysisResult.thermal_data.brightness ? `${parseFloat(analysisResult.thermal_data.brightness).toFixed(1)} K` : 'N/A'}</strong>
-                  </div>
-                </div>
-              </div>
-
-              {/* Model & Provenance Strip */}
+              {/* Analysis View Navigation Tabs */}
               <div
                 style={{
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  background: 'rgba(5, 11, 20, 0.8)',
-                  borderRadius: '6px',
-                  fontSize: '11.5px',
-                  color: 'var(--text-muted)',
+                  gap: '6px',
+                  background: 'rgba(15, 23, 42, 0.6)',
+                  padding: '4px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.05)',
                 }}
               >
-                <div>
-                  🤖 <strong>MODEL:</strong> {analysisResult.prediction.model_version}
-                </div>
-                <div>
-                  🛡 <strong>PROVENANCE:</strong> <span style={{ color: 'var(--ice-blue)', fontWeight: 700 }}>{analysisResult.provenance}</span>
-                </div>
+                {[
+                  { id: 'summary', label: 'Summary & Hotspots', icon: Flame },
+                  { id: 'thermal', label: 'Thermal & Radiative Power', icon: Radio },
+                  { id: 'spatial', label: 'Spatial & Clustering', icon: MapPin },
+                  { id: 'temporal', label: 'Temporal Trends & Sensors', icon: Clock },
+                ].map((t) => {
+                  const Icon = t.icon;
+                  const isActive = analysisViewTab === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setAnalysisViewTab(t.id)}
+                      style={{
+                        flex: 1,
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: isActive ? '1px solid var(--primary-cyan)' : '1px solid transparent',
+                        background: isActive ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                        color: isActive ? '#FFFFFF' : 'var(--text-muted)',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                      }}
+                    >
+                      <Icon size={13} />
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Action: VIEW EXACT LOCATION ON EARTH / GIS */}
-              <button
-                onClick={handleFocusClick}
-                className="btn-primary"
-                style={{
-                  padding: '12px 20px',
-                  fontSize: '13px',
-                  fontWeight: 800,
-                  letterSpacing: '0.04em',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  boxShadow: '0 0 20px rgba(56, 189, 248, 0.35)',
-                }}
-              >
-                <Globe size={16} />
-                <span>📍 VIEW EXACT LOCATION ON EARTH / GIS</span>
-              </button>
+              {/* TAB CONTENT: Summary & Hotspots */}
+              {analysisViewTab === 'summary' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {/* Primary Hotspot Grid */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '14px',
+                    }}
+                  >
+                    {/* Exact Location */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Compass size={14} />
+                        <span>EXACT LOCATION</span>
+                      </div>
+                      <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: '#FFFFFF' }}>
+                        Lat: <strong>{analysisResult.exact_location.latitude.toFixed(4)}°</strong>
+                      </div>
+                      <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: '#FFFFFF', marginTop: '2px' }}>
+                        Lon: <strong>{analysisResult.exact_location.longitude.toFixed(4)}°</strong>
+                      </div>
+                    </div>
+
+                    {/* AI Classification */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--thermal-red)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Flame size={14} />
+                        <span>AI CLASSIFICATION</span>
+                      </div>
+                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF' }}>
+                        {analysisResult.prediction.predicted_class}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--ice-blue)', marginTop: '2px' }}>
+                        Confidence: <strong>{(analysisResult.prediction.confidence * 100).toFixed(1)}%</strong>
+                      </div>
+                    </div>
+
+                    {/* Thermal Signature */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Radio size={14} />
+                        <span>THERMAL SIGNATURE</span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#FFFFFF' }}>
+                        FRP: <strong>{analysisResult.thermal_data.frp != null ? `${parseFloat(analysisResult.thermal_data.frp).toFixed(1)} MW` : 'Data not available'}</strong>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#FFFFFF', marginTop: '2px' }}>
+                        Temp: <strong>{analysisResult.thermal_data.brightness != null ? `${parseFloat(analysisResult.thermal_data.brightness).toFixed(1)} K` : 'Data not available'}</strong>
+                      </div>
+                    </div>
+
+                    {/* Observation Source */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Clock size={14} />
+                        <span>OBSERVATION PASS</span>
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#FFFFFF' }}>
+                        {analysisResult.observation.acq_date} {analysisResult.observation.acq_time} UTC
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Sensor: {analysisResult.observation.instrument || analysisResult.observation.satellite}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Hotspots Table */}
+                  {analysisResult.all_detections && analysisResult.all_detections.length > 0 && (
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+                      <div style={{ padding: '8px 14px', background: 'rgba(15, 32, 50, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ice-blue)' }}>
+                          DETECTED HOTSPOTS REGISTER ({analysisResult.all_detections.length})
+                        </span>
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Click to focus GIS</span>
+                      </div>
+                      <div style={{ maxHeight: '180px', overflowY: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', color: 'var(--text-muted)', textAlign: 'left' }}>
+                              <th style={{ padding: '6px 12px' }}>File</th>
+                              <th style={{ padding: '6px 12px' }}>Coordinates</th>
+                              <th style={{ padding: '6px 12px' }}>Class</th>
+                              <th style={{ padding: '6px 12px' }}>Alert</th>
+                              <th style={{ padding: '6px 12px' }}>FRP</th>
+                              <th style={{ padding: '6px 12px' }}>Action</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {analysisResult.all_detections.slice(0, 50).map((det, idx) => (
+                              <tr
+                                key={idx}
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
+                                onClick={() => handleFocusClick(det)}
+                              >
+                                <td style={{ padding: '6px 12px', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
+                                  {det.source_file || 'Direct Upload'}
+                                </td>
+                                <td style={{ padding: '6px 12px', fontFamily: 'var(--font-mono)', color: '#FFFFFF' }}>
+                                  {det.latitude.toFixed(4)}°, {det.longitude.toFixed(4)}°
+                                </td>
+                                <td style={{ padding: '6px 12px', fontWeight: 600 }}>{det.predicted_class}</td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <span
+                                    style={{
+                                      fontSize: '9.5px',
+                                      padding: '1px 5px',
+                                      borderRadius: '3px',
+                                      background: det.alert_level === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)',
+                                      color: det.alert_level === 'CRITICAL' ? 'var(--thermal-red)' : 'var(--ice-blue)',
+                                    }}
+                                  >
+                                    {det.alert_level}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '6px 12px', color: 'var(--warning-amber)' }}>
+                                  {det.frp != null ? `${parseFloat(det.frp).toFixed(1)} MW` : 'N/A'}
+                                </td>
+                                <td style={{ padding: '6px 12px' }}>
+                                  <span style={{ color: 'var(--primary-cyan)', fontSize: '10.5px' }}>View &rarr;</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB CONTENT: Thermal & Radiative Power */}
+              {analysisViewTab === 'thermal' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                    {/* FRP Stats */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--warning-amber)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Radio size={14} />
+                        <span>FIRE RADIATIVE POWER (FRP) ANALYSIS</span>
+                      </div>
+                      {summaryData?.frp_analysis ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '11.5px' }}>
+                          <div>Min FRP: <strong>{summaryData.frp_analysis.min} MW</strong></div>
+                          <div>Max FRP: <strong>{summaryData.frp_analysis.max} MW</strong></div>
+                          <div>Mean FRP: <strong>{summaryData.frp_analysis.mean} MW</strong></div>
+                          <div>Total Energy: <strong>{summaryData.frp_analysis.sum} MW</strong></div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          Data not available in uploaded dataset
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Brightness Temperature Stats */}
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ice-blue)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Radio size={14} />
+                        <span>BRIGHTNESS TEMPERATURE ANALYSIS</span>
+                      </div>
+                      {summaryData?.brightness_analysis ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', fontSize: '11.5px' }}>
+                          <div>Min Temp: <strong>{summaryData.brightness_analysis.min} K</strong></div>
+                          <div>Max Temp: <strong>{summaryData.brightness_analysis.max} K</strong></div>
+                          <div>Mean Temp: <strong>{summaryData.brightness_analysis.mean} K</strong></div>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                          Data not available in uploaded dataset
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Confidence Breakdown */}
+                  <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '8px' }}>
+                      CONFIDENCE DISTRIBUTION
+                    </div>
+                    {summaryData?.confidence_analysis ? (
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '11.5px' }}>
+                        <div>High Confidence: <strong>{summaryData.confidence_analysis.high_count}</strong></div>
+                        <div>Nominal: <strong>{summaryData.confidence_analysis.nominal_count}</strong></div>
+                        <div>Low: <strong>{summaryData.confidence_analysis.low_count}</strong></div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        Data not available in uploaded dataset
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB CONTENT: Spatial & Clustering */}
+              {analysisViewTab === 'spatial' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  {summaryData?.spatial_analysis && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                      <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11.5px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px' }}>
+                          GEOGRAPHIC BOUNDING BOX
+                        </div>
+                        <div>North: {summaryData.spatial_analysis.bounding_box?.max_latitude}°</div>
+                        <div>South: {summaryData.spatial_analysis.bounding_box?.min_latitude}°</div>
+                        <div>East: {summaryData.spatial_analysis.bounding_box?.max_longitude}°</div>
+                        <div>West: {summaryData.spatial_analysis.bounding_box?.min_longitude}°</div>
+                        <div style={{ marginTop: '6px', color: 'var(--ice-blue)' }}>
+                          Center: {summaryData.spatial_analysis.center?.latitude}°, {summaryData.spatial_analysis.center?.longitude}°
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11.5px' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px' }}>
+                          HOTSPOT SPATIAL CLUSTERS ({summaryData.spatial_analysis.clusters?.length || 0})
+                        </div>
+                        <div style={{ maxHeight: '100px', overflowY: 'auto' }}>
+                          {summaryData.spatial_analysis.clusters?.map((c, i) => (
+                            <div key={i} style={{ marginBottom: '4px' }}>
+                              Cluster #{c.cluster_id}: {c.observation_count} hotspots @ {c.center_latitude}°, {c.center_longitude}°
+                              {c.peak_frp ? ` (Peak FRP: ${c.peak_frp} MW)` : ''}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* TAB CONTENT: Temporal Trends & Sensors */}
+              {analysisViewTab === 'temporal' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px' }}>
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11.5px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px' }}>
+                        TEMPORAL SPAN
+                      </div>
+                      {summaryData?.temporal_analysis ? (
+                        <div>
+                          <div>Earliest: {summaryData.temporal_analysis.earliest_date || 'N/A'}</div>
+                          <div>Latest: {summaryData.temporal_analysis.latest_date || 'N/A'}</div>
+                          <div style={{ marginTop: '4px' }}>
+                            Day passes: {summaryData.temporal_analysis.day_count} &bull; Night passes: {summaryData.temporal_analysis.night_count}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Data not available</div>
+                      )}
+                    </div>
+
+                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', fontSize: '11.5px' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', marginBottom: '6px' }}>
+                        SATELLITE & SENSOR PLATFORMS
+                      </div>
+                      {summaryData?.satellite_sources?.length ? (
+                        summaryData.satellite_sources.map((s, i) => (
+                          <div key={i} style={{ marginBottom: '3px' }}>&bull; {s}</div>
+                        ))
+                      ) : (
+                        <div>{analysisResult.observation.satellite || 'Satellite Sensor'}</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '6px', gap: '12px' }}>
+                <button
+                  onClick={handleResetUpload}
+                  className="btn-secondary"
+                  style={{ padding: '10px 18px', fontSize: '12px' }}
+                >
+                  Upload Another Dataset
+                </button>
+
+                <button
+                  onClick={() => handleFocusClick()}
+                  className="btn-primary"
+                  style={{
+                    padding: '12px 24px',
+                    fontSize: '13px',
+                    fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 0 20px rgba(56, 189, 248, 0.35)',
+                  }}
+                >
+                  <Globe size={16} />
+                  <span>VIEW EXACT LOCATION ON EARTH / GIS</span>
+                </button>
+              </div>
             </div>
           )}
 
-          {/* Action Trigger Button */}
+          {/* Action Trigger Button (Initial upload stage) */}
           {!analysisResult && (
-            <div style={{ display: 'flex', alignItems: 'center', justifySelf: 'flex-end', gap: '10px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '10px', marginTop: '4px' }}>
               <button
                 onClick={onClose}
                 className="btn-secondary"
@@ -988,7 +1472,7 @@ export function UploadAndAnalyzeModal({
               <button
                 onClick={handleExecuteAnalysis}
                 className="btn-primary"
-                disabled={isProcessing || (activeTab === 'upload' && !selectedFile)}
+                disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
                 style={{
                   padding: '9px 22px',
                   fontSize: '12.5px',
@@ -996,7 +1480,7 @@ export function UploadAndAnalyzeModal({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
-                  opacity: isProcessing || (activeTab === 'upload' && !selectedFile) ? 0.6 : 1,
+                  opacity: isProcessing || (activeTab === 'upload' && selectedFiles.length === 0) ? 0.6 : 1,
                 }}
               >
                 <Zap size={14} />

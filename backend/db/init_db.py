@@ -41,6 +41,46 @@ def init_db(engine: Engine = default_engine) -> None:
                     conn.execute(text("ALTER TABLE detections ADD COLUMN alert_level VARCHAR(32) DEFAULT 'LOW';"))
                     conn.commit()
                     logger.info("Added missing column 'alert_level' to detections table.")
+                if "source_file" not in col_names:
+                    conn.execute(text("ALTER TABLE detections ADD COLUMN source_file VARCHAR(255);"))
+                    conn.commit()
+                    logger.info("Added missing column 'source_file' to detections table.")
+
+                # Ensure brightness column is nullable in SQLite
+                for row in res:
+                    if row[1] == "brightness" and row[3] == 1:
+                        logger.info("Migrating detections table to allow nullable brightness...")
+                        conn.execute(text("""
+                            CREATE TABLE IF NOT EXISTS detections_mig (
+                                id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                                latitude FLOAT NOT NULL,
+                                longitude FLOAT NOT NULL,
+                                brightness FLOAT,
+                                confidence VARCHAR(32),
+                                acq_date VARCHAR(10) NOT NULL,
+                                acq_time VARCHAR(8) NOT NULL,
+                                source VARCHAR(64) NOT NULL,
+                                instrument VARCHAR(32),
+                                frp FLOAT,
+                                daynight VARCHAR(2),
+                                predicted_class VARCHAR(64) NOT NULL,
+                                prediction_confidence FLOAT NOT NULL,
+                                is_persistent BOOLEAN NOT NULL,
+                                created_at DATETIME NOT NULL,
+                                model_version VARCHAR(32) DEFAULT '2.0.0-scientific-prototype',
+                                data_provenance VARCHAR(32) DEFAULT 'SAMPLE',
+                                alert_level VARCHAR(32) DEFAULT 'LOW',
+                                source_file VARCHAR(255)
+                            );
+                        """))
+                        conn.execute(text("""
+                            INSERT INTO detections_mig SELECT id, latitude, longitude, brightness, confidence, acq_date, acq_time, source, instrument, frp, daynight, predicted_class, prediction_confidence, is_persistent, created_at, model_version, data_provenance, alert_level, source_file FROM detections;
+                        """))
+                        conn.execute(text("DROP TABLE detections;"))
+                        conn.execute(text("ALTER TABLE detections_mig RENAME TO detections;"))
+                        conn.commit()
+                        logger.info("Successfully migrated detections table brightness to nullable.")
+                        break
 
             # Check for columns in alerts
             res_a = conn.execute(text("PRAGMA table_info(alerts);")).fetchall()
