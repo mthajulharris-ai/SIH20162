@@ -1,12 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
+
+// 11 Master Views
 import { OverviewView } from './views/OverviewView';
-import { GisMapView } from './views/GisMapView';
-import { DetectionsView } from './views/DetectionsView';
+import { EarthIntelligenceView } from './views/EarthIntelligenceView';
+import { ThermalIntelligenceView } from './views/ThermalIntelligenceView';
+import { DetectionExplorerView } from './views/DetectionExplorerView';
 import { AlertsView } from './views/AlertsView';
 import { AnalyticsView } from './views/AnalyticsView';
-import { HistoryView } from './views/HistoryView';
+import { GisInvestigationView } from './views/GisInvestigationView';
+import { SatelliteDataView } from './views/SatelliteDataView';
+import { AiIntelligenceView } from './views/AiIntelligenceView';
+import { SpaceExplorerView } from './views/SpaceExplorerView';
+import { SettingsView } from './views/SettingsView';
+import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 
 import {
   getHealth,
@@ -19,24 +27,29 @@ import {
 } from './services/api';
 
 export function App() {
-  const [currentTab, setCurrentTab] = useState('gis-map');
-  const [focusedDetection, setFocusedDetection] = useState(null);
+  // 01 Overview is the main landing page per Section 6
+  const [currentTab, setCurrentTab] = useState('overview');
+  const [selectedDetection, setSelectedDetection] = useState(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isIngesting, setIsIngesting] = useState(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const isFetchingRef = useRef(false);
-
-  // Focus a detection on 3D Earth / GIS Map
-  const handleFocusDetection = (detection) => {
-    setFocusedDetection(detection);
-    setCurrentTab('gis-map');
-  };
 
   // Core Data States
   const [analytics, setAnalytics] = useState(null);
   const [detections, setDetections] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [recentAlerts, setRecentAlerts] = useState([]);
+
+  // Focus a detection on 3D Earth / Global Command Deck
+  const handleFocusDetection = (detection) => {
+    setSelectedDetection(detection);
+    // If user is already on overview, keep on overview so hero 3D Earth centers; otherwise switch to earth-intel
+    if (currentTab !== 'overview') {
+      setCurrentTab('earth-intel');
+    }
+  };
 
   // Fetch all backend data
   const loadDashboardData = useCallback(async () => {
@@ -63,7 +76,7 @@ export function App() {
 
       // 3. Fetch Detections
       try {
-        const detData = await getDetections({ limit: 100 });
+        const detData = await getDetections({ limit: 200 });
         setDetections(detData.items || []);
       } catch (e) {
         console.warn('Detections fetch failed:', e);
@@ -71,7 +84,7 @@ export function App() {
 
       // 4. Fetch Alerts
       try {
-        const alertData = await getAlerts({ limit: 50 });
+        const alertData = await getAlerts({ limit: 100 });
         setAlerts(alertData.items || []);
       } catch (e) {
         console.warn('Alerts fetch failed:', e);
@@ -79,7 +92,7 @@ export function App() {
 
       // 5. Fetch Recent Alerts
       try {
-        const recent = await getRecentAlerts(10);
+        const recent = await getRecentAlerts(12);
         setRecentAlerts(recent || []);
       } catch (e) {
         console.warn('Recent alerts fetch failed:', e);
@@ -147,25 +160,35 @@ export function App() {
 
   const getPageTitle = () => {
     switch (currentTab) {
-      case 'gis-map':
-        return '3D Earth Satellite Monitoring & GIS';
       case 'overview':
-        return 'System Overview & Telemetry';
-      case 'detections':
-        return 'Satellite Thermal Hotspot Records';
+        return 'Overview Dashboard';
+      case 'earth-intel':
+        return 'Earth Intelligence';
+      case 'thermal-intel':
+        return 'Thermal Intelligence';
+      case 'detection-explorer':
+        return 'Detection Explorer';
       case 'alerts':
-        return 'Incident Alert Review & Verification Stream';
+        return 'Incident Alert Stream';
       case 'analytics':
-        return 'Thermal Source Analytics & Distributions';
-      case 'history':
-        return 'Historical Observation Archives';
+        return 'Thermal Analytics & Trends';
+      case 'gis-investigation':
+        return 'GIS Investigation Deck';
+      case 'satellite-data':
+        return 'Satellite Constellation Data';
+      case 'ai-intelligence':
+        return 'AI Model Intelligence';
+      case 'space-explorer':
+        return 'Educational Space Explorer';
+      case 'settings':
+        return 'Flight Deck Settings';
       default:
-        return 'Dashboard';
+        return 'SATRA Command';
     }
   };
 
   const unverifiedAlertsCount = alerts.filter(
-    (a) => a.verification_status === 'REQUIRES_VERIFICATION'
+    (a) => a.verification_status === 'REQUIRES_VERIFICATION' || a.alert_level === 'CRITICAL'
   ).length;
 
   return (
@@ -186,34 +209,60 @@ export function App() {
           onRefresh={loadDashboardData}
           onIngestSample={handleIngestTestHotspot}
           isIngesting={isIngesting}
+          detections={detections}
+          alerts={alerts}
+          onFocusDetection={handleFocusDetection}
+          onNavigate={setCurrentTab}
+          onOpenUploadModal={() => setIsUploadModalOpen(true)}
         />
 
         <div className="content-body">
+          {/* 01 Overview */}
           {currentTab === 'overview' && (
             <OverviewView
               analytics={analytics}
+              detections={detections}
               recentAlerts={recentAlerts}
               onNavigate={setCurrentTab}
               onUpdateAlertStatus={handleUpdateAlertStatus}
               onFocusDetection={handleFocusDetection}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onOpenUploadModal={() => setIsUploadModalOpen(true)}
             />
           )}
 
-          {currentTab === 'gis-map' && (
-            <GisMapView
-              initialSelectedDetection={focusedDetection}
-            />
-          )}
-
-          {currentTab === 'detections' && (
-            <DetectionsView
+          {/* 02 Earth Intelligence */}
+          {currentTab === 'earth-intel' && (
+            <EarthIntelligenceView
               detections={detections}
-              onRefresh={loadDashboardData}
-              loading={loading}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+            />
+          )}
+
+          {/* 03 Thermal Intelligence */}
+          {currentTab === 'thermal-intel' && (
+            <ThermalIntelligenceView
+              detections={detections}
+              analytics={analytics}
               onFocusDetection={handleFocusDetection}
             />
           )}
 
+          {/* 04 Detection Explorer */}
+          {currentTab === 'detection-explorer' && (
+            <DetectionExplorerView
+              detections={detections}
+              onRefresh={loadDashboardData}
+              loading={loading}
+              onFocusDetection={handleFocusDetection}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+            />
+          )}
+
+          {/* 05 Alerts */}
           {currentTab === 'alerts' && (
             <AlertsView
               alerts={alerts}
@@ -224,14 +273,61 @@ export function App() {
             />
           )}
 
+          {/* 06 Analytics */}
           {currentTab === 'analytics' && (
             <AnalyticsView analytics={analytics} />
           )}
 
-          {currentTab === 'history' && (
-            <HistoryView detections={detections} />
+          {/* 07 GIS Investigation */}
+          {currentTab === 'gis-investigation' && (
+            <GisInvestigationView
+              detections={detections}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onFocusDetection={handleFocusDetection}
+              onRefresh={loadDashboardData}
+            />
+          )}
+
+          {/* 08 Satellite Data */}
+          {currentTab === 'satellite-data' && (
+            <SatelliteDataView
+              detections={detections}
+              isBackendHealthy={isBackendHealthy}
+              onOpenUploadModal={() => setIsUploadModalOpen(true)}
+            />
+          )}
+
+          {/* 09 AI Intelligence */}
+          {currentTab === 'ai-intelligence' && (
+            <AiIntelligenceView />
+          )}
+
+          {/* 10 Space Explorer */}
+          {currentTab === 'space-explorer' && (
+            <SpaceExplorerView />
+          )}
+
+          {/* 11 Settings */}
+          {currentTab === 'settings' && (
+            <SettingsView detections={detections} />
           )}
         </div>
+
+        {/* SATRA Core Pipeline Modal: Upload & AI Analysis */}
+        <UploadAndAnalyzeModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onAnalysisSuccess={(newDetection) => {
+            if (newDetection) {
+              setDetections((prev) => [newDetection, ...prev]);
+            }
+            loadDashboardData();
+          }}
+          onViewExactLocation={(detection) => {
+            handleFocusDetection(detection);
+          }}
+        />
       </main>
     </div>
   );

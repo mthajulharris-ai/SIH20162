@@ -78,6 +78,24 @@ export async function predictAndStoreObservation(observationPayload) {
   });
 }
 
+export async function uploadAndAnalyzeSatelliteFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const res = await fetch(`${API_V1}/inference/upload-and-analyze`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message = errorData.message || errorData.detail || `Upload failed with HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  return await res.json();
+}
+
 // 5. Alerts
 export async function getAlerts(params = {}) {
   const query = new URLSearchParams();

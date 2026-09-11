@@ -1,8 +1,25 @@
 import React, { useState } from 'react';
-import { AlertTriangle, ShieldAlert, CheckCircle2, Clock, XCircle, Info, Edit3 } from 'lucide-react';
-import { StatusBadge, ProvenanceBadge } from '../components/StatusBadge';
+import {
+  AlertTriangle,
+  ShieldAlert,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  Info,
+  Edit3,
+  Globe,
+  Filter,
+  RefreshCw,
+} from 'lucide-react';
+import { StatusBadge, ProvenanceBadge, ClassBadge } from '../components/StatusBadge';
 
-export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loading = false }) {
+export function AlertsView({
+  alerts = [],
+  onUpdateAlertStatus,
+  onRefresh,
+  loading = false,
+  onFocusDetection,
+}) {
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
   const [selectedSeverityFilter, setSelectedSeverityFilter] = useState('');
   const [selectedProvenanceFilter, setSelectedProvenanceFilter] = useState('');
@@ -38,40 +55,40 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
   };
 
   return (
-    <div>
-      {/* Safety Notice Banner */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* Safety & Protocol Banner */}
       <div
         style={{
-          background: 'rgba(239, 68, 68, 0.08)',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
-          borderRadius: '8px',
+          background: 'rgba(15, 32, 50, 0.7)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
           padding: '12px 18px',
-          marginBottom: '20px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          fontSize: '13px',
+          gap: '14px',
+          fontSize: '12.5px',
           color: 'var(--text-secondary)',
         }}
       >
-        <ShieldAlert size={20} style={{ color: 'var(--accent-red)', flexShrink: 0 }} />
+        <ShieldAlert size={18} style={{ color: 'var(--thermal-red)', flexShrink: 0 }} />
         <div>
-          <strong style={{ color: '#FFFFFF' }}>Verification Protocol:</strong> Alerts in this feed are generated automatically by satellite anomaly classification and <strong>require ground verification</strong>. Do not mobilize critical emergency units without multi-source confirmation.
+          <strong style={{ color: '#FFFFFF' }}>Human-in-the-Loop Incident Verification Queue:</strong> Satellite thermal
+          alerts require human/drone ground confirmation. Update verification states to dispatch inspection units or dismiss controlled flares.
         </div>
       </div>
 
-      {/* Filter Bar */}
+      {/* Multi-Filter Bar */}
       <div className="filter-bar">
         <select
           value={selectedSeverityFilter}
           onChange={(e) => setSelectedSeverityFilter(e.target.value)}
           className="filter-input"
         >
-          <option value="">All Severities</option>
-          <option value="CRITICAL">Critical Only</option>
-          <option value="HIGH">High Severity Only</option>
-          <option value="MEDIUM">Medium Severity Only</option>
-          <option value="LOW_CONFIDENCE_REVIEW">Low-Confidence Review Only</option>
+          <option value="">All Alert Severities</option>
+          <option value="CRITICAL">Critical Priority</option>
+          <option value="HIGH">High Severity</option>
+          <option value="MEDIUM">Medium Severity</option>
+          <option value="LOW">Low / Advisory</option>
         </select>
 
         <select
@@ -83,7 +100,7 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
           <option value="REQUIRES_VERIFICATION">Requires Verification</option>
           <option value="UNDER_REVIEW">Under Review</option>
           <option value="VERIFIED">Ground Verified</option>
-          <option value="DISMISSED">Dismissed</option>
+          <option value="DISMISSED">Dismissed / Controlled</option>
         </select>
 
         <select
@@ -96,17 +113,22 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
           <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
           <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
+
+        <button onClick={onRefresh} disabled={loading} className="btn-secondary">
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          <span>Sync</span>
+        </button>
       </div>
 
       {/* Alerts Table Panel */}
-      <div className="card-panel">
+      <div className="card-panel" style={{ marginBottom: 0 }}>
         <div className="panel-header">
           <div>
             <div className="panel-title">
-              <AlertTriangle size={18} style={{ color: 'var(--accent-red)' }} />
-              Active Incident Alert Stream ({filtered.length})
+              <AlertTriangle size={17} style={{ color: 'var(--thermal-red)' }} />
+              Active Thermal Incident Alert Queue ({filtered.length})
             </div>
-            <div className="panel-subtitle">Operational queue for thermal hazard monitoring</div>
+            <div className="panel-subtitle">Multi-tier satellite thermal hazard stream</div>
           </div>
         </div>
 
@@ -114,72 +136,80 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
           <table className="data-table">
             <thead>
               <tr>
-                <th>Alert Level</th>
+                <th>Level</th>
                 <th>Alert Title & Telemetry</th>
-                <th>AI Classification</th>
+                <th>Classification</th>
                 <th>Confidence</th>
-                <th>Origin</th>
                 <th>FRP (MW)</th>
+                <th>Origin</th>
                 <th>Verification State</th>
-                <th>Action</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length > 0 ? (
                 filtered.map((alert) => (
                   <tr key={alert.id}>
-                    <td>
-                      <StatusBadge status={alert.alert_level} type="severity" />
-                    </td>
-                    <td style={{ maxWidth: '360px' }}>
-                      <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginBottom: '3px' }}>
+                    <td><StatusBadge status={alert.alert_level} type="severity" /></td>
+                    <td style={{ maxWidth: '340px' }}>
+                      <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginBottom: '2px' }}>
                         {alert.title}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
+                      <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
                         {alert.message}
                       </div>
-                      <div style={{ fontSize: '11px', color: 'var(--accent-cyan)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-                        {parseFloat(alert.latitude).toFixed(4)}, {parseFloat(alert.longitude).toFixed(4)} | {alert.acq_date} {alert.acq_time} UTC &bull; {alert.model_version || '2.0.0'}
+                      <div style={{ fontSize: '11px', color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                        {parseFloat(alert.latitude).toFixed(4)}°, {parseFloat(alert.longitude).toFixed(4)}° &bull; {alert.acq_date} {alert.acq_time} UTC
                       </div>
                     </td>
+                    <td><ClassBadge predictedClass={alert.predicted_class} /></td>
+                    <td className="mono-cell" style={{ fontWeight: 600 }}>
+                      {alert.prediction_confidence ? `${(parseFloat(alert.prediction_confidence) * 100).toFixed(1)}%` : '—'}
+                    </td>
+                    <td className="mono-cell" style={{ color: 'var(--thermal-orange)', fontWeight: 600 }}>
+                      {alert.frp ? `${parseFloat(alert.frp).toFixed(1)}` : '—'}
+                    </td>
+                    <td><ProvenanceBadge provenance={alert.data_provenance} /></td>
+                    <td><StatusBadge status={alert.verification_status} type="verification" /></td>
                     <td>
-                      <span style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '12.5px' }}>
-                        {alert.predicted_class}
-                      </span>
-                    </td>
-                    <td className="mono-cell" style={{ fontWeight: 700 }}>
-                      {(parseFloat(alert.confidence || 0) * 100).toFixed(1)}%
-                    </td>
-                    <td>
-                      <ProvenanceBadge provenance={alert.data_provenance} />
-                    </td>
-                    <td className="mono-cell" style={{ color: 'var(--accent-orange)' }}>
-                      {alert.frp !== null && alert.frp !== undefined ? `${parseFloat(alert.frp).toFixed(1)} MW` : '—'}
-                    </td>
-                    <td>
-                      <StatusBadge status={alert.verification_status} type="verification" />
-                      {alert.verification_notes && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', fontStyle: 'italic' }}>
-                          "{alert.verification_notes}"
-                        </div>
-                      )}
-                    </td>
-                    <td>
-                      <button
-                        onClick={() => handleOpenReviewModal(alert)}
-                        className="btn-secondary"
-                        style={{ fontSize: '11.5px', padding: '5px 10px' }}
-                      >
-                        <Edit3 size={12} />
-                        <span>Update</span>
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {onFocusDetection && (
+                          <button
+                            onClick={() => {
+                              onFocusDetection({
+                                id: alert.detection_id || alert.id,
+                                latitude: alert.latitude,
+                                longitude: alert.longitude,
+                                predicted_class: alert.predicted_class,
+                                frp: alert.frp,
+                                source: 'VIIRS',
+                              });
+                            }}
+                            className="btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                            title="Focus on 3D Earth"
+                          >
+                            <Globe size={12} />
+                            <span>Focus</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenReviewModal(alert)}
+                          className="btn-primary"
+                          style={{ padding: '4px 8px', fontSize: '11px', gap: '4px' }}
+                          title="Update verification status"
+                        >
+                          <Edit3 size={12} />
+                          <span>Review</span>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-                    No alerts match the selected criteria.
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                    No alerts match the active filters.
                   </td>
                 </tr>
               )}
@@ -188,20 +218,44 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
         </div>
       </div>
 
-      {/* Verification Update Modal */}
+      {/* Review Modal Dialog */}
       {modalAlert && (
-        <div className="modal-backdrop">
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(5, 11, 20, 0.85)',
+            backdropFilter: 'blur(6px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
           <div className="modal-card">
-            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '8px' }}>
-              Update Alert Verification Status
-            </h3>
-            <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Alert #{modalAlert.id}: {modalAlert.title}
-            </p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>
+                Verify Incident Alert #{modalAlert.id}
+              </div>
+              <button
+                onClick={() => setModalAlert(null)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '16px' }}
+              >
+                &times;
+              </button>
+            </div>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Verification State
+            <div style={{ marginBottom: '14px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+              <strong>Target:</strong> {modalAlert.title} &bull; Coordinates: {parseFloat(modalAlert.latitude).toFixed(4)}°, {parseFloat(modalAlert.longitude).toFixed(4)}°
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Update Verification State
               </label>
               <select
                 value={newStatus}
@@ -209,22 +263,22 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
                 className="filter-input"
                 style={{ width: '100%' }}
               >
-                <option value="REQUIRES_VERIFICATION">REQUIRES VERIFICATION (Default)</option>
-                <option value="UNDER_REVIEW">UNDER REVIEW (Inspection Dispatched)</option>
-                <option value="VERIFIED">GROUND VERIFIED (Confirmed on field)</option>
-                <option value="DISMISSED">DISMISSED (Benign / Controlled Flare)</option>
+                <option value="REQUIRES_VERIFICATION">Requires Verification</option>
+                <option value="UNDER_REVIEW">Under Review (Inspector / Drone Assigned)</option>
+                <option value="VERIFIED">Ground Verified (Confirmed Incident)</option>
+                <option value="DISMISSED">Dismissed (Controlled Flare / False Anomaly)</option>
               </select>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '6px' }}>
-                Operational Notes
+            <div style={{ marginBottom: '18px' }}>
+              <label style={{ display: 'block', fontSize: '11.5px', color: 'var(--text-muted)', marginBottom: '6px' }}>
+                Operator / Field Inspection Notes
               </label>
               <textarea
-                rows={3}
                 value={reviewNotes}
                 onChange={(e) => setReviewNotes(e.target.value)}
-                placeholder="Add ground sensor notes, inspector comments, or drone inspection results..."
+                rows={3}
+                placeholder="Log field inspection team notes, drone observation data, or reason for dismissal..."
                 className="filter-input"
                 style={{ width: '100%', resize: 'vertical' }}
               />
@@ -236,10 +290,10 @@ export function AlertsView({ alerts = [], onUpdateAlertStatus, onRefresh, loadin
               </button>
               <button
                 onClick={handleSaveStatus}
-                disabled={updatingAlertId !== null}
+                disabled={updatingAlertId === modalAlert.id}
                 className="btn-primary"
               >
-                {updatingAlertId ? 'Saving...' : 'Save Verification'}
+                {updatingAlertId === modalAlert.id ? 'Updating...' : 'Save Verification State'}
               </button>
             </div>
           </div>

@@ -93,6 +93,139 @@ function createFallbackEarthTexture() {
   return new THREE.CanvasTexture(canvas);
 }
 
+/**
+ * Procedural Fallback Blue Digital Earth Texture with tactical graticules.
+ * Used for THERMAL mode when assets load or offline.
+ */
+function createFallbackBlueDigitalEarthTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 2048;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+
+  // Deep space midnight navy ocean
+  const oceanGrad = ctx.createLinearGradient(0, 0, 0, 1024);
+  oceanGrad.addColorStop(0, '#020b18');
+  oceanGrad.addColorStop(0.5, '#031428');
+  oceanGrad.addColorStop(1, '#020b18');
+  ctx.fillStyle = oceanGrad;
+  ctx.fillRect(0, 0, 2048, 1024);
+
+  // Digital coordinate grid
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.16)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < 2048; x += 32) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, 1024);
+    ctx.stroke();
+  }
+  for (let y = 0; y < 1024; y += 32) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(2048, y);
+    ctx.stroke();
+  }
+
+  // Major parallels & meridians
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+  ctx.lineWidth = 2;
+  // Equator
+  ctx.beginPath();
+  ctx.moveTo(0, 512);
+  ctx.lineTo(2048, 512);
+  ctx.stroke();
+  // Prime Meridian
+  ctx.beginPath();
+  ctx.moveTo(1024, 0);
+  ctx.lineTo(1024, 1024);
+  ctx.stroke();
+
+  return new THREE.CanvasTexture(canvas);
+}
+
+/**
+ * Generate pure deep blue digital Earth texture from NASA Blue Marble daymap.
+ * Converts landmasses to electric cobalt/blue contours and oceans to deep space navy,
+ * fulfilling the axiom: BLUE = EARTH, RED = THERMAL ANOMALIES.
+ */
+function createBlueDigitalTextureFromImage(image, renderer) {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 2048;
+    canvas.height = 1024;
+    const ctx = canvas.getContext('2d');
+
+    ctx.drawImage(image, 0, 0, 2048, 1024);
+    const imgData = ctx.getImageData(0, 0, 2048, 1024);
+    const d = imgData.data;
+
+    for (let i = 0; i < d.length; i += 4) {
+      const r = d[i];
+      const g = d[i + 1];
+      const b = d[i + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+      // In NASA Blue Marble, open water has low red/green, dominant blue, or lum < 38
+      const isWater = (b > r + 6 && b > g + 4) || lum < 38;
+
+      if (isWater) {
+        // Pure deep cosmic navy ocean
+        d[i] = 2;       // R
+        d[i + 1] = 11;   // G
+        d[i + 2] = 28;   // B
+      } else {
+        // Continent / Land: Pure Digital Deep Blue / Vibrant Cyan
+        // Land appears purely blue without green/brown dominant visuals
+        const norm = Math.min(1.0, Math.max(0.0, (lum - 36) / 135));
+        d[i] = Math.round(2 + norm * 20);       // R (2 - 22, near zero)
+        d[i + 1] = Math.round(62 + norm * 110);  // G (62 - 172, cyan undertone)
+        d[i + 2] = Math.round(125 + norm * 130); // B (125 - 255, pure electric blue)
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+
+    // Overlay subtle tactical graticule lines
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.14)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < 2048; x += 64) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, 1024);
+      ctx.stroke();
+    }
+    for (let y = 0; y < 1024; y += 64) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(2048, y);
+      ctx.stroke();
+    }
+
+    // Equator & Prime Meridian
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.38)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 512);
+    ctx.lineTo(2048, 512);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(1024, 0);
+    ctx.lineTo(1024, 1024);
+    ctx.stroke();
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = renderer?.capabilities?.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
+    tex.generateMipmaps = true;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    return tex;
+  } catch (err) {
+    console.warn('Could not generate dynamic blue digital texture:', err);
+    return null;
+  }
+}
+
 // Camera Distance Presets (Sensible limits to prevent Earth texture pixelation)
 const CAMERA_DIST_GLOBAL = 240;    // State 1: Global full Earth overview
 const CAMERA_DIST_REGIONAL = 200;  // State 2: Regional view
@@ -105,6 +238,8 @@ export function EarthGlobe3D({
   selectedDetection = null,
   onSelectDetection = () => {},
   onSwitchTo2D = () => {},
+  initialMode = 'normal',
+  onModeChange = null,
 }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
@@ -113,7 +248,18 @@ export function EarthGlobe3D({
   const earthGroupRef = useRef(null);
   const markersGroupRef = useRef(null);
   const cloudsMeshRef = useRef(null);
+  const nightMeshRef = useRef(null);
+  const earthMatRef = useRef(null);
+  const daymapTexRef = useRef(null);
+  const blueDigitalTexRef = useRef(null);
   const animFrameIdRef = useRef(null);
+
+  // Visualization Mode: 'normal' | 'thermal' | 'hybrid'
+  const [earthMode, setEarthMode] = useState(initialMode || 'normal');
+  const earthModeRef = useRef(earthMode);
+  useEffect(() => {
+    earthModeRef.current = earthMode;
+  }, [earthMode]);
 
   // Interaction State Refs
   const isDraggingRef = useRef(false);
@@ -238,14 +384,19 @@ export function EarthGlobe3D({
     // Texture Loader with Anisotropic Filtering
     const textureLoader = new THREE.TextureLoader();
     const fallbackTex = createFallbackEarthTexture();
+    const fallbackBlueTex = createFallbackBlueDigitalEarthTexture();
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
 
+    const initialIsThermal = earthModeRef.current === 'thermal';
     const earthMat = new THREE.MeshStandardMaterial({
-      map: fallbackTex,
-      roughness: 0.78,
-      metalness: 0.12,
+      map: initialIsThermal ? fallbackBlueTex : fallbackTex,
+      roughness: initialIsThermal ? 0.48 : 0.78,
+      metalness: initialIsThermal ? 0.28 : 0.12,
+      color: initialIsThermal ? new THREE.Color(0x38bdf8) : new THREE.Color(0xffffff),
+      emissive: initialIsThermal ? new THREE.Color(0x021f3f) : new THREE.Color(0x000000),
     });
+    earthMatRef.current = earthMat;
 
     const earthMesh = new THREE.Mesh(earthGeo, earthMat);
     earthGroup.add(earthMesh);
@@ -259,7 +410,30 @@ export function EarthGlobe3D({
         tex.generateMipmaps = true;
         tex.minFilter = THREE.LinearMipmapLinearFilter;
         tex.magFilter = THREE.LinearFilter;
-        earthMat.map = tex;
+        daymapTexRef.current = tex;
+
+        // Generate high-resolution pure blue digital Earth texture
+        if (tex.image) {
+          const blueTex = createBlueDigitalTextureFromImage(tex.image, renderer);
+          if (blueTex) {
+            blueDigitalTexRef.current = blueTex;
+          }
+        }
+
+        // Apply active mode texture immediately
+        if (earthModeRef.current === 'thermal') {
+          earthMat.map = blueDigitalTexRef.current || fallbackBlueTex;
+          earthMat.color.setHex(0x38bdf8);
+          earthMat.emissive.setHex(0x021f3f);
+          earthMat.roughness = 0.48;
+          earthMat.metalness = 0.28;
+        } else {
+          earthMat.map = tex;
+          earthMat.color.setHex(0xffffff);
+          earthMat.emissive.setHex(0x000000);
+          earthMat.roughness = 0.78;
+          earthMat.metalness = 0.12;
+        }
         earthMat.needsUpdate = true;
       },
       undefined,
@@ -272,11 +446,12 @@ export function EarthGlobe3D({
     const cloudsGeo = new THREE.SphereGeometry(earthRadius + 0.85, 64, 64);
     const cloudsMat = new THREE.MeshStandardMaterial({
       transparent: true,
-      opacity: 0.24,
+      opacity: 0.28,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
     const cloudsMesh = new THREE.Mesh(cloudsGeo, cloudsMat);
+    cloudsMesh.visible = earthModeRef.current !== 'thermal';
     earthGroup.add(cloudsMesh);
     cloudsMeshRef.current = cloudsMesh;
 
@@ -287,6 +462,28 @@ export function EarthGlobe3D({
         tex.anisotropy = maxAnisotropy;
         cloudsMat.map = tex;
         cloudsMat.needsUpdate = true;
+      },
+      undefined,
+      () => {}
+    );
+
+    // 8b. Night City Lights Layer (NASA Black Marble illumination)
+    textureLoader.load(
+      '/textures/earth_lights.png',
+      (lightsTex) => {
+        lightsTex.colorSpace = THREE.SRGBColorSpace;
+        lightsTex.anisotropy = maxAnisotropy;
+        const nightMat = new THREE.MeshBasicMaterial({
+          map: lightsTex,
+          blending: THREE.AdditiveBlending,
+          transparent: true,
+          opacity: 0.45,
+          depthWrite: false,
+        });
+        const nightMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.15, 64, 64), nightMat);
+        nightMesh.visible = earthModeRef.current !== 'thermal';
+        earthGroup.add(nightMesh);
+        nightMeshRef.current = nightMesh;
       },
       undefined,
       () => {}
@@ -305,8 +502,8 @@ export function EarthGlobe3D({
       fragmentShader: `
         varying vec3 vNormal;
         void main() {
-          float intensity = pow(0.68 - dot(vNormal, vec3(0, 0, 1.0)), 2.8);
-          gl_FragColor = vec4(0.22, 0.68, 0.98, 1.0) * intensity * 0.85;
+          float intensity = pow(0.66 - dot(vNormal, vec3(0, 0, 1.0)), 2.6);
+          gl_FragColor = vec4(0.24, 0.72, 1.0, 1.0) * intensity * 1.05;
         }
       `,
       blending: THREE.AdditiveBlending,
@@ -612,7 +809,48 @@ export function EarthGlobe3D({
     };
   }, []);
 
-  // Update Hotspot Markers when detections or selection change
+  // Handle Instant Earth Visualization Mode Switching in Three.js
+  useEffect(() => {
+    if (!earthMatRef.current) return;
+    const earthMat = earthMatRef.current;
+
+    if (earthMode === 'normal') {
+      if (daymapTexRef.current) {
+        earthMat.map = daymapTexRef.current;
+      }
+      earthMat.color.setHex(0xffffff);
+      earthMat.emissive.setHex(0x000000);
+      earthMat.roughness = 0.78;
+      earthMat.metalness = 0.12;
+      earthMat.needsUpdate = true;
+      if (cloudsMeshRef.current) cloudsMeshRef.current.visible = true;
+      if (nightMeshRef.current) nightMeshRef.current.visible = true;
+    } else if (earthMode === 'thermal') {
+      if (blueDigitalTexRef.current) {
+        earthMat.map = blueDigitalTexRef.current;
+      }
+      earthMat.color.setHex(0x38bdf8);
+      earthMat.emissive.setHex(0x021f3f);
+      earthMat.roughness = 0.48;
+      earthMat.metalness = 0.28;
+      earthMat.needsUpdate = true;
+      if (cloudsMeshRef.current) cloudsMeshRef.current.visible = false;
+      if (nightMeshRef.current) nightMeshRef.current.visible = false;
+    } else if (earthMode === 'hybrid') {
+      if (daymapTexRef.current) {
+        earthMat.map = daymapTexRef.current;
+      }
+      earthMat.color.setHex(0xffffff);
+      earthMat.emissive.setHex(0x000000);
+      earthMat.roughness = 0.78;
+      earthMat.metalness = 0.12;
+      earthMat.needsUpdate = true;
+      if (cloudsMeshRef.current) cloudsMeshRef.current.visible = true;
+      if (nightMeshRef.current) nightMeshRef.current.visible = true;
+    }
+  }, [earthMode]);
+
+  // Update Hotspot Markers when detections, selection, or earthMode change
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const group = markersGroupRef.current;
@@ -654,56 +892,153 @@ export function EarthGlobe3D({
         isSelected: !!isSelected,
       };
 
-      const pClassLower = (d.predicted_class || '').toLowerCase();
-      const isIndustrial = pClassLower.includes('industrial');
-      const isPersistent = pClassLower.includes('persistent') || d.is_persistent;
-      const isLowConf =
-        parseFloat(d.prediction_confidence || 0.9) < 0.6 ||
-        d.uncertainty_flag === 'LOW_CONFIDENCE_REVIEW';
+      const frpVal = parseFloat(d.frp || 20);
+      const isCritical = d.alert_level === 'CRITICAL' || frpVal >= 80;
+      const isHighFRP = frpVal >= 50;
+      const isMediumFRP = frpVal >= 20;
 
-      // Colors
-      let mainColor = 0x06b6d4; // Cyan (other)
-      let beamHeight = 7.0;
+      let mainColor = 0xef4444; // Standard thermal red
+      let coreColor = 0xffffff;
+      let coreRadius = 0.95;
+      let beamHeight = 8.0;
+      let showOuterWave = false;
+      let beamOpacity = 0.75;
 
-      if (isIndustrial) {
-        mainColor = 0xef4444; // Red (Industrial Fire)
-        beamHeight = Math.min(22, 11 + parseFloat(d.frp || 40) / 9);
-      } else if (isPersistent) {
-        mainColor = 0xf59e0b; // Amber (Persistent Thermal Source)
-        beamHeight = Math.min(17, 8 + parseFloat(d.frp || 25) / 11);
-      }
+      if (earthMode === 'thermal') {
+        // ========================================================
+        // MODE 2: THERMAL EARTH (BLUE = EARTH, RED = THERMAL HOTSPOT)
+        // FRP-driven visual hierarchy:
+        // - Low (<20 MW): small red point
+        // - Medium (20-50 MW): brighter/larger red point
+        // - High (>=50 MW): strong bright red glow + tall beam
+        // - Critical / Selected: bright red center + pulsing ring + expanding wave
+        // ========================================================
+        if (isSelected) {
+          mainColor = 0xff1e1e; // Vivid scarlet red
+          coreColor = 0xffffff;
+          coreRadius = 1.85;
+          beamHeight = 26.0;
+          beamOpacity = 0.98;
+          showOuterWave = true;
+        } else if (isCritical) {
+          mainColor = 0xff1e1e;
+          coreColor = 0xffe4e6;
+          coreRadius = 1.6;
+          beamHeight = 22.0;
+          beamOpacity = 0.92;
+          showOuterWave = true;
+        } else if (isHighFRP) {
+          mainColor = 0xff2222;
+          coreColor = 0xff4545;
+          coreRadius = 1.35;
+          beamHeight = 16.0;
+          beamOpacity = 0.85;
+          showOuterWave = true;
+        } else if (isMediumFRP) {
+          mainColor = 0xef4444;
+          coreColor = 0xef4444;
+          coreRadius = 1.05;
+          beamHeight = 11.0;
+          beamOpacity = 0.75;
+          showOuterWave = false;
+        } else {
+          // Low FRP (< 20 MW)
+          mainColor = 0xdc2626;
+          coreColor = 0xdc2626;
+          coreRadius = 0.8;
+          beamHeight = 6.5;
+          beamOpacity = 0.65;
+          showOuterWave = false;
+        }
+      } else if (earthMode === 'hybrid') {
+        // ========================================================
+        // MODE 3: HYBRID EARTH (REALISTIC EARTH + RED THERMAL INTELLIGENCE)
+        // High-contrast red thermal anomaly overlay on natural textures
+        // ========================================================
+        if (isSelected) {
+          mainColor = 0xff1e1e;
+          coreColor = 0xffffff;
+          coreRadius = 1.8;
+          beamHeight = 25.0;
+          beamOpacity = 0.95;
+          showOuterWave = true;
+        } else if (isCritical || isHighFRP) {
+          mainColor = 0xef4444;
+          coreColor = 0xff4545;
+          coreRadius = 1.4;
+          beamHeight = 18.0;
+          beamOpacity = 0.88;
+          showOuterWave = true;
+        } else {
+          mainColor = 0xef4444;
+          coreColor = 0xef4444;
+          coreRadius = 1.0;
+          beamHeight = 10.0;
+          beamOpacity = 0.7;
+          showOuterWave = false;
+        }
+      } else {
+        // ========================================================
+        // MODE 1: NORMAL EARTH (REALISTIC EARTH OBSERVATION)
+        // Subtle markers that preserve the natural Earth visual
+        // ========================================================
+        const pClassLower = (d.predicted_class || '').toLowerCase();
+        const isIndustrial = pClassLower.includes('industrial');
+        const isPersistent = pClassLower.includes('persistent');
 
-      if (isLowConf) {
-        mainColor = 0xa855f7; // Purple uncertainty
-      }
-
-      if (isSelected) {
-        beamHeight += 6.0; // Taller beacon for selected target
+        if (isSelected) {
+          mainColor = 0xff1e1e;
+          coreColor = 0xffffff;
+          coreRadius = 1.5;
+          beamHeight = 22.0;
+          beamOpacity = 0.9;
+          showOuterWave = true;
+        } else if (isIndustrial) {
+          mainColor = 0xef4444;
+          coreColor = 0xef4444;
+          coreRadius = 1.1;
+          beamHeight = 10.0;
+          beamOpacity = 0.75;
+          showOuterWave = false;
+        } else if (isPersistent) {
+          mainColor = 0xf59e0b;
+          coreColor = 0xf59e0b;
+          coreRadius = 0.95;
+          beamHeight = 8.0;
+          beamOpacity = 0.65;
+          showOuterWave = false;
+        } else {
+          mainColor = 0x38bdf8;
+          coreColor = 0x38bdf8;
+          coreRadius = 0.8;
+          beamHeight = 6.0;
+          beamOpacity = 0.6;
+          showOuterWave = false;
+        }
       }
 
       // 1. Glowing Center Point (Sphere)
-      const coreRadius = isSelected ? 1.6 : isIndustrial ? 1.25 : isPersistent ? 1.05 : 0.85;
       const coreGeo = new THREE.SphereGeometry(coreRadius, 16, 16);
       const coreMat = new THREE.MeshBasicMaterial({
-        color: isSelected ? 0xffffff : mainColor,
+        color: coreColor,
       });
       const coreMesh = new THREE.Mesh(coreGeo, coreMat);
       markerRoot.add(coreMesh);
 
       // 2. Vertical Light Beacon (Pillar pointing along surface normal)
-      const pillarGeo = new THREE.CylinderGeometry(0.2, isSelected ? 0.9 : 0.7, beamHeight, 8);
+      const pillarGeo = new THREE.CylinderGeometry(0.2, isSelected ? 0.9 : 0.6, beamHeight, 8);
       pillarGeo.rotateX(Math.PI / 2); // Orient along +Z
       pillarGeo.translate(0, 0, beamHeight / 2);
       const pillarMat = new THREE.MeshBasicMaterial({
         color: mainColor,
         transparent: true,
-        opacity: isSelected ? 0.95 : isIndustrial ? 0.8 : 0.6,
+        opacity: beamOpacity,
       });
       const pillarMesh = new THREE.Mesh(pillarGeo, pillarMat);
       markerRoot.add(pillarMesh);
 
       // 3. Pulsing Base Radar Ring on surface
-      const ringRadius = coreRadius * (isSelected ? 3.0 : 2.5);
+      const ringRadius = coreRadius * (isSelected ? 3.2 : 2.5);
       const ringGeo = new THREE.RingGeometry(ringRadius * 0.72, ringRadius, 24);
       const ringMat = new THREE.MeshBasicMaterial({
         color: mainColor,
@@ -715,9 +1050,9 @@ export function EarthGlobe3D({
       markerRoot.add(ringMesh);
       markerRoot.userData.ringMesh = ringMesh;
 
-      // 4. Expanding Radar Wave Ring (Especially for Selected Target)
-      if (isSelected || isIndustrial) {
-        const outerRadarGeo = new THREE.RingGeometry(ringRadius * 0.9, ringRadius * 1.08, 24);
+      // 4. Expanding Radar Wave Ring (Especially for Selected / Critical / High-FRP Hotspot)
+      if (showOuterWave) {
+        const outerRadarGeo = new THREE.RingGeometry(ringRadius * 0.9, ringRadius * 1.1, 24);
         const outerRadarMat = new THREE.MeshBasicMaterial({
           color: isSelected ? 0xffffff : mainColor,
           side: THREE.DoubleSide,
@@ -731,7 +1066,7 @@ export function EarthGlobe3D({
 
       group.add(markerRoot);
     });
-  }, [detections, selectedDetection]);
+  }, [detections, selectedDetection, earthMode]);
 
   // Smooth Globe Rotation & Controlled Zoom on Selected Detection
   useEffect(() => {
@@ -809,6 +1144,12 @@ export function EarthGlobe3D({
     setTimeout(() => setCopiedCoords(false), 2000);
   };
 
+  // Switch Earth Visualization Mode smoothly without page reload or camera jump
+  const handleModeSwitch = (newMode) => {
+    setEarthMode(newMode);
+    if (onModeChange) onModeChange(newMode);
+  };
+
   return (
     <div
       style={{
@@ -831,6 +1172,155 @@ export function EarthGlobe3D({
           cursor: 'grab',
         }}
       />
+
+      {/* 
+        ============================================================
+        COMPACT EARTH-VIEW MODE SELECTOR
+        [ 🌍 NORMAL ] [ 🔥 THERMAL ] [ ✦ HYBRID ]
+        Mounted prominently at top center above the 3D Earth
+        ============================================================
+      */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 25,
+          display: 'flex',
+          alignItems: 'center',
+          background: 'rgba(11, 23, 38, 0.92)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          borderRadius: '8px',
+          padding: '3px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+          gap: '4px',
+          pointerEvents: 'auto',
+        }}
+      >
+        {/* MODE 1: NORMAL */}
+        <button
+          onClick={() => handleModeSwitch('normal')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            fontSize: '11.5px',
+            fontWeight: earthMode === 'normal' ? 700 : 500,
+            color: earthMode === 'normal' ? '#FFFFFF' : '#94A3B8',
+            background: earthMode === 'normal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+            border: earthMode === 'normal' ? '1px solid #38BDF8' : '1px solid transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.18s ease',
+            boxShadow: earthMode === 'normal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+          }}
+          title="Normal Mode: High-quality realistic Earth with natural land, oceans, clouds, and lighting"
+        >
+          <span>🌍</span>
+          <span>NORMAL</span>
+        </button>
+
+        {/* MODE 2: THERMAL */}
+        <button
+          onClick={() => handleModeSwitch('thermal')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            fontSize: '11.5px',
+            fontWeight: earthMode === 'thermal' ? 700 : 500,
+            color: earthMode === 'thermal' ? '#FFFFFF' : '#94A3B8',
+            background: earthMode === 'thermal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+            border: earthMode === 'thermal' ? '1px solid #38BDF8' : '1px solid transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.18s ease',
+            boxShadow: earthMode === 'thermal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+          }}
+          title="Thermal Mode: Pure Blue Digital Earth with Red FIRMS Thermal Anomaly Hotspots"
+        >
+          <span style={{ color: '#EF4444' }}>🔥</span>
+          <span>THERMAL</span>
+        </button>
+
+        {/* MODE 3: HYBRID */}
+        <button
+          onClick={() => handleModeSwitch('hybrid')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '6px 14px',
+            fontSize: '11.5px',
+            fontWeight: earthMode === 'hybrid' ? 700 : 500,
+            color: earthMode === 'hybrid' ? '#FFFFFF' : '#94A3B8',
+            background: earthMode === 'hybrid' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+            border: earthMode === 'hybrid' ? '1px solid #38BDF8' : '1px solid transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            transition: 'all 0.18s ease',
+            boxShadow: earthMode === 'hybrid' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+          }}
+          title="Hybrid Mode: Realistic Earth surface combined with vivid Red Thermal Anomaly overlay"
+        >
+          <span style={{ color: '#38BDF8' }}>✦</span>
+          <span>HYBRID</span>
+        </button>
+      </div>
+
+      {/* 
+        ============================================================
+        THERMAL INTELLIGENCE LEGEND
+        Visible when THERMAL or HYBRID mode is active
+        ============================================================
+      */}
+      {(earthMode === 'thermal' || earthMode === 'hybrid') && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 20,
+            left: 16,
+            zIndex: 20,
+            background: 'rgba(11, 23, 38, 0.9)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '8px',
+            padding: '8px 12px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.55)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px',
+            fontSize: '11px',
+            color: '#94A3B8',
+            minWidth: '180px',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            Thermal Intelligence Legend
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#0284C7', border: '1px solid #38BDF8', flexShrink: 0 }} />
+            <span><strong style={{ color: '#38BDF8' }}>BLUE</strong> &mdash; Earth Surface</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', flexShrink: 0 }} />
+            <span><strong style={{ color: '#EF4444' }}>RED</strong> &mdash; Thermal Detection</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF1E1E', boxShadow: '0 0 6px #FF1E1E', flexShrink: 0 }} />
+            <span><strong style={{ color: '#FF1E1E' }}>BRIGHT RED</strong> &mdash; High Thermal FRP</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFFFFF', border: '2px solid #FF1E1E', boxShadow: '0 0 8px #FF1E1E', flexShrink: 0 }} />
+            <span><strong style={{ color: '#FF4545' }}>PULSING RED</strong> &mdash; Selected / Critical</span>
+          </div>
+        </div>
+      )}
 
       {/* Floating HUD: Top Left Status & Mode Switcher */}
       <div
@@ -1124,12 +1614,12 @@ export function EarthGlobe3D({
               lineHeight: 1.35,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-              <Crosshair size={11} style={{ color: '#EF4444' }} />
-              <span>Exact Detection</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '9.5px', fontWeight: 700, color: '#EF4444', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <Flame size={12} style={{ color: '#EF4444' }} />
+              <span>Fire Detected • Exact Target</span>
             </div>
             <div style={{ fontFamily: 'monospace', fontSize: '11px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>
-              {reticleState.lat.toFixed(6)}°, {reticleState.lon.toFixed(6)}°
+              LAT: {reticleState.lat.toFixed(6)}°<br />LON: {reticleState.lon.toFixed(6)}°
             </div>
             <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '1px' }}>
               {reticleState.cls} {reticleState.frp ? `• ${parseFloat(reticleState.frp).toFixed(1)} MW` : ''}

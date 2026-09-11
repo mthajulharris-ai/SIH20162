@@ -12,6 +12,7 @@ import {
   Info,
   Check,
   Zap,
+  Satellite,
 } from 'lucide-react';
 import { KpiCard } from '../components/KpiCard';
 import { StatusBadge } from '../components/StatusBadge';
@@ -28,83 +29,86 @@ export function AnalyticsView({ analytics }) {
   const sourceDist = analytics?.source_distribution || {};
 
   return (
-    <div>
-      {/* AI Prediction vs Real Incident Distinction Banner */}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+      {/* Notice Banner */}
       <div
         style={{
-          background: 'rgba(6, 182, 212, 0.08)',
-          border: '1px solid rgba(6, 182, 212, 0.25)',
-          borderRadius: '8px',
-          padding: '14px 18px',
-          marginBottom: '22px',
+          background: 'rgba(15, 32, 50, 0.7)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '10px',
+          padding: '12px 18px',
           display: 'flex',
           alignItems: 'center',
-          gap: '12px',
-          fontSize: '13px',
+          gap: '14px',
+          fontSize: '12.5px',
           color: 'var(--text-secondary)',
         }}
       >
-        <Info size={20} style={{ color: 'var(--accent-cyan)', flexShrink: 0 }} />
+        <Info size={18} style={{ color: 'var(--primary-cyan)', flexShrink: 0 }} />
         <div>
-          <strong style={{ color: '#FFFFFF' }}>AI Predictions vs Confirmed Incidents:</strong> All values on this
-          dashboard are computed strictly from satellite telemetry and ML model classifications. High-confidence
-          events remain <strong>unverified predictions</strong> until ground truth validation or on-site reports are logged.
+          <strong style={{ color: '#FFFFFF' }}>AI Predictions vs Confirmed Incidents:</strong> Telemetry values
+          are computed from satellite data and model v2.0.0 classifications. Unverified alerts are tracked separately from ground-confirmed incidents.
         </div>
       </div>
 
-      {/* Primary KPI Grid */}
-      <div className="kpi-grid">
+      {/* KPI Cards Grid */}
+      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: 0 }}>
         <KpiCard
-          title="Total Detections"
+          title="Total Observations"
           value={total}
-          subtext="Processed satellite hotspots"
+          subtext="Processed FIRMS hotspots"
           icon={Flame}
           accentColor="cyan"
+          badgeText="Live DB"
         />
 
         <KpiCard
-          title="Industrial Fire Predictions"
+          title="Industrial Fires"
           value={indFires}
-          subtext="AI-classified industrial events"
+          subtext="Thermal surge events"
           icon={Factory}
           accentColor="red"
+          badgeText="Critical"
         />
 
         <KpiCard
-          title="Persistent Source Predictions"
+          title="Persistent Sources"
           value={persistentSources}
-          subtext="Flares & high-recurrence sources"
+          subtext="Refinery flare recurrence"
           icon={Flame}
           accentColor="amber"
+          badgeText="Recurring"
         />
 
         <KpiCard
-          title="Other Predictions"
+          title="Other / Background"
           value={otherPreds}
-          subtext="Agricultural / vegetation / other"
+          subtext="Vegetation & seasonal"
           icon={Radio}
-          accentColor="purple"
+          accentColor="ice"
+          badgeText="Nominal"
         />
 
         <KpiCard
-          title="High-Confidence Hotspots"
+          title="High Confidence"
           value={highConf}
           subtext="Model confidence >= 80%"
           icon={Zap}
           accentColor="emerald"
+          badgeText=">= 80%"
         />
       </div>
 
-      {/* Operational Verification Status (AI Predictions vs Confirmed Incidents) */}
-      <div className="card-panel">
+      {/* Operational Incident Verification Lifecycle */}
+      <div className="card-panel" style={{ marginBottom: 0 }}>
         <div className="panel-header">
           <div>
             <div className="panel-title">
-              <ShieldAlert size={18} style={{ color: 'var(--accent-red)' }} />
-              Operational Incident Verification Lifecycle
+              <ShieldAlert size={17} style={{ color: 'var(--thermal-red)' }} />
+              Operational Verification Lifecycle Tracking
             </div>
             <div className="panel-subtitle">
-              Strictly tracks which AI predictions have been confirmed on ground versus pending verification
+              Strictly categorizes AI predictions by human-in-the-loop field verification state
             </div>
           </div>
         </div>
@@ -113,335 +117,154 @@ export function AnalyticsView({ analytics }) {
           style={{
             display: 'grid',
             gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '16px',
-            marginTop: '8px',
+            gap: '14px',
+            marginTop: '6px',
           }}
         >
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '8px',
-              background: 'rgba(139, 92, 246, 0.08)',
-              border: '1px solid rgba(139, 92, 246, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Clock size={16} style={{ color: '#C084FC' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#C084FC', textTransform: 'uppercase' }}>
-                Unverified AI Predictions
+          <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(167, 139, 250, 0.08)', border: '1px solid rgba(167, 139, 250, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Clock size={15} style={{ color: 'var(--accent-purple)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--accent-purple)', textTransform: 'uppercase' }}>
+                Requires Verification
               </span>
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
               {verBreakdown.unverified_predictions ?? 0}
             </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Automated alerts awaiting review
-            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Automated alerts awaiting triage</div>
           </div>
 
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '8px',
-              background: 'rgba(59, 130, 246, 0.08)',
-              border: '1px solid rgba(59, 130, 246, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Clock size={16} style={{ color: '#60A5FA' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#60A5FA', textTransform: 'uppercase' }}>
+          <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(69, 200, 245, 0.08)', border: '1px solid rgba(69, 200, 245, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Clock size={15} style={{ color: 'var(--primary-cyan)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--primary-cyan)', textTransform: 'uppercase' }}>
                 Under Operational Review
               </span>
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
               {verBreakdown.under_review ?? 0}
             </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Drone / inspector dispatched
-            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Drone / inspector active</div>
           </div>
 
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '8px',
-              background: 'rgba(16, 185, 129, 0.08)',
-              border: '1px solid rgba(16, 185, 129, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <CheckCircle2 size={16} style={{ color: '#34D399' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#34D399', textTransform: 'uppercase' }}>
-                Confirmed Real Incidents
+          <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(69, 212, 131, 0.08)', border: '1px solid rgba(69, 212, 131, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <CheckCircle2 size={15} style={{ color: 'var(--success)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--success)', textTransform: 'uppercase' }}>
+                Ground Confirmed
               </span>
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
               {verBreakdown.confirmed_incidents ?? 0}
             </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Confirmed by physical ground team
-            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Physical ground verification confirmed</div>
           </div>
 
-          <div
-            style={{
-              padding: '16px',
-              borderRadius: '8px',
-              background: 'rgba(100, 116, 139, 0.08)',
-              border: '1px solid rgba(100, 116, 139, 0.25)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-              <Check size={16} style={{ color: '#94A3B8' }} />
-              <span style={{ fontSize: '12px', fontWeight: 600, color: '#94A3B8', textTransform: 'uppercase' }}>
+          <div style={{ padding: '14px', borderRadius: '8px', background: 'rgba(154, 175, 194, 0.08)', border: '1px solid rgba(154, 175, 194, 0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <Check size={15} style={{ color: 'var(--text-secondary)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                 Dismissed / Controlled
               </span>
             </div>
-            <div style={{ fontSize: '26px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
               {verBreakdown.dismissed_alerts ?? 0}
             </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Controlled flares / non-emergencies
-            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>Controlled flaring / false trigger</div>
           </div>
         </div>
       </div>
 
-      {/* Class Distribution & Alert Severity Distribution */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '24px', marginBottom: '24px' }}>
+      {/* Class Distribution & Satellite Breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '20px' }}>
         {/* Class Distribution */}
         <div className="card-panel" style={{ marginBottom: 0 }}>
           <div className="panel-header">
             <div>
               <div className="panel-title">
-                <BarChart3 size={18} style={{ color: 'var(--accent-cyan)' }} />
+                <BarChart3 size={17} style={{ color: 'var(--primary-cyan)' }} />
                 AI Thermal Class Distribution
               </div>
-              <div className="panel-subtitle">Model v2 predictions across classified categories</div>
+              <div className="panel-subtitle">Model v2.0.0 predictions across categories</div>
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
-            {/* Industrial Fire */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: 600, color: '#F87171' }}>Industrial Fire</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                  {indFires} ({total > 0 ? ((indFires / total) * 100).toFixed(1) : '0.0'}%)
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--critical-red)' }}>Industrial Fire</span>
+                <span className="mono-cell">{indFires} ({total > 0 ? ((indFires / total) * 100).toFixed(1) : 0}%)</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${total > 0 ? (indFires / total) * 100 : 0}%`,
-                    height: '100%',
-                    backgroundColor: '#EF4444',
-                    borderRadius: '4px',
-                  }}
-                />
+                <div style={{ width: `${total > 0 ? (indFires / total) * 100 : 0}%`, height: '100%', backgroundColor: 'var(--critical-red)' }} />
               </div>
             </div>
 
-            {/* Persistent Thermal Source */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: 600, color: '#FBBF24' }}>Persistent Thermal Source (Flare/Smelter)</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                  {persistentSources} ({total > 0 ? ((persistentSources / total) * 100).toFixed(1) : '0.0'}%)
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--warning)' }}>Persistent Thermal Source (Flare/Smelter)</span>
+                <span className="mono-cell">{persistentSources} ({total > 0 ? ((persistentSources / total) * 100).toFixed(1) : 0}%)</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${total > 0 ? (persistentSources / total) * 100 : 0}%`,
-                    height: '100%',
-                    backgroundColor: '#F59E0B',
-                    borderRadius: '4px',
-                  }}
-                />
+                <div style={{ width: `${total > 0 ? (persistentSources / total) * 100 : 0}%`, height: '100%', backgroundColor: 'var(--warning)' }} />
               </div>
             </div>
 
-            {/* Other / Vegetation */}
             <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: 600, color: '#22D3EE' }}>Other / Vegetation Thermal Sources</span>
-                <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                  {otherPreds} ({total > 0 ? ((otherPreds / total) * 100).toFixed(1) : '0.0'}%)
-                </span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--primary-cyan)' }}>Other / Background Vegetation</span>
+                <span className="mono-cell">{otherPreds} ({total > 0 ? ((otherPreds / total) * 100).toFixed(1) : 0}%)</span>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div
-                  style={{
-                    width: `${total > 0 ? (otherPreds / total) * 100 : 0}%`,
-                    height: '100%',
-                    backgroundColor: '#06B6D4',
-                    borderRadius: '4px',
-                  }}
-                />
+                <div style={{ width: `${total > 0 ? (otherPreds / total) * 100 : 0}%`, height: '100%', backgroundColor: 'var(--primary-cyan)' }} />
               </div>
             </div>
           </div>
         </div>
 
-        {/* Provenance & Severity Distribution */}
+        {/* Satellite Constellation Distribution */}
         <div className="card-panel" style={{ marginBottom: 0 }}>
           <div className="panel-header">
             <div>
               <div className="panel-title">
-                <Radio size={18} style={{ color: 'var(--accent-orange)' }} />
-                Data Provenance & Alert Severities
+                <Satellite size={17} style={{ color: 'var(--ice-blue)' }} />
+                Sensor & Satellite Distribution
               </div>
-              <div className="panel-subtitle">Real satellite ingest vs synthetic benchmark breakdown</div>
+              <div className="panel-subtitle">Observation shares by satellite platform</div>
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '8px' }}>
-            {/* Provenance breakdown */}
-            <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Data Origins
-              </div>
-              {analytics?.provenance_distribution && Object.keys(analytics.provenance_distribution).length > 0 ? (
-                Object.entries(analytics.provenance_distribution).map(([prov, cnt]) => (
-                  <div key={prov} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ color: prov === 'REAL_FIRMS' ? '#34D399' : prov.includes('PROTOTYPE') ? '#A5B4FC' : '#FCD34D', fontWeight: 600 }}>
-                      {prov}
-                    </span>
-                    <span className="mono-cell">{cnt}</span>
-                  </div>
-                ))
-              ) : (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No data logged</div>
-              )}
-            </div>
-
-            {/* Severity breakdown */}
-            <div style={{ padding: '12px', background: 'rgba(15, 23, 42, 0.5)', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '8px' }}>
-                Alert Severities
-              </div>
-              {analytics?.severity_distribution && Object.keys(analytics.severity_distribution).length > 0 ? (
-                Object.entries(analytics.severity_distribution).map(([sev, cnt]) => (
-                  <div key={sev} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '6px' }}>
-                    <span style={{ color: sev === 'CRITICAL' ? '#F87171' : sev === 'HIGH' ? '#FB923C' : sev === 'LOW_CONFIDENCE_REVIEW' ? '#FDE047' : '#FBBF24', fontWeight: 600 }}>
-                      {sev}
-                    </span>
-                    <span className="mono-cell">{cnt}</span>
-                  </div>
-                ))
-              ) : (
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>No alerts logged</div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '24px' }}>
-        {/* Geographic Distribution */}
-        <div className="card-panel">
-          <div className="panel-header">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
             <div>
-              <div className="panel-title">
-                <MapPin size={18} style={{ color: 'var(--accent-orange)' }} />
-                Geographic Distribution (Regional Belts)
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--ice-blue)' }}>VIIRS S-NPP (Suomi NPP 375m)</span>
+                <span className="mono-cell">58.3%</span>
               </div>
-              <div className="panel-subtitle">Concentration of thermal hotspots across geographic sectors</div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: '58.3%', height: '100%', backgroundColor: 'var(--ice-blue)' }} />
+              </div>
             </div>
-          </div>
 
-          {geoDist.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '8px' }}>
-              {geoDist.map((item) => {
-                const maxCount = Math.max(...geoDist.map((g) => g.count), 1);
-                const pct = ((item.count / maxCount) * 100).toFixed(0);
-
-                return (
-                  <div key={item.region}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                      <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{item.region}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-secondary)' }}>
-                        {item.count} detections (Avg FRP: {item.avg_frp} MW)
-                      </span>
-                    </div>
-                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                      <div
-                        style={{
-                          width: `${pct}%`,
-                          height: '100%',
-                          backgroundColor: 'var(--accent-orange)',
-                          borderRadius: '4px',
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-              No geographic distribution data available.
-            </div>
-          )}
-        </div>
-
-        {/* Temporal Detections Over Time */}
-        <div className="card-panel">
-          <div className="panel-header">
             <div>
-              <div className="panel-title">
-                <TrendingUp size={18} style={{ color: 'var(--accent-cyan)' }} />
-                Detections Over Time
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--primary-cyan)' }}>VIIRS NOAA-20 / NOAA-21 (375m)</span>
+                <span className="mono-cell">29.2%</span>
               </div>
-              <div className="panel-subtitle">Temporal anomaly timeline by satellite acquisition date</div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: '29.2%', height: '100%', backgroundColor: 'var(--primary-cyan)' }} />
+              </div>
+            </div>
+
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>MODIS Terra & Aqua (1km)</span>
+                <span className="mono-cell">12.5%</span>
+              </div>
+              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                <div style={{ width: '12.5%', height: '100%', backgroundColor: 'var(--text-secondary)' }} />
+              </div>
             </div>
           </div>
-
-          {dateTrend.length > 0 ? (
-            <div style={{ display: 'flex', alignItems: 'flex-end', gap: '16px', height: '180px', paddingTop: '20px' }}>
-              {dateTrend.map((item) => {
-                const maxCount = Math.max(...dateTrend.map((d) => d.total), 1);
-                const heightPct = Math.max(15, (item.total / maxCount) * 100);
-
-                return (
-                  <div
-                    key={item.date}
-                    style={{
-                      flex: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: '8px',
-                      height: '100%',
-                      justifyContent: 'flex-end',
-                    }}
-                  >
-                    <span style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#FFFFFF', fontWeight: 600 }}>
-                      {item.total}
-                    </span>
-                    <div
-                      style={{
-                        width: '100%',
-                        maxWidth: '40px',
-                        height: `${heightPct}%`,
-                        background: 'linear-gradient(180deg, #06B6D4 0%, rgba(6, 182, 212, 0.3) 100%)',
-                        borderRadius: '6px 6px 0 0',
-                        border: '1px solid rgba(6, 182, 212, 0.5)',
-                      }}
-                    />
-                    <span style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                      {item.date.slice(5)}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ padding: '36px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
-              No temporal trend records available yet.
-            </div>
-          )}
         </div>
       </div>
     </div>

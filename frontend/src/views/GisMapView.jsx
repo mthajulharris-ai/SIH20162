@@ -14,18 +14,21 @@ import {
   AlertCircle,
   Globe,
   Map as MapIcon,
+  Columns,
+  Radio,
 } from 'lucide-react';
 import { getDetections } from '../services/api';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
+import { GlobalThermalEarth } from '../components/GlobalThermalEarth';
 
 export function GisMapView({ initialSelectedDetection = null }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layerGroupRef = useRef(null);
 
-  // Visualization Mode: '3d' (Earth Globe) or '2d' (Leaflet GIS)
-  const [viewMode, setViewMode] = useState('3d');
+  // Visualization Mode: 'dual' (Side-by-side), '3d' (Full 3D Earth), 'thermal' (Global Thermal Earth), 'gis-ops' (Detailed GIS Leaflet)
+  const [viewMode, setViewMode] = useState('dual');
 
   // Filter States
   const [sourceType, setSourceType] = useState('');
@@ -242,8 +245,9 @@ export function GisMapView({ initialSelectedDetection = null }) {
   }, [mapDetections]);
 
   // When switching to 2D mode, invalidate Leaflet map size and focus selected detection if present
+  // When switching to gis-ops mode, invalidate Leaflet map size and focus selected detection if present
   useEffect(() => {
-    if (viewMode === '2d' && mapInstanceRef.current) {
+    if (viewMode === 'gis-ops' && mapInstanceRef.current) {
       setTimeout(() => {
         if (mapInstanceRef.current) {
           mapInstanceRef.current.invalidateSize();
@@ -261,9 +265,9 @@ export function GisMapView({ initialSelectedDetection = null }) {
 
   return (
     <div>
-      {/* Dynamic Filter Toolbar with 3D/2D Mode Switcher */}
+      {/* Dynamic Filter Toolbar with Dual / 3D / Thermal / GIS Mode Switcher */}
       <div className="filter-bar" style={{ flexWrap: 'wrap', gap: '10px' }}>
-        {/* Visualization Switcher */}
+        {/* Visualization Mode Switcher */}
         <div
           style={{
             display: 'flex',
@@ -276,13 +280,36 @@ export function GisMapView({ initialSelectedDetection = null }) {
         >
           <button
             type="button"
+            onClick={() => setViewMode('dual')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              background: viewMode === 'dual' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              color: viewMode === 'dual' ? '#38BDF8' : '#94A3B8',
+              border: viewMode === 'dual' ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Dual View: 3D Earth Globe + Flat Global Thermal Earth Side-by-Side"
+          >
+            <Columns size={13} />
+            <span>Dual View</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setViewMode('3d')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
+              padding: '6px 12px',
+              fontSize: '11.5px',
               fontWeight: 600,
               background: viewMode === '3d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
               color: viewMode === '3d' ? '#38BDF8' : '#94A3B8',
@@ -291,32 +318,56 @@ export function GisMapView({ initialSelectedDetection = null }) {
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
-            title="3D Rotating Earth Globe Visualization"
+            title="3D Rotating Earth Globe Focus View"
           >
-            <Globe size={14} />
+            <Globe size={13} />
             <span>3D Earth</span>
           </button>
+
           <button
             type="button"
-            onClick={() => setViewMode('2d')}
+            onClick={() => setViewMode('thermal')}
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
+              padding: '6px 12px',
+              fontSize: '11.5px',
               fontWeight: 600,
-              background: viewMode === '2d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-              color: viewMode === '2d' ? '#38BDF8' : '#94A3B8',
-              border: viewMode === '2d' ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid transparent',
+              background: viewMode === 'thermal' ? 'rgba(239, 68, 68, 0.22)' : 'transparent',
+              color: viewMode === 'thermal' ? '#EF4444' : '#94A3B8',
+              border: viewMode === 'thermal' ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid transparent',
               borderRadius: '6px',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
-            title="2D Operational Leaflet GIS Map"
+            title="Transparent Flat Global Thermal Earth Overlay"
           >
-            <MapIcon size={14} />
-            <span>2D Map</span>
+            <Radio size={13} />
+            <span>Global Thermal</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setViewMode('gis-ops')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 12px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              background: viewMode === 'gis-ops' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              color: viewMode === 'gis-ops' ? '#38BDF8' : '#94A3B8',
+              border: viewMode === 'gis-ops' ? '1px solid rgba(56, 189, 248, 0.45)' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+            }}
+            title="Detailed Operational Leaflet GIS Map with Satellite / Base Tiles"
+          >
+            <MapIcon size={13} />
+            <span>GIS Ops Map</span>
           </button>
         </div>
 
@@ -440,20 +491,61 @@ export function GisMapView({ initialSelectedDetection = null }) {
         </button>
       </div>
 
-      {/* 3D Photorealistic Rotating Earth Globe */}
+      {/* 1. DUAL MISSION CONTROL VIEW (Left: 3D Earth, Right: Global Thermal Earth) */}
+      {viewMode === 'dual' && (
+        <div
+          className="dual-earth-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
+            gap: '14px',
+            width: '100%',
+            minHeight: '660px',
+          }}
+        >
+          <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 200px)', minHeight: '620px' }}>
+            <EarthGlobe3D
+              detections={mapDetections}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onSwitchTo2D={() => setViewMode('thermal')}
+            />
+          </div>
+          <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 200px)', minHeight: '620px' }}>
+            <GlobalThermalEarth
+              detections={mapDetections}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 2. 3D EARTH FOCUS VIEW */}
       {viewMode === '3d' && (
         <EarthGlobe3D
           detections={mapDetections}
           selectedDetection={selectedDetection}
           onSelectDetection={setSelectedDetection}
-          onSwitchTo2D={() => setViewMode('2d')}
+          onSwitchTo2D={() => setViewMode('thermal')}
         />
       )}
 
-      {/* 2D Operational Leaflet Map Viewport Container */}
+      {/* 3. GLOBAL THERMAL EARTH FOCUS VIEW */}
+      {viewMode === 'thermal' && (
+        <div style={{ position: 'relative', width: '100%', height: 'calc(100vh - 180px)', minHeight: '620px' }}>
+          <GlobalThermalEarth
+            detections={mapDetections}
+            selectedDetection={selectedDetection}
+            onSelectDetection={setSelectedDetection}
+          />
+        </div>
+      )}
+
+      {/* 4. OPERATIONAL LEAFLET GIS MAP (Preserved for Detailed Ground Inspection per Part 10) */}
       <div
         className="map-viewport-wrapper"
-        style={{ display: viewMode === '2d' ? 'block' : 'none' }}
+        style={{ display: viewMode === 'gis-ops' ? 'block' : 'none' }}
       >
         <div ref={mapContainerRef} id="leaflet-map" />
 
