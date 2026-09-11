@@ -53,136 +53,22 @@ def get_model_status(
     ml_service: MLInferenceService = Depends(get_ml_service),
 ):
     """
-    Returns health status of the integrated ML subsystem.
+    Returns health and configuration status of the integrated ML subsystem.
     """
-    available = ml_service.is_available()
+    config_report = ml_service.check_configuration()
+    available = config_report["configured"]
     return {
-        "status": "ready" if available else "model_not_loaded",
+        "status": "ready" if available else "fallback_active",
         "is_available": available,
+        "model_loaded": config_report["model_loaded"],
+        "model_version": config_report["model_version"],
+        "fallback_available": True,
         "message": (
             "ML inference service is active and ready."
             if available
-            else "ML Model artifact is not loaded. Train baseline via 'python scripts/train_baseline.py'."
+            else "Primary ML model unavailable — deterministic rule-based satellite fallback is active."
         ),
     }
-
-
-@router.post(
-    "/predict-and-store",
-    response_model=ClassifyAndStoreResponse,
-    status_code=status.HTTP_201_CREATED,
-    summary="Classify Observation & Store in Database",
-    description=(
-        "Full End-to-End Pipeline: Accepts a raw thermal satellite observation, "
-        "validates input, executes ML classification, persists detection to SQLite database, "
-        "and returns the saved record along with full classification probabilities."
-    ),
-)
-def predict_and_store(
-    observation: ThermalObservationInput,
-    db: Session = Depends(get_db),
-    ml_service: MLInferenceService = Depends(get_ml_service),
-) -> ClassifyAndStoreResponse:
-    """
-    Executes:
-    1. Validation: Ensures coordinates, temperature, and temporal inputs are valid.
-    2. ML Prediction: Calls the AI/ML module interface to classify thermal source.
-    3. Persistence: Maps prediction to Detection database entity and commits to SQLite.
-    4. Response: Returns standardized API response with persistence IDs and confidence.
-    """
-    # 1. Fill missing temporal defaults
-    observation.populate_defaults_if_missing()
-
-    # 2. Execute ML Inference via isolated service adapter
-    try:
-        raw_input_dict = observation.model_dump()
-        prediction_result = ml_service.predict(raw_input_dict)
-    except MLModelNotLoadedException as mle:
-        logger.error("ML model not loaded: %s", mle.message)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"ML Classification Service Unavailable: {mle.message}",
-        )
-    except MLServiceException as mse:
-        logger.error("ML inference error: %s", str(mse))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"ML Inference Failed: {str(mse)}",
-        )
-
-    # 3. Extract classification metadata and provenance
-    predicted_class_name = prediction_result.get("predicted_class", "Unknown")
-    predicted_conf = float(prediction_result.get("confidence", 0.0))
-    is_persistent = (
-        predicted_class_name.lower() == "persistent thermal source"
-        or prediction_result.get("predicted_class_id") == 1
-    )
-
-    # Determine data provenance (REAL_FIRMS, SAMPLE, PROTOTYPE_LABELLED)
-    if observation.data_provenance:
-        data_provenance = observation.data_provenance.upper()
-    elif (observation.source or "").upper().startswith(("SAMPLE", "DEMO")):
-        data_provenance = "SAMPLE"
-    elif any(k in (observation.source or "").upper() for k in ["REAL", "FIRMS_LIVE", "NASA_FIRMS"]):
-        data_provenance = "REAL_FIRMS"
-    else:
-        data_provenance = "PROTOTYPE_LABELLED"
-
-    # Step 7: Low confidence handling (< 0.60 -> LOW_CONFIDENCE_REVIEW)
-    base_alert_level = prediction_result.get("alert_level", "LOW")
-    if predicted_conf < 0.60:
-        alert_level = "LOW_CONFIDENCE_REVIEW"
-    else:
-        alert_level = base_alert_level
-
-    model_ver = prediction_result.get("model_version", "2.0.0-scientific-prototype")
-
-    # 4. Save into SQLite database
-    db_detection = Detection(
-        latitude=observation.latitude,
-        longitude=observation.longitude,
-        brightness=observation.brightness,
-        confidence=observation.confidence,
-        acq_date=observation.acq_date,
-        acq_time=observation.acq_time,
-        source=observation.source or "VIIRS_SNPP_NRT",
-        instrument=observation.instrument or "VIIRS",
-        frp=observation.frp,
-        daynight=observation.daynight,
-        predicted_class=predicted_class_name,
-        prediction_confidence=predicted_conf,
-        is_persistent=is_persistent,
-        model_version=model_ver,
-        data_provenance=data_provenance,
-        alert_level=alert_level,
-    )
-
-    db.add(db_detection)
-    db.commit()
-    db.refresh(db_detection)
-
-    # 4b. Evaluate if observation qualifies for an operational alert
-    from backend.services.alert_service import create_alert_if_eligible
-    create_alert_if_eligible(db, db_detection)
-
-    # 5. Format and return API response
-    prediction_details = MLPredictionDetails(
-        predicted_class=predicted_class_name,
-        predicted_class_id=int(prediction_result.get("predicted_class_id", 0)),
-        confidence=predicted_conf,
-        alert_level=alert_level,
-        class_probabilities=prediction_result.get("class_probabilities", {}),
-        model_version=model_ver,
-        prediction_timestamp=prediction_result.get("prediction_timestamp", ""),
-    )
-
-
-    return ClassifyAndStoreResponse(
-        status="SUCCESS",
-        message="Thermal observation classified and stored successfully.",
-        detection=DetectionResponse.model_validate(db_detection),
-        prediction=prediction_details,
-    )
 
 
 @router.post(
@@ -193,8 +79,8 @@ def predict_and_store(
     description=(
         "Core SATRA Pipeline: Accepts uploaded satellite data (single or multiple CSV, JSON, GeoJSON files), "
         "validates geographic coordinates and physical thermal fields, automatically detects and normalizes "
-        "column variations across NASA FIRMS MODIS, VIIRS, and custom formats, executes AI thermal classification, "
-        "evaluates alert levels, persists detections, and returns structured intelligence and dynamic analytics."
+        "column variations across NASA FIRMS MODIS, VIIRS, and custom formats, executes AI thermal classification "
+        "with automatic deterministic fallback, evaluates alert levels, persists detections, and returns structured intelligence."
     ),
 )
 async def upload_and_analyze(
@@ -206,15 +92,16 @@ async def upload_and_analyze(
     """
     End-to-End Pipeline for Uploaded Satellite Data:
     1. Uploaded File(s) Reception (Single or Multi-file)
-    2. File Format Detection & Security Verification
-    3. Automatic Column Mapping & Normalization Layer (MODIS, VIIRS, User CSV/JSON)
-    4. Coordinate & Physical Range Validation
-    5. SATRA AI Classification Model Inference
-    6. Risk & Alert Assessment
-    7. Database Persistence with Source File Traceability
-    8. Dynamic Dataset Analytics Computation
-    9. Structured Result Return
+    2. File Format Detection & Column Normalization (MODIS, VIIRS, User CSV/JSON)
+    3. Coordinate & Physical Range Validation
+    4. SATRA AI Classification Model Inference (with deterministic rule-based fallback)
+    5. Risk & Alert Assessment
+    6. Database Persistence with Source File Traceability
+    7. Dynamic Dataset Analytics Computation
+    8. Standardized Result Return
     """
+    logger.info("[SATRA API] Inference request received")
+
     # 1. Collect all uploaded files from either single 'file' or multiple 'files' fields
     target_files: List[UploadFile] = []
     if file is not None and file.filename:
@@ -225,6 +112,7 @@ async def upload_and_analyze(
                 target_files.append(f)
 
     if not target_files:
+        logger.error("[SATRA ERROR] No satellite observation file provided")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No satellite observation file provided. Please upload a valid CSV or JSON file.",
@@ -240,6 +128,7 @@ async def upload_and_analyze(
         try:
             raw_bytes = await up_file.read()
             if not raw_bytes or len(raw_bytes.strip()) == 0:
+                logger.error("[SATRA ERROR] Uploaded file '%s' is empty", up_file.filename)
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
@@ -247,7 +136,7 @@ async def upload_and_analyze(
         except HTTPException:
             raise
         except Exception as e:
-            logger.error("Failed to read uploaded file %s: %s", up_file.filename, str(e))
+            logger.error("[SATRA ERROR] Failed to read file %s: %s", up_file.filename, str(e))
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to read uploaded file content for '{up_file.filename}': {str(e)}",
@@ -266,34 +155,35 @@ async def upload_and_analyze(
                 "format_detected": detected_flavor,
             })
         except ValueError as val_err:
-            logger.warning("Validation error on '%s': %s", up_file.filename, str(val_err))
+            logger.warning("[SATRA ERROR] Validation error on '%s': %s", up_file.filename, str(val_err))
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=str(val_err),
             )
 
     if not all_observations:
+        logger.error("[SATRA ERROR] Zero valid observation records found in uploaded files")
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Zero valid observation records found in uploaded file(s).",
         )
 
-    # 3. Execute AI Inference and Persist in Database
+    logger.info("[SATRA API] Observations: %d", len(all_observations))
+
+    # 3. Execute AI Inference (with deterministic rule-based fallback) & Persist
     created_detections: List[Detection] = []
     primary_prediction_details: Optional[MLPredictionDetails] = None
     all_predictions: List[Dict[str, Any]] = []
+    any_fallback: bool = False
+
+    logger.info("[SATRA API] AI service request started")
 
     for obs in all_observations:
         raw_input_dict = obs.to_input_dict()
-        try:
-            prediction_result = ml_service.predict(raw_input_dict)
-            all_predictions.append(prediction_result)
-        except Exception as e:
-            logger.error("AI inference error on uploaded record: %s", str(e))
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"SATRA AI Inference failed: {str(e)}",
-            )
+        prediction_result, is_fallback_obs = ml_service.predict_with_fallback(raw_input_dict)
+        if is_fallback_obs:
+            any_fallback = True
+        all_predictions.append(prediction_result)
 
         predicted_class_name = prediction_result.get("predicted_class", "Unknown")
         predicted_conf = float(prediction_result.get("confidence", 0.0))
@@ -303,8 +193,9 @@ async def upload_and_analyze(
         )
 
         base_alert_level = prediction_result.get("alert_level", "LOW")
-        alert_level = "LOW_CONFIDENCE_REVIEW" if predicted_conf < 0.60 else base_alert_level
+        alert_level = "LOW_CONFIDENCE_REVIEW" if (predicted_conf < 0.60 and not is_fallback_obs) else base_alert_level
         model_ver = prediction_result.get("model_version", "2.0.0-scientific-prototype")
+        obs_provenance = "RULE_BASED_FALLBACK" if is_fallback_obs else (obs.data_provenance or "REAL_FIRMS")
 
         db_detection = Detection(
             latitude=obs.latitude,
@@ -322,7 +213,7 @@ async def upload_and_analyze(
             prediction_confidence=predicted_conf,
             is_persistent=is_persistent,
             model_version=model_ver,
-            data_provenance=obs.data_provenance or "REAL_FIRMS",
+            data_provenance=obs_provenance,
             alert_level=alert_level,
         )
 
@@ -345,6 +236,8 @@ async def upload_and_analyze(
                 prediction_timestamp=prediction_result.get("prediction_timestamp", datetime.now(timezone.utc).isoformat()),
             )
 
+    logger.info("[SATRA API] AI service response received (fallback=%s)", any_fallback)
+
     # 4. Compute Dynamic Dataset Analysis
     dataset_analysis = compute_dataset_analysis(
         validated_records=all_observations,
@@ -362,9 +255,95 @@ async def upload_and_analyze(
     files_count = len(files_info)
     source_summary_text = f" across {files_count} file(s)" if files_count > 1 else ""
 
+    # Requirement 9: Predictable Standard Response Payload
+    statistics_payload = {
+        "frp": (
+            dataset_analysis.frp_analysis.model_dump()
+            if dataset_analysis.frp_analysis
+            else "Insufficient data for this analysis."
+        ),
+        "brightness": (
+            dataset_analysis.brightness_analysis.model_dump()
+            if dataset_analysis.brightness_analysis
+            else "Insufficient data for this analysis."
+        ),
+        "confidence": (
+            dataset_analysis.confidence_analysis.model_dump()
+            if dataset_analysis.confidence_analysis
+            else "Insufficient data for this analysis."
+        ),
+    }
+
+    spatial_payload = (
+        dataset_analysis.spatial_analysis.model_dump()
+        if dataset_analysis.spatial_analysis
+        else "Insufficient data for this analysis."
+    )
+
+    temporal_payload = (
+        dataset_analysis.temporal_analysis.model_dump()
+        if dataset_analysis.temporal_analysis
+        else "Insufficient data for this analysis."
+    )
+
+    standard_analysis = {
+        "total_observations": len(created_detections),
+        "hotspots": [
+            {
+                "latitude": d.latitude,
+                "longitude": d.longitude,
+                "confidence": d.prediction_confidence,
+                "predicted_class": d.predicted_class,
+                "alert_level": d.alert_level,
+                "frp": d.frp,
+                "brightness": d.brightness,
+            }
+            for d in created_detections
+        ],
+        "risk_level": primary_det.alert_level,
+        "summary": (
+            f"Analyzed {len(created_detections)} satellite observation(s) with risk level {primary_det.alert_level}."
+            if not any_fallback
+            else f"Rule-based satellite analysis on {len(created_detections)} observation(s) with risk level {primary_det.alert_level}."
+        ),
+        "statistics": statistics_payload,
+        "spatial_analysis": spatial_payload,
+        "temporal_analysis": temporal_payload,
+    }
+
+    standard_metadata = {
+        "source_file": (
+            primary_obs.source_file
+            or (files_info[0]["filename"] if files_info else "satellite_data.csv")
+        ),
+        "format": files_info[0]["format_detected"] if files_info else "VIIRS",
+        "processed_at": datetime.now(timezone.utc).isoformat(),
+        "is_fallback": any_fallback,
+        "fallback_notice": (
+            "AI service unavailable — displaying rule-based satellite analysis."
+            if any_fallback
+            else None
+        ),
+    }
+
+    fallback_notice_text = (
+        "AI service unavailable — displaying rule-based satellite analysis."
+        if any_fallback
+        else None
+    )
+
+    logger.info("[SATRA API] Analysis completed")
+
     return UploadAndAnalyzeResponse(
+        success=True,
         status="SUCCESS",
-        message=f"Successfully validated, normalized, and classified {len(created_detections)} satellite observation(s){source_summary_text}.",
+        message=(
+            f"Successfully validated, normalized, and classified {len(created_detections)} satellite observation(s){source_summary_text}."
+            if not any_fallback
+            else f"AI service unavailable — displaying rule-based satellite analysis for {len(created_detections)} observation(s){source_summary_text}."
+        ),
+        is_fallback=any_fallback,
+        fallback_notice=fallback_notice_text,
         exact_location=ExactLocation(
             latitude=primary_det.latitude,
             longitude=primary_det.longitude,
@@ -396,5 +375,7 @@ async def upload_and_analyze(
         total_records=len(created_detections),
         all_detections=[DetectionResponse.model_validate(d) for d in created_detections],
         analysis_summary=dataset_analysis,
+        analysis=standard_analysis,
+        metadata=standard_metadata,
     )
 

@@ -20,6 +20,7 @@ import {
   FileText,
   Loader2,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
@@ -61,6 +62,7 @@ export function OverviewView({
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [lastFiles, setLastFiles] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -100,12 +102,14 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       setIsAnalyzing(true);
       setAnalysisError(null);
       const filesToProcess = files instanceof FileList ? Array.from(files) : files;
+      setLastFiles(filesToProcess);
       const result = await uploadAndAnalyzeSatelliteFile(filesToProcess);
       setAnalysisResult(result);
       if (result?.detection) {
         handleSelectHotspot(result.detection);
       }
     } catch (err) {
+      console.error('[SATRA ERROR] Overview file analysis error:', err);
       setAnalysisError(err.message || 'File upload and analysis failed');
     } finally {
       setIsAnalyzing(false);
@@ -588,11 +592,33 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   color: '#FCA5A5',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   gap: '8px',
                 }}
               >
-                <AlertTriangle size={14} style={{ color: '#EF4444', flexShrink: 0 }} />
-                <span>{analysisError}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <AlertTriangle size={14} style={{ color: '#EF4444', flexShrink: 0 }} />
+                  <span>{analysisError}</span>
+                </div>
+                {lastFiles && (
+                  <button
+                    onClick={() => handleProcessFile(lastFiles)}
+                    disabled={isAnalyzing}
+                    className="btn-primary"
+                    style={{
+                      padding: '3px 8px',
+                      fontSize: '10px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      background: '#0284C7',
+                      flexShrink: 0,
+                    }}
+                  >
+                    <RotateCcw size={10} />
+                    <span>Retry</span>
+                  </button>
+                )}
               </div>
             )}
 
@@ -619,6 +645,32 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     <X size={13} />
                   </button>
                 </div>
+
+                {(analysisResult.is_fallback ||
+                  analysisResult.metadata?.is_fallback ||
+                  analysisResult.analysis_mode === 'RULE_BASED_FALLBACK') && (
+                  <div
+                    style={{
+                      marginBottom: '8px',
+                      background: 'rgba(245, 158, 11, 0.15)',
+                      border: '1px solid rgba(245, 158, 11, 0.4)',
+                      borderRadius: '4px',
+                      padding: '6px 8px',
+                      fontSize: '10.5px',
+                      color: '#FDE68A',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <AlertTriangle size={12} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                    <span>
+                      {analysisResult.fallback_notice ||
+                        analysisResult.metadata?.fallback_notice ||
+                        'AI service unavailable — displaying rule-based satellite analysis.'}
+                    </span>
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px' }}>
                   <div>

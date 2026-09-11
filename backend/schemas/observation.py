@@ -273,10 +273,13 @@ class UploadAndAnalyzeResponse(BaseModel):
     Standardized response for SATRA Upload & Analyze Core Pipeline:
     Returns exact location, observation metadata, thermal data,
     AI classification, risk/alert assessment, dynamic dataset analysis,
-    and database detection entity.
+    database detection entities, and standardized analysis/metadata contracts.
     """
+    success: bool = Field(default=True, description="Standard success indicator")
     status: str = Field(default="SUCCESS")
     message: str = Field(default="Satellite data analyzed and persisted successfully.")
+    is_fallback: bool = Field(default=False, description="True if rule-based fallback analysis was engaged")
+    fallback_notice: Optional[str] = Field(default=None, description="Clear notice when rule-based fallback was engaged")
     exact_location: ExactLocation
     observation: ObservationMetadata
     thermal_data: ThermalDataInfo
@@ -287,4 +290,6 @@ class UploadAndAnalyzeResponse(BaseModel):
     total_records: int = 1
     all_detections: List[DetectionResponse] = Field(default_factory=list)
     analysis_summary: Optional[DatasetAnalysisSummary] = None
+    analysis: Optional[Dict[str, Any]] = Field(default=None, description="Standard analysis summary block")
+    metadata: Optional[Dict[str, Any]] = Field(default=None, description="Processing metadata block")
 

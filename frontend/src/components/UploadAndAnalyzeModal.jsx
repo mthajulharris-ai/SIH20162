@@ -22,6 +22,7 @@ import {
   Activity,
   Trash2,
   Info,
+  RotateCcw,
 } from 'lucide-react';
 import { uploadAndAnalyzeSatelliteFile, predictAndStoreObservation } from '../services/api';
 
@@ -148,6 +149,7 @@ export function UploadAndAnalyzeModal({
   });
 
   // Pipeline Status & Results
+  const [uiState, setUiState] = useState('IDLE'); // 'IDLE' | 'FILE_SELECTED' | 'VALIDATING' | 'READY' | 'ANALYZING' | 'SUCCESS' | 'ERROR' | 'TIMEOUT'
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
@@ -158,6 +160,7 @@ export function UploadAndAnalyzeModal({
   const processFiles = async (fileList) => {
     setErrorMsg(null);
     setAnalysisResult(null);
+    setUiState('VALIDATING');
 
     const filesArray = Array.from(fileList);
     if (filesArray.length === 0) return;
@@ -301,10 +304,12 @@ export function UploadAndAnalyzeModal({
 
     setSelectedFiles((prev) => [...prev, ...newSelectedFiles]);
     setFilePreviews((prev) => [...prev, ...newPreviews]);
+    setUiState('READY');
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
+      setUiState('FILE_SELECTED');
       processFiles(e.target.files);
     }
   };
@@ -313,12 +318,17 @@ export function UploadAndAnalyzeModal({
     e.preventDefault();
     setIsDragging(false);
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      setUiState('FILE_SELECTED');
       processFiles(e.dataTransfer.files);
     }
   };
 
   const handleRemoveFile = (index) => {
-    setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    setSelectedFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      if (updated.length === 0) setUiState('IDLE');
+      return updated;
+    });
     setFilePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -326,7 +336,9 @@ export function UploadAndAnalyzeModal({
   const handleSelectSample = (sample) => {
     const blob = new Blob([sample.csvContent], { type: 'text/csv' });
     const file = new File([blob], `${sample.id}.csv`, { type: 'text/csv' });
-    setSelectedFiles([file]);
+    setSelectedFiles([]);
+    setFilePreviews([]);
+    setUiState('FILE_SELECTED');
     processFiles([file]);
     setActiveTab('upload');
   };
@@ -334,6 +346,7 @@ export function UploadAndAnalyzeModal({
   // Execute Core AI Analysis Pipeline
   const handleExecuteAnalysis = async () => {
     setErrorMsg(null);
+    setUiState('ANALYZING');
     setIsProcessing(true);
 
     try {
@@ -412,11 +425,14 @@ export function UploadAndAnalyzeModal({
       }
 
       setAnalysisResult(result);
+      setUiState('SUCCESS');
       if (onAnalysisSuccess && result.detection) {
         onAnalysisSuccess(result.detection);
       }
     } catch (err) {
-      console.error('Pipeline error:', err);
+      console.error('[SATRA ERROR] Pipeline error:', err);
+      const isTimeout = err.message && err.message.toLowerCase().includes('timed out');
+      setUiState(isTimeout ? 'TIMEOUT' : 'ERROR');
       setErrorMsg(err.message || 'AI analysis execution failed.');
     } finally {
       setIsProcessing(false);
@@ -438,6 +454,7 @@ export function UploadAndAnalyzeModal({
     setFilePreviews([]);
     setAnalysisResult(null);
     setErrorMsg(null);
+    setUiState('IDLE');
   };
 
   const totalRecordsCount = filePreviews.reduce((sum, f) => sum + f.recordCount, 0);
@@ -984,29 +1001,50 @@ export function UploadAndAnalyzeModal({
             </div>
           )}
 
-          {/* Professional Error Notification */}
-          {errorMsg && (
+          {/* Professional Error / Timeout Notification */}
+          {(errorMsg || uiState === 'TIMEOUT') && (
             <div
               style={{
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: uiState === 'TIMEOUT' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                border: uiState === 'TIMEOUT' ? '1px solid rgba(234, 179, 8, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
                 borderRadius: '8px',
                 padding: '14px 18px',
                 display: 'flex',
                 alignItems: 'flex-start',
+                justifyContent: 'space-between',
                 gap: '12px',
-                color: '#FCA5A5',
+                color: uiState === 'TIMEOUT' ? '#FDE68A' : '#FCA5A5',
                 fontSize: '12.5px',
                 lineHeight: 1.5,
               }}
             >
-              <AlertTriangle size={20} style={{ flexShrink: 0, color: 'var(--critical-red)', marginTop: '2px' }} />
-              <div>
-                <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>
-                  Validation Notice
-                </strong>
-                {errorMsg}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                <AlertTriangle size={20} style={{ flexShrink: 0, color: uiState === 'TIMEOUT' ? '#EAB308' : 'var(--critical-red)', marginTop: '2px' }} />
+                <div>
+                  <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>
+                    {uiState === 'TIMEOUT' ? 'AI Analysis Timed Out' : 'Execution Notice'}
+                  </strong>
+                  {errorMsg || 'AI analysis timed out. Please check the AI service/backend connection and try again.'}
+                </div>
               </div>
+              <button
+                onClick={handleExecuteAnalysis}
+                className="btn-primary"
+                disabled={isProcessing}
+                style={{
+                  padding: '6px 14px',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: '#0284C7',
+                  flexShrink: 0,
+                }}
+              >
+                <RotateCcw size={12} />
+                <span>Retry</span>
+              </button>
             </div>
           )}
 
@@ -1076,6 +1114,33 @@ export function UploadAndAnalyzeModal({
                   </div>
                 </div>
               </div>
+
+              {/* Fallback Satellite Analysis Banner (Requirement 8) */}
+              {(analysisResult?.is_fallback ||
+                analysisResult?.metadata?.is_fallback ||
+                analysisResult?.analysis_mode === 'RULE_BASED_FALLBACK') && (
+                <div
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    border: '1px solid rgba(245, 158, 11, 0.5)',
+                    borderRadius: '8px',
+                    padding: '10px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    color: '#FDE68A',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  <AlertTriangle size={16} style={{ color: '#F59E0B', flexShrink: 0 }} />
+                  <div>
+                    {analysisResult.fallback_notice ||
+                      analysisResult?.metadata?.fallback_notice ||
+                      'AI service unavailable — displaying rule-based satellite analysis.'}
+                  </div>
+                </div>
+              )}
 
               {/* Multi-file Source Traceability Strip */}
               {summaryData?.files_summary && summaryData.files_summary.length > 0 && (
@@ -1469,23 +1534,44 @@ export function UploadAndAnalyzeModal({
                 Cancel
               </button>
 
-              <button
-                onClick={handleExecuteAnalysis}
-                className="btn-primary"
-                disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
-                style={{
-                  padding: '9px 22px',
-                  fontSize: '12.5px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  opacity: isProcessing || (activeTab === 'upload' && selectedFiles.length === 0) ? 0.6 : 1,
-                }}
-              >
-                <Zap size={14} />
-                <span>{isProcessing ? 'Executing AI Inference...' : 'ANALYZE WITH SATRA AI'}</span>
-              </button>
+              {(uiState === 'ERROR' || uiState === 'TIMEOUT') ? (
+                <button
+                  onClick={handleExecuteAnalysis}
+                  className="btn-primary"
+                  disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
+                  style={{
+                    padding: '9px 22px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: '#0284C7',
+                    boxShadow: '0 0 16px rgba(2, 132, 199, 0.4)',
+                  }}
+                >
+                  <RotateCcw size={14} />
+                  <span>Retry Analysis</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handleExecuteAnalysis}
+                  className="btn-primary"
+                  disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
+                  style={{
+                    padding: '9px 22px',
+                    fontSize: '12.5px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    opacity: isProcessing || (activeTab === 'upload' && selectedFiles.length === 0) ? 0.6 : 1,
+                  }}
+                >
+                  <Zap size={14} />
+                  <span>{isProcessing ? 'Executing AI Inference...' : 'ANALYZE WITH SATRA AI'}</span>
+                </button>
+              )}
             </div>
           )}
         </div>

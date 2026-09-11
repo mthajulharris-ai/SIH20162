@@ -66,13 +66,16 @@ app.add_middleware(
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    logger.warning("HTTP %d error on %s: %s", exc.status_code, request.url.path, exc.detail)
+    logger.warning("[SATRA API] HTTP %d error on %s: %s", exc.status_code, request.url.path, exc.detail)
+    detail_str = str(exc.detail) if not isinstance(exc.detail, dict) else exc.detail.get("message", str(exc.detail))
     return JSONResponse(
         status_code=exc.status_code,
         content={
+            "success": False,
             "status": "error",
+            "error": detail_str,
             "code": exc.status_code,
-            "message": exc.detail,
+            "message": detail_str,
             "detail": exc.detail,
         },
     )
@@ -82,11 +85,13 @@ from fastapi.encoders import jsonable_encoder
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    logger.warning("Validation error on %s: %s", request.url.path, exc.errors())
+    logger.warning("[SATRA API] Validation error on %s: %s", request.url.path, exc.errors())
     return JSONResponse(
         status_code=422,
         content={
+            "success": False,
             "status": "error",
+            "error": "Validation failed for request parameters or body.",
             "code": 422,
             "message": "Validation failed for request parameters or body.",
             "details": jsonable_encoder(exc.errors()),
@@ -96,13 +101,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.error("Unhandled error on %s: %s", request.url.path, str(exc), exc_info=True)
+    logger.error("[SATRA ERROR] Unhandled error on %s: %s", request.url.path, str(exc), exc_info=True)
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
+            "success": False,
             "status": "error",
+            "error": "AI inference failed",
             "code": 500,
-            "message": "Internal server error occurred.",
+            "message": f"Internal server error: {str(exc)}",
         },
     )
 
