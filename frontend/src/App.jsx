@@ -27,8 +27,36 @@ import {
 } from './services/api';
 
 export function App() {
-  // 01 Overview is the main landing page per Section 6
-  const [currentTab, setCurrentTab] = useState('overview');
+  const validTabs = [
+    'overview', 'earth-intel', 'thermal-intel', 'detection-explorer',
+    'alerts', 'analytics', 'gis-investigation', 'satellite-data',
+    'ai-intelligence', 'space-explorer', 'settings'
+  ];
+
+  const getInitialTab = () => {
+    const hash = window.location.hash.replace('#', '').trim();
+    if (validTabs.includes(hash)) return hash;
+    return 'earth-intel';
+  };
+
+  const [currentTab, setCurrentTab] = useState(getInitialTab);
+
+  // Synchronize with URL hash
+  useEffect(() => {
+    const onHashChange = () => {
+      const hash = window.location.hash.replace('#', '').trim();
+      if (validTabs.includes(hash) && hash !== currentTab) {
+        setCurrentTab(hash);
+      }
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, [currentTab]);
+
+  const handleTabChange = (tabId) => {
+    setCurrentTab(tabId);
+    window.location.hash = tabId;
+  };
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,10 +73,7 @@ export function App() {
   // Focus a detection on 3D Earth / Global Command Deck
   const handleFocusDetection = (detection) => {
     setSelectedDetection(detection);
-    // If user is already on overview, keep on overview so hero 3D Earth centers; otherwise switch to earth-intel
-    if (currentTab !== 'overview') {
-      setCurrentTab('earth-intel');
-    }
+    handleTabChange('earth-intel');
   };
 
   // Fetch all backend data
@@ -196,7 +221,7 @@ export function App() {
       {/* Sidebar Navigation */}
       <Sidebar
         currentTab={currentTab}
-        setCurrentTab={setCurrentTab}
+        setCurrentTab={handleTabChange}
         alertCount={unverifiedAlertsCount}
         isBackendHealthy={isBackendHealthy}
       />
@@ -212,7 +237,7 @@ export function App() {
           detections={detections}
           alerts={alerts}
           onFocusDetection={handleFocusDetection}
-          onNavigate={setCurrentTab}
+          onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
         />
 

@@ -28,7 +28,8 @@ export function Header({
   onNavigate,
   onOpenUploadModal,
 }) {
-  const [utcTime, setUtcTime] = useState('');
+  const [dateStr, setDateStr] = useState('');
+  const [timeStr, setTimeStr] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -38,7 +39,8 @@ export function Header({
   useEffect(() => {
     const update = () => {
       const now = new Date();
-      setUtcTime(now.toUTCString().replace('GMT', 'UTC'));
+      setDateStr(now.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
+      setTimeStr(`${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC`);
     };
     update();
     const timer = setInterval(update, 1000);
@@ -80,18 +82,14 @@ export function Header({
 
   return (
     <header className="top-header">
-      {/* Left: Compact Page Title & Mission Identifier */}
+      {/* Left: Page Title & Global View Identity */}
       <div className="header-left">
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--primary-cyan)' }}>
-              SATRA
-            </span>
-            <span style={{ color: 'var(--border-color)', fontSize: '11px' }}>/</span>
-            <h1 className="page-heading">{pageTitle}</h1>
-          </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-muted)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>
-            AI Satellite Thermal Risk Analysis
+          <h1 className="page-heading" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#FFFFFF' }}>
+            {pageTitle}
+          </h1>
+          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            Global view of thermal risks on Earth
           </div>
         </div>
       </div>
@@ -99,13 +97,13 @@ export function Header({
       {/* Center: Global Search Bar */}
       <div className="satra-search-container" ref={searchContainerRef}>
         <Search
-          size={13}
-          style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
+          size={14}
+          style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }}
         />
         <input
           type="text"
           className="satra-search-input"
-          placeholder="Search ID, Lat/Lon, Class, Satellite..."
+          placeholder="Search location (e.g., city, coordinates)"
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -157,53 +155,48 @@ export function Header({
       </div>
 
       {/* Right Controls & Telemetry */}
-      <div className="header-right">
-        {/* Live UTC Clock */}
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-          {utcTime}
+      <div className="header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {/* Dynamic Date & Time */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.25 }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+            {dateStr}
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {timeStr}
+          </div>
         </div>
 
-        {/* AI Model Version Badge */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '10.5px', background: 'rgba(15, 32, 50, 0.7)', padding: '4px 8px', borderRadius: '6px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-          <span style={{ color: 'var(--text-muted)' }}>AI:</span>
-          <strong style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)' }}>2.0.0-sci</strong>
-        </div>
-
-        {/* Backend Connectivity Status */}
-        <div className="live-pill" style={{ padding: '4px 10px', fontSize: '11px' }}>
+        {/* System Online / All Services Operational Pill (Reference Match) */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: isBackendHealthy ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+            border: isBackendHealthy ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)',
+            borderRadius: '20px',
+            padding: '5px 12px',
+            boxShadow: isBackendHealthy ? '0 0 12px rgba(16, 185, 129, 0.2)' : 'none',
+          }}
+        >
           <span
-            className="live-dot"
             style={{
-              backgroundColor: isBackendHealthy ? 'var(--success)' : 'var(--critical-red)',
-              boxShadow: isBackendHealthy
-                ? '0 0 8px var(--success)'
-                : '0 0 8px var(--critical-red)',
+              width: 8,
+              height: 8,
+              borderRadius: '50%',
+              backgroundColor: isBackendHealthy ? '#10B981' : '#EF4444',
+              boxShadow: isBackendHealthy ? '0 0 8px #10B981' : '0 0 8px #EF4444',
             }}
           />
-          <span style={{ whiteSpace: 'nowrap' }}>{isBackendHealthy ? 'Active' : 'Offline'}</span>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: isBackendHealthy ? '#10B981' : '#EF4444' }}>
+              System Online
+            </span>
+            <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+              {isBackendHealthy ? 'All Services Operational' : 'Offline'}
+            </span>
+          </div>
         </div>
-
-        {/* SATRA Core Pipeline: Upload & Analyze Entry Point */}
-        {onOpenUploadModal && (
-          <button
-            onClick={onOpenUploadModal}
-            className="btn-primary"
-            style={{
-              padding: '6px 14px',
-              fontSize: '11.5px',
-              fontWeight: 700,
-              gap: '6px',
-              whiteSpace: 'nowrap',
-              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.28) 0%, rgba(2, 132, 199, 0.45) 100%)',
-              border: '1px solid var(--primary-cyan)',
-              boxShadow: '0 0 14px rgba(56, 189, 248, 0.3)',
-            }}
-            title="Upload satellite observation file (.csv, .json) & execute AI analysis"
-          >
-            <UploadCloud size={13} style={{ color: '#FFFFFF' }} />
-            <span>Upload & Analyze</span>
-          </button>
-        )}
 
         {/* Quick Sample Ingest for Live Testing */}
         {onIngestSample && (
@@ -316,37 +309,28 @@ export function Header({
           </button>
         )}
 
-        {/* Operator Profile Badge */}
+        {/* Operator Profile Badge (SK - Reference Match) */}
         <div
           style={{
+            width: 34,
+            height: 34,
+            borderRadius: '8px',
+            background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            padding: '4px 8px 4px 6px',
-            borderRadius: '20px',
-            background: 'rgba(15, 32, 50, 0.7)',
-            border: '1px solid var(--border-color)',
+            justifyContent: 'center',
+            color: '#FFFFFF',
+            fontSize: '13px',
+            fontWeight: 700,
+            letterSpacing: '0.04em',
+            boxShadow: '0 0 12px rgba(2, 132, 199, 0.4)',
+            cursor: 'pointer',
             marginLeft: '4px',
           }}
-          title="SATRA Ground Station Operator"
+          title="Operator: SK"
         >
-          <div
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, var(--primary-cyan) 0%, var(--earth-blue) 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#050B14',
-            }}
-          >
-            <User size={12} />
-          </div>
-          <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', paddingRight: '4px' }}>
-            Ops
-          </span>
+          SK
         </div>
       </div>
     </header>

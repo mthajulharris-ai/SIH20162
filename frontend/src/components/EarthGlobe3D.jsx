@@ -19,6 +19,10 @@ import {
   Layers,
   ZoomIn,
   ZoomOut,
+  Target,
+  Globe,
+  Plus,
+  Minus,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from './StatusBadge';
 
@@ -226,12 +230,12 @@ function createBlueDigitalTextureFromImage(image, renderer) {
   }
 }
 
-// Camera Distance Presets (Sensible limits to prevent Earth texture pixelation)
-const CAMERA_DIST_GLOBAL = 240;    // State 1: Global full Earth overview
-const CAMERA_DIST_REGIONAL = 200;  // State 2: Regional view
-const CAMERA_DIST_DETECTION = 168; // State 3: Controlled close observation (Altitude ~68)
-const CAMERA_DIST_MIN = 152;       // Strict minimum: prevents texture magnification blur
-const CAMERA_DIST_MAX = 310;       // Maximum zoom out limit
+// Camera Distance Presets (Smooth, wide zoom range without clipping into Earth radius 100)
+const CAMERA_DIST_GLOBAL = 245;    // State 1: Global full Earth overview
+const CAMERA_DIST_REGIONAL = 190;  // State 2: Regional view
+const CAMERA_DIST_DETECTION = 150; // State 3: Controlled close observation (Altitude ~50)
+const CAMERA_DIST_MIN = 118;       // Smooth close zoom without clipping Earth surface
+const CAMERA_DIST_MAX = 520;       // Spacious distant orbit view
 
 export function EarthGlobe3D({
   detections = [],
@@ -240,6 +244,12 @@ export function EarthGlobe3D({
   onSwitchTo2D = () => {},
   initialMode = 'normal',
   onModeChange = null,
+  hideSidePanel = false,
+  isOverview = false,
+  isEarthIntelligence = false,
+  hideModeSelector = false,
+  hideFloatingFeed = false,
+  focusTrigger = null,
 }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
@@ -252,14 +262,23 @@ export function EarthGlobe3D({
   const earthMatRef = useRef(null);
   const daymapTexRef = useRef(null);
   const blueDigitalTexRef = useRef(null);
+  const fallbackTexRef = useRef(null);
+  const fallbackBlueTexRef = useRef(null);
   const animFrameIdRef = useRef(null);
 
   // Visualization Mode: 'normal' | 'thermal' | 'hybrid'
-  const [earthMode, setEarthMode] = useState(initialMode || 'normal');
+  const [earthMode, setEarthMode] = useState(isOverview ? 'normal' : (initialMode || 'normal'));
   const earthModeRef = useRef(earthMode);
   useEffect(() => {
-    earthModeRef.current = earthMode;
-  }, [earthMode]);
+    earthModeRef.current = isOverview ? 'normal' : earthMode;
+  }, [earthMode, isOverview]);
+
+  // Sync external mode changes smoothly
+  useEffect(() => {
+    if (initialMode && !isOverview) {
+      setEarthMode(initialMode);
+    }
+  }, [initialMode, isOverview]);
 
   // Interaction State Refs
   const isDraggingRef = useRef(false);
@@ -384,17 +403,19 @@ export function EarthGlobe3D({
     // Texture Loader with Anisotropic Filtering
     const textureLoader = new THREE.TextureLoader();
     const fallbackTex = createFallbackEarthTexture();
+    fallbackTexRef.current = fallbackTex;
     const fallbackBlueTex = createFallbackBlueDigitalEarthTexture();
+    fallbackBlueTexRef.current = fallbackBlueTex;
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
 
-    const initialIsThermal = earthModeRef.current === 'thermal';
+    const initialIsBlueStyle = isEarthIntelligence || earthModeRef.current === 'thermal';
     const earthMat = new THREE.MeshStandardMaterial({
-      map: initialIsThermal ? fallbackBlueTex : fallbackTex,
-      roughness: initialIsThermal ? 0.48 : 0.78,
-      metalness: initialIsThermal ? 0.28 : 0.12,
-      color: initialIsThermal ? new THREE.Color(0x38bdf8) : new THREE.Color(0xffffff),
-      emissive: initialIsThermal ? new THREE.Color(0x021f3f) : new THREE.Color(0x000000),
+      map: initialIsBlueStyle ? fallbackBlueTex : fallbackTex,
+      roughness: initialIsBlueStyle ? 0.48 : 0.78,
+      metalness: initialIsBlueStyle ? 0.28 : 0.12,
+      color: initialIsBlueStyle ? new THREE.Color(0x38bdf8) : new THREE.Color(0xffffff),
+      emissive: initialIsBlueStyle ? new THREE.Color(0x021f3f) : new THREE.Color(0x000000),
     });
     earthMatRef.current = earthMat;
 
@@ -421,7 +442,7 @@ export function EarthGlobe3D({
         }
 
         // Apply active mode texture immediately
-        if (earthModeRef.current === 'thermal') {
+        if (isEarthIntelligence || earthModeRef.current === 'thermal') {
           earthMat.map = blueDigitalTexRef.current || fallbackBlueTex;
           earthMat.color.setHex(0x38bdf8);
           earthMat.emissive.setHex(0x021f3f);
@@ -451,7 +472,7 @@ export function EarthGlobe3D({
       depthWrite: false,
     });
     const cloudsMesh = new THREE.Mesh(cloudsGeo, cloudsMat);
-    cloudsMesh.visible = earthModeRef.current !== 'thermal';
+    cloudsMesh.visible = !isEarthIntelligence && earthModeRef.current !== 'thermal';
     earthGroup.add(cloudsMesh);
     cloudsMeshRef.current = cloudsMesh;
 
@@ -481,7 +502,7 @@ export function EarthGlobe3D({
           depthWrite: false,
         });
         const nightMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.15, 64, 64), nightMat);
-        nightMesh.visible = earthModeRef.current !== 'thermal';
+        nightMesh.visible = !isEarthIntelligence && earthModeRef.current !== 'thermal';
         earthGroup.add(nightMesh);
         nightMeshRef.current = nightMesh;
       },
@@ -666,7 +687,7 @@ export function EarthGlobe3D({
       cameraDistanceRef.current = THREE.MathUtils.lerp(
         cameraDistanceRef.current,
         targetCameraDistanceRef.current,
-        0.085
+        0.11
       );
       camera.position.z = cameraDistanceRef.current;
 
@@ -814,10 +835,21 @@ export function EarthGlobe3D({
     if (!earthMatRef.current) return;
     const earthMat = earthMatRef.current;
 
+    if (isEarthIntelligence) {
+      // In Earth Intelligence, Earth remains blue holographic across all visualization modes
+      earthMat.map = blueDigitalTexRef.current || fallbackBlueTexRef.current;
+      earthMat.color.setHex(0x38bdf8);
+      earthMat.emissive.setHex(0x021f3f);
+      earthMat.roughness = 0.48;
+      earthMat.metalness = 0.28;
+      earthMat.needsUpdate = true;
+      if (cloudsMeshRef.current) cloudsMeshRef.current.visible = false;
+      if (nightMeshRef.current) nightMeshRef.current.visible = false;
+      return;
+    }
+
     if (earthMode === 'normal') {
-      if (daymapTexRef.current) {
-        earthMat.map = daymapTexRef.current;
-      }
+      earthMat.map = daymapTexRef.current || fallbackTexRef.current;
       earthMat.color.setHex(0xffffff);
       earthMat.emissive.setHex(0x000000);
       earthMat.roughness = 0.78;
@@ -826,9 +858,7 @@ export function EarthGlobe3D({
       if (cloudsMeshRef.current) cloudsMeshRef.current.visible = true;
       if (nightMeshRef.current) nightMeshRef.current.visible = true;
     } else if (earthMode === 'thermal') {
-      if (blueDigitalTexRef.current) {
-        earthMat.map = blueDigitalTexRef.current;
-      }
+      earthMat.map = blueDigitalTexRef.current || fallbackBlueTexRef.current;
       earthMat.color.setHex(0x38bdf8);
       earthMat.emissive.setHex(0x021f3f);
       earthMat.roughness = 0.48;
@@ -837,9 +867,7 @@ export function EarthGlobe3D({
       if (cloudsMeshRef.current) cloudsMeshRef.current.visible = false;
       if (nightMeshRef.current) nightMeshRef.current.visible = false;
     } else if (earthMode === 'hybrid') {
-      if (daymapTexRef.current) {
-        earthMat.map = daymapTexRef.current;
-      }
+      earthMat.map = daymapTexRef.current || fallbackTexRef.current;
       earthMat.color.setHex(0xffffff);
       earthMat.emissive.setHex(0x000000);
       earthMat.roughness = 0.78;
@@ -848,7 +876,7 @@ export function EarthGlobe3D({
       if (cloudsMeshRef.current) cloudsMeshRef.current.visible = true;
       if (nightMeshRef.current) nightMeshRef.current.visible = true;
     }
-  }, [earthMode]);
+  }, [earthMode, isEarthIntelligence]);
 
   // Update Hotspot Markers when detections, selection, or earthMode change
   useEffect(() => {
@@ -1098,6 +1126,32 @@ export function EarthGlobe3D({
     setCameraState('TRANSITION');
   }, [selectedDetection]);
 
+  // Dedicated Focus Trigger (for Focus on Location button)
+  useEffect(() => {
+    if (!focusTrigger || !earthGroupRef.current || !cameraRef.current) return;
+    const targetDet = selectedDetection || (detections.length > 0 ? detections[0] : null);
+    if (!targetDet) return;
+
+    const lat = parseFloat(targetDet.latitude);
+    const lon = parseFloat(targetDet.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    const targetPt = latLngToVector3(lat, lon, 100).normalize();
+    const targetQ = new THREE.Quaternion().setFromUnitVectors(
+      targetPt,
+      new THREE.Vector3(0, 0, 1)
+    );
+
+    startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
+    targetQuaternionRef.current.copy(targetQ);
+    startDistanceRef.current = cameraDistanceRef.current;
+    targetDistanceRef.current = CAMERA_DIST_DETECTION;
+    transitionProgressRef.current = 0;
+    isTransitioningRef.current = true;
+    lastInteractionTimeRef.current = Date.now();
+    setCameraState('TRANSITION');
+  }, [focusTrigger]);
+
   // Handle Reset Global View
   const handleResetView = useCallback(() => {
     if (!earthGroupRef.current) return;
@@ -1121,17 +1175,21 @@ export function EarthGlobe3D({
     setCameraState('TRANSITION');
   }, [onSelectDetection]);
 
-  // Handle Zoom In / Zoom Out Buttons
+  // Handle Zoom In / Zoom Out Buttons (Operational and responsive)
   const handleZoomIn = () => {
+    isTransitioningRef.current = false;
+    lastInteractionTimeRef.current = Date.now();
     targetCameraDistanceRef.current = THREE.MathUtils.clamp(
-      targetCameraDistanceRef.current - 20,
+      targetCameraDistanceRef.current - 32,
       CAMERA_DIST_MIN,
       CAMERA_DIST_MAX
     );
   };
   const handleZoomOut = () => {
+    isTransitioningRef.current = false;
+    lastInteractionTimeRef.current = Date.now();
     targetCameraDistanceRef.current = THREE.MathUtils.clamp(
-      targetCameraDistanceRef.current + 20,
+      targetCameraDistanceRef.current + 32,
       CAMERA_DIST_MIN,
       CAMERA_DIST_MAX
     );
@@ -1155,12 +1213,12 @@ export function EarthGlobe3D({
       style={{
         position: 'relative',
         width: '100%',
-        height: 'calc(100vh - 120px)',
-        minHeight: '620px',
+        height: isOverview ? '100%' : 'calc(100vh - 120px)',
+        minHeight: isOverview ? '100%' : '620px',
         overflow: 'hidden',
         background: '#030712',
-        borderRadius: '12px',
-        border: '1px solid #1e293b',
+        borderRadius: isOverview ? '0px' : '12px',
+        border: isOverview ? 'none' : '1px solid #1e293b',
       }}
     >
       {/* 3D WebGL Canvas Container */}
@@ -1175,110 +1233,112 @@ export function EarthGlobe3D({
 
       {/* 
         ============================================================
-        COMPACT EARTH-VIEW MODE SELECTOR
+        TOP SELECTABLE EARTH VIEWPORT SWITCHER
         [ 🌍 NORMAL ] [ 🔥 THERMAL ] [ ✦ HYBRID ]
-        Mounted prominently at top center above the 3D Earth
+        Hidden in Overview and Earth Intelligence to keep a clean single visual
         ============================================================
       */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 25,
-          display: 'flex',
-          alignItems: 'center',
-          background: 'rgba(11, 23, 38, 0.92)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(56, 189, 248, 0.3)',
-          borderRadius: '8px',
-          padding: '3px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
-          gap: '4px',
-          pointerEvents: 'auto',
-        }}
-      >
-        {/* MODE 1: NORMAL */}
-        <button
-          onClick={() => handleModeSwitch('normal')}
+      {!isOverview && !hideModeSelector && !isEarthIntelligence && (
+        <div
           style={{
+            position: 'absolute',
+            top: 16,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 25,
             display: 'flex',
             alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            fontSize: '11.5px',
-            fontWeight: earthMode === 'normal' ? 700 : 500,
-            color: earthMode === 'normal' ? '#FFFFFF' : '#94A3B8',
-            background: earthMode === 'normal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-            border: earthMode === 'normal' ? '1px solid #38BDF8' : '1px solid transparent',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: earthMode === 'normal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+            background: 'rgba(11, 23, 38, 0.92)',
+            backdropFilter: 'blur(14px)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '8px',
+            padding: '3px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+            gap: '4px',
+            pointerEvents: 'auto',
           }}
-          title="Normal Mode: High-quality realistic Earth with natural land, oceans, clouds, and lighting"
         >
-          <span>🌍</span>
-          <span>NORMAL</span>
-        </button>
+          {/* MODE 1: NORMAL */}
+          <button
+            onClick={() => handleModeSwitch('normal')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '11.5px',
+              fontWeight: earthMode === 'normal' ? 700 : 500,
+              color: earthMode === 'normal' ? '#FFFFFF' : '#94A3B8',
+              background: earthMode === 'normal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              border: earthMode === 'normal' ? '1px solid #38BDF8' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+              boxShadow: earthMode === 'normal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+            }}
+            title="Normal Mode: High-quality realistic Earth with natural land, oceans, clouds, and lighting"
+          >
+            <span>🌍</span>
+            <span>NORMAL</span>
+          </button>
 
-        {/* MODE 2: THERMAL */}
-        <button
-          onClick={() => handleModeSwitch('thermal')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            fontSize: '11.5px',
-            fontWeight: earthMode === 'thermal' ? 700 : 500,
-            color: earthMode === 'thermal' ? '#FFFFFF' : '#94A3B8',
-            background: earthMode === 'thermal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-            border: earthMode === 'thermal' ? '1px solid #38BDF8' : '1px solid transparent',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: earthMode === 'thermal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
-          }}
-          title="Thermal Mode: Pure Blue Digital Earth with Red FIRMS Thermal Anomaly Hotspots"
-        >
-          <span style={{ color: '#EF4444' }}>🔥</span>
-          <span>THERMAL</span>
-        </button>
+          {/* MODE 2: THERMAL */}
+          <button
+            onClick={() => handleModeSwitch('thermal')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '11.5px',
+              fontWeight: earthMode === 'thermal' ? 700 : 500,
+              color: earthMode === 'thermal' ? '#FFFFFF' : '#94A3B8',
+              background: earthMode === 'thermal' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              border: earthMode === 'thermal' ? '1px solid #38BDF8' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+              boxShadow: earthMode === 'thermal' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+            }}
+            title="Thermal Mode: Pure Blue Digital Earth with Red FIRMS Thermal Anomaly Hotspots"
+          >
+            <span style={{ color: '#EF4444' }}>🔥</span>
+            <span>THERMAL</span>
+          </button>
 
-        {/* MODE 3: HYBRID */}
-        <button
-          onClick={() => handleModeSwitch('hybrid')}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '6px 14px',
-            fontSize: '11.5px',
-            fontWeight: earthMode === 'hybrid' ? 700 : 500,
-            color: earthMode === 'hybrid' ? '#FFFFFF' : '#94A3B8',
-            background: earthMode === 'hybrid' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-            border: earthMode === 'hybrid' ? '1px solid #38BDF8' : '1px solid transparent',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            transition: 'all 0.18s ease',
-            boxShadow: earthMode === 'hybrid' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
-          }}
-          title="Hybrid Mode: Realistic Earth surface combined with vivid Red Thermal Anomaly overlay"
-        >
-          <span style={{ color: '#38BDF8' }}>✦</span>
-          <span>HYBRID</span>
-        </button>
-      </div>
+          {/* MODE 3: HYBRID */}
+          <button
+            onClick={() => handleModeSwitch('hybrid')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              fontSize: '11.5px',
+              fontWeight: earthMode === 'hybrid' ? 700 : 500,
+              color: earthMode === 'hybrid' ? '#FFFFFF' : '#94A3B8',
+              background: earthMode === 'hybrid' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+              border: earthMode === 'hybrid' ? '1px solid #38BDF8' : '1px solid transparent',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              transition: 'all 0.18s ease',
+              boxShadow: earthMode === 'hybrid' ? '0 0 14px rgba(56, 189, 248, 0.3)' : 'none',
+            }}
+            title="Hybrid Mode: Realistic Earth surface combined with vivid Red Thermal Anomaly overlay"
+          >
+            <span style={{ color: '#38BDF8' }}>✦</span>
+            <span>HYBRID</span>
+          </button>
+        </div>
+      )}
 
       {/* 
         ============================================================
         THERMAL INTELLIGENCE LEGEND
-        Visible when THERMAL or HYBRID mode is active
+        Visible when THERMAL or HYBRID mode is active (suppressed in Earth Intelligence to prevent duplicate)
         ============================================================
       */}
-      {(earthMode === 'thermal' || earthMode === 'hybrid') && (
+      {!isOverview && !isEarthIntelligence && (earthMode === 'thermal' || earthMode === 'hybrid') && (
         <div
           style={{
             position: 'absolute',
@@ -1322,186 +1382,190 @@ export function EarthGlobe3D({
         </div>
       )}
 
-      {/* Floating HUD: Top Left Status & Mode Switcher */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 16,
-          left: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '10px',
-          zIndex: 10,
-          pointerEvents: 'auto',
-        }}
-      >
-        {/* Mode Switcher Segmented Control */}
+      {/* Floating HUD: Top Left Status & Mode Switcher (Suppressed in Earth Intelligence to ensure NO 2D MAP exists) */}
+      {!isOverview && !isEarthIntelligence && (
         <div
           style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
             display: 'flex',
-            background: 'rgba(15, 23, 42, 0.88)',
-            backdropFilter: 'blur(12px)',
-            padding: '4px',
-            borderRadius: '8px',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+            flexDirection: 'column',
+            gap: '10px',
+            zIndex: 10,
+            pointerEvents: 'auto',
           }}
         >
-          <button
+          {/* Mode Switcher Segmented Control */}
+          <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: 600,
-              color: '#38BDF8',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              borderRadius: '6px',
-              cursor: 'default',
+              background: 'rgba(15, 23, 42, 0.88)',
+              backdropFilter: 'blur(12px)',
+              padding: '4px',
+              borderRadius: '8px',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
             }}
           >
-            <span>🌍</span>
-            <span>3D Earth</span>
-          </button>
+            <button
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 600,
+                color: '#38BDF8',
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                borderRadius: '6px',
+                cursor: 'default',
+              }}
+            >
+              <span>🌍</span>
+              <span>3D Earth</span>
+            </button>
 
-          <button
-            onClick={onSwitchTo2D}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              fontWeight: 500,
-              color: '#94A3B8',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-            }}
-            title="Switch to 2D Leaflet GIS map with exact synchronized coordinates"
-          >
-            <span>🗺️</span>
-            <span>2D Map</span>
-          </button>
-        </div>
-
-        {/* Global Telemetry Card */}
-        <div
-          style={{
-            background: 'rgba(15, 23, 42, 0.84)',
-            backdropFilter: 'blur(10px)',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            fontSize: '11.5px',
-            color: '#94A3B8',
-            maxWidth: '230px',
-            lineHeight: 1.5,
-          }}
-        >
-          <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: '12px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Compass size={14} style={{ color: 'var(--accent-cyan)' }} />
-            <span>Earth Observation</span>
+            <button
+              onClick={onSwitchTo2D}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#94A3B8',
+                background: 'transparent',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              title="Switch to 2D Leaflet GIS map with exact synchronized coordinates"
+            >
+              <span>🗺️</span>
+              <span>2D Map</span>
+            </button>
           </div>
-          <div>Active Hotspots: <strong style={{ color: '#38BDF8' }}>{detections.length}</strong></div>
-          <div>Sensors: <strong style={{ color: '#F8FAFC' }}>VIIRS (375m) / MODIS</strong></div>
-          <div>Camera Mode: <strong style={{ color: selectedDetection ? '#34D399' : '#38BDF8' }}>
-            {selectedDetection ? 'TARGET LOCKED' : autoRotate ? 'ORBITAL PATROL' : 'MANUAL'}
-          </strong></div>
+
+          {/* Global Telemetry Card */}
+          <div
+            style={{
+              background: 'rgba(15, 23, 42, 0.84)',
+              backdropFilter: 'blur(10px)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              fontSize: '11.5px',
+              color: '#94A3B8',
+              maxWidth: '230px',
+              lineHeight: 1.5,
+            }}
+          >
+            <div style={{ color: '#F8FAFC', fontWeight: 700, fontSize: '12px', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Compass size={14} style={{ color: 'var(--accent-cyan)' }} />
+              <span>Earth Observation</span>
+            </div>
+            <div>Active Hotspots: <strong style={{ color: '#38BDF8' }}>{detections.length}</strong></div>
+            <div>Sensors: <strong style={{ color: '#F8FAFC' }}>VIIRS (375m) / MODIS</strong></div>
+            <div>Camera Mode: <strong style={{ color: selectedDetection ? '#34D399' : '#38BDF8' }}>
+              {selectedDetection ? 'TARGET LOCKED' : autoRotate ? 'ORBITAL PATROL' : 'MANUAL'}
+            </strong></div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Floating HUD: Top Right Camera & Orbit Controls */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 16,
-          right: selectedDetection ? 380 : 16,
-          display: 'flex',
-          gap: '8px',
-          zIndex: 10,
-          transition: 'right 0.3s ease',
-        }}
-      >
-        <button
-          onClick={() => setAutoRotate((prev) => !prev)}
+      {!isOverview && !isEarthIntelligence && (
+        <div
           style={{
+            position: 'absolute',
+            top: 16,
+            right: selectedDetection ? 380 : 16,
             display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            background: autoRotate ? 'rgba(56, 189, 248, 0.15)' : 'rgba(15, 23, 42, 0.85)',
-            color: autoRotate ? '#38BDF8' : '#94A3B8',
-            border: `1px solid ${autoRotate ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255, 255, 255, 0.1)'}`,
-            borderRadius: '6px',
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
+            gap: '8px',
+            zIndex: 10,
+            transition: 'right 0.3s ease',
           }}
-          title={autoRotate ? 'Pause automatic Earth rotation' : 'Resume automatic Earth rotation'}
         >
-          {autoRotate ? <Pause size={13} /> : <Play size={13} />}
-          <span>{autoRotate ? 'Rotation ON' : 'Rotation OFF'}</span>
-        </button>
-
-        <button
-          onClick={handleResetView}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '7px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            background: 'rgba(15, 23, 42, 0.85)',
-            color: '#F8FAFC',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            backdropFilter: 'blur(8px)',
-          }}
-          title="Reset to global full Earth view"
-        >
-          <RotateCcw size={13} />
-          <span>Reset View</span>
-        </button>
-
-        {/* Zoom Controls */}
-        <div style={{ display: 'flex', background: 'rgba(15, 23, 42, 0.85)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
           <button
-            onClick={handleZoomIn}
+            onClick={() => setAutoRotate((prev) => !prev)}
             style={{
-              padding: '7px 9px',
-              background: 'transparent',
-              border: 'none',
-              color: '#F8FAFC',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 12px',
+              fontSize: '12px',
+              fontWeight: 500,
+              background: autoRotate ? 'rgba(56, 189, 248, 0.15)' : 'rgba(15, 23, 42, 0.85)',
+              color: autoRotate ? '#38BDF8' : '#94A3B8',
+              border: `1px solid ${autoRotate ? 'rgba(56, 189, 248, 0.4)' : 'rgba(255, 255, 255, 0.1)'}`,
+              borderRadius: '6px',
               cursor: 'pointer',
+              backdropFilter: 'blur(8px)',
             }}
-            title="Zoom In (Clamped to prevent texture blur)"
+            title={autoRotate ? 'Pause automatic Earth rotation' : 'Resume automatic Earth rotation'}
           >
-            <ZoomIn size={13} />
+            {autoRotate ? <Pause size={13} /> : <Play size={13} />}
+            <span>{autoRotate ? 'Rotation ON' : 'Rotation OFF'}</span>
           </button>
+
           <button
-            onClick={handleZoomOut}
+            onClick={handleResetView}
             style={{
-              padding: '7px 9px',
-              background: 'transparent',
-              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '7px 12px',
+              fontSize: '12px',
+              fontWeight: 500,
+              background: 'rgba(15, 23, 42, 0.85)',
               color: '#F8FAFC',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '6px',
               cursor: 'pointer',
-              borderLeft: '1px solid rgba(255,255,255,0.1)',
+              backdropFilter: 'blur(8px)',
             }}
-            title="Zoom Out"
+            title="Reset to global full Earth view"
           >
-            <ZoomOut size={13} />
+            <RotateCcw size={13} />
+            <span>Reset View</span>
           </button>
+
+          {/* Zoom Controls */}
+          <div style={{ display: 'flex', background: 'rgba(15, 23, 42, 0.85)', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <button
+              onClick={handleZoomIn}
+              style={{
+                padding: '7px 9px',
+                background: 'transparent',
+                border: 'none',
+                color: '#F8FAFC',
+                cursor: 'pointer',
+              }}
+              title="Zoom In (Clamped to prevent texture blur)"
+            >
+              <ZoomIn size={13} />
+            </button>
+            <button
+              onClick={handleZoomOut}
+              style={{
+                padding: '7px 9px',
+                background: 'transparent',
+                border: 'none',
+                color: '#F8FAFC',
+                cursor: 'pointer',
+                borderLeft: '1px solid rgba(255,255,255,0.1)',
+              }}
+              title="Zoom Out"
+            >
+              <ZoomOut size={13} />
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Micro Hover Tooltip */}
       {hoveredDetection && !selectedDetection && (
@@ -1539,7 +1603,7 @@ export function EarthGlobe3D({
 
       {/* RESOLUTION-INDEPENDENT VECTOR TARGET RETICLE (Section 8) */}
       {/* Positioned dynamically over the exact 3D projected screen coordinate */}
-      {reticleState && reticleState.visible && (
+      {!isOverview && reticleState && reticleState.visible && (
         <div
           style={{
             position: 'absolute',
@@ -1628,8 +1692,314 @@ export function EarthGlobe3D({
         </div>
       )}
 
+      {/* 
+        ============================================================
+        REFERENCE DESIGN OVERLAYS:
+        - Right-side Vertical Controls Pill (+, -, Target, Globe)
+        - Bottom-left Compass Rose & Compact Legend
+        - Bottom-right Exact Coordinate Telemetry Readout
+        - Top-left Tagline & Live Satellite Feed Box
+        ============================================================
+      */}
+
+      {/* Right-side Vertical Controls Pill */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '50%',
+          right: 16,
+          transform: 'translateY(-50%)',
+          display: 'flex',
+          flexDirection: 'column',
+          background: 'rgba(11, 23, 38, 0.92)',
+          backdropFilter: 'blur(14px)',
+          borderRadius: '10px',
+          border: '1px solid rgba(56, 189, 248, 0.28)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+          padding: '4px',
+          gap: '4px',
+          zIndex: 20,
+        }}
+      >
+        {/* 1. Zoom In (+) */}
+        <button
+          onClick={handleZoomIn}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: '#FFFFFF',
+            padding: '5px 7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '18px',
+            fontWeight: 700,
+            lineHeight: 1,
+            width: '32px',
+            height: '32px',
+          }}
+          title="Zoom In (Smooth Camera Altitude)"
+        >
+          +
+        </button>
+
+        {/* 2. Zoom Out (−) */}
+        <button
+          onClick={handleZoomOut}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: '#FFFFFF',
+            padding: '5px 7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: '18px',
+            fontWeight: 700,
+            lineHeight: 1,
+            width: '32px',
+            height: '32px',
+          }}
+          title="Zoom Out"
+        >
+          &minus;
+        </button>
+
+        {/* 3. Focus / Target Hotspot */}
+        <button
+          onClick={() => {
+            const targetDet = selectedDetection || (detections.length > 0 ? detections[0] : null);
+            if (targetDet) {
+              const lat = parseFloat(targetDet.latitude);
+              const lon = parseFloat(targetDet.longitude);
+              if (!isNaN(lat) && !isNaN(lon) && earthGroupRef.current) {
+                if (!selectedDetection) {
+                  onSelectDetection(targetDet);
+                }
+                const targetPt = latLngToVector3(lat, lon, 100).normalize();
+                const targetQ = new THREE.Quaternion().setFromUnitVectors(targetPt, new THREE.Vector3(0, 0, 1));
+                startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
+                targetQuaternionRef.current.copy(targetQ);
+                startDistanceRef.current = cameraDistanceRef.current;
+                targetDistanceRef.current = CAMERA_DIST_DETECTION;
+                transitionProgressRef.current = 0;
+                isTransitioningRef.current = true;
+                lastInteractionTimeRef.current = Date.now();
+                setCameraState('TRANSITION');
+              }
+            }
+          }}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: '#38BDF8',
+            padding: '7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+          }}
+          title="Focus / Target Active Hotspot"
+        >
+          <Target size={16} />
+        </button>
+
+        {/* 4. Globe / Reset View */}
+        <button
+          onClick={handleResetView}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            borderRadius: '6px',
+            color: '#94A3B8',
+            padding: '7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+          }}
+          title="Globe / Reset to Global Orbit View"
+        >
+          <Globe size={15} />
+        </button>
+      </div>
+
+      {/* Bottom-right Coordinate Telemetry (Reference Match) */}
+      {!isOverview && !isEarthIntelligence && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            right: 16,
+            zIndex: 15,
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            color: '#94A3B8',
+            lineHeight: 1.5,
+            textAlign: 'right',
+            pointerEvents: 'none',
+            background: 'rgba(11, 23, 38, 0.75)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(56, 189, 248, 0.18)',
+            borderRadius: '6px',
+            padding: '6px 10px',
+          }}
+        >
+          <div>
+            Lat: <span style={{ color: '#FFFFFF', fontWeight: 700 }}>
+              {selectedDetection
+                ? `${Math.abs(parseFloat(selectedDetection.latitude)).toFixed(4)}° ${parseFloat(selectedDetection.latitude) >= 0 ? 'N' : 'S'}`
+                : detections.length > 0
+                ? `${Math.abs(parseFloat(detections[0].latitude)).toFixed(4)}° ${parseFloat(detections[0].latitude) >= 0 ? 'N' : 'S'}`
+                : '22.8046° N'}
+            </span>
+          </div>
+          <div>
+            Lon: <span style={{ color: '#FFFFFF', fontWeight: 700 }}>
+              {selectedDetection
+                ? `${Math.abs(parseFloat(selectedDetection.longitude)).toFixed(4)}° ${parseFloat(selectedDetection.longitude) >= 0 ? 'E' : 'W'}`
+                : detections.length > 0
+                ? `${Math.abs(parseFloat(detections[0].longitude)).toFixed(4)}° ${parseFloat(detections[0].longitude) >= 0 ? 'E' : 'W'}`
+                : '86.2029° E'}
+            </span>
+          </div>
+          <div style={{ color: '#38BDF8', fontSize: '10px' }}>
+            Alt: 36,000 km
+          </div>
+        </div>
+      )}
+
+      {/* Bottom-left Compass Rose & Compact Legend (Reference Match) */}
+      {!isOverview && !isEarthIntelligence && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 16,
+            left: 16,
+            zIndex: 15,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            pointerEvents: 'none',
+          }}
+        >
+          {/* Compass Rose */}
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+              <circle cx="22" cy="22" r="19" stroke="rgba(56, 189, 248, 0.35)" strokeWidth="1" strokeDasharray="2 3" />
+              <circle cx="22" cy="22" r="9" stroke="rgba(56, 189, 248, 0.6)" strokeWidth="1" />
+              <line x1="22" y1="3" x2="22" y2="41" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+              <line x1="3" y1="22" x2="41" y2="22" stroke="rgba(56, 189, 248, 0.4)" strokeWidth="1" />
+              <circle cx="22" cy="22" r="2.5" fill="#38BDF8" />
+            </svg>
+            <span style={{ position: 'absolute', top: -3, left: '50%', transform: 'translateX(-50%)', fontSize: '9px', fontWeight: 800, color: '#38BDF8' }}>N</span>
+            <span style={{ position: 'absolute', bottom: -3, left: '50%', transform: 'translateX(-50%)', fontSize: '9px', fontWeight: 800, color: '#64748B' }}>S</span>
+            <span style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 800, color: '#64748B' }}>W</span>
+            <span style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontSize: '9px', fontWeight: 800, color: '#64748B' }}>E</span>
+          </div>
+
+          {/* Compact Legend */}
+          <div
+            style={{
+              background: 'rgba(11, 23, 38, 0.88)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              borderRadius: '8px',
+              padding: '6px 10px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontSize: '11px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EF4444', boxShadow: '0 0 6px #EF4444' }} />
+              <span style={{ color: '#F8FAFC', fontWeight: 500 }}>High</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#F59E0B', boxShadow: '0 0 6px #F59E0B' }} />
+              <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Medium</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#EAB308' }} />
+              <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Low</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top-left Tagline & Live Satellite Feed Box (Reference Match) */}
+      {!isOverview && !hideFloatingFeed && !isEarthIntelligence && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 16,
+            left: 16,
+            zIndex: 15,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '8px',
+            pointerEvents: 'none',
+          }}
+        >
+          <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--primary-cyan)', textTransform: 'uppercase' }}>
+            OUR PLANET<br />
+            <span style={{ color: '#FFFFFF' }}>OUR RESPONSIBILITY</span>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(11, 23, 38, 0.88)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '8px',
+              padding: '8px 12px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '3px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+              minWidth: '150px',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.06em' }}>
+              <Radio size={12} style={{ color: '#38BDF8' }} />
+              <span>LIVE SATELLITE FEED</span>
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>
+              VIIRS (S-NPP)
+            </div>
+            <div style={{ fontSize: '9.5px', color: '#94A3B8', fontFamily: 'monospace' }}>
+              {new Date().toISOString().slice(0, 10)} UTC
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '9.5px', color: '#10B981', marginTop: '2px' }}>
+              <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} />
+              <span>Global Monitoring</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Right Intelligence Panel (Slide-out HUD when Hotspot is Selected) */}
-      {selectedDetection && (
+      {!isOverview && !hideSidePanel && selectedDetection && (
         <aside
           style={{
             position: 'absolute',
@@ -1840,25 +2210,27 @@ export function EarthGlobe3D({
       )}
 
       {/* Bottom Tactical Hint */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 12,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(15, 23, 42, 0.85)',
-          backdropFilter: 'blur(8px)',
-          padding: '4px 16px',
-          borderRadius: '20px',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          color: '#64748B',
-          fontSize: '11px',
-          pointerEvents: 'none',
-          zIndex: 5,
-        }}
-      >
-        Left Click + Drag to Orbit • Scroll to Zoom (Controlled Altitude) • Click Hotspot to Target
-      </div>
+      {!isOverview && !isEarthIntelligence && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.85)',
+            backdropFilter: 'blur(8px)',
+            padding: '4px 16px',
+            borderRadius: '20px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: '#64748B',
+            fontSize: '11px',
+            pointerEvents: 'none',
+            zIndex: 5,
+          }}
+        >
+          Left Click + Drag to Orbit • Scroll to Zoom (Controlled Altitude) • Click Hotspot to Target
+        </div>
+      )}
     </div>
   );
 }
