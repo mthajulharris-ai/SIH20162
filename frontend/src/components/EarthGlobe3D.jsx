@@ -47,6 +47,23 @@ function latLngToVector3(lat, lng, radius) {
 }
 
 /**
+ * Compute the geographically upright globe quaternion for a given lat/lon.
+ * Centers (lat, lon) directly facing the camera (+Z) with North pointing strictly UP (+Y).
+ * Eliminates oblique tilt and sideways roll.
+ */
+function getUprightOrientationForLatLng(lat, lon) {
+  const qY = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(0, 1, 0),
+    -((lon + 90) * Math.PI) / 180
+  );
+  const qX = new THREE.Quaternion().setFromAxisAngle(
+    new THREE.Vector3(1, 0, 0),
+    (lat * Math.PI) / 180
+  );
+  return qX.multiply(qY);
+}
+
+/**
  * High-quality fallback procedural Earth texture with graticule lines
  * used during asset load or offline states.
  */
@@ -540,12 +557,8 @@ export function EarthGlobe3D({
     earthGroup.add(markersGroup);
     markersGroupRef.current = markersGroup;
 
-    // Initial position: center comfortably on Indian subcontinent (~21N, 78E)
-    const initTarget = latLngToVector3(21, 78, earthRadius).normalize();
-    const initQ = new THREE.Quaternion().setFromUnitVectors(
-      initTarget,
-      new THREE.Vector3(0, 0, 1)
-    );
+    // Initial position: center comfortably on Indian subcontinent (~21N, 78E) with North UP
+    const initQ = getUprightOrientationForLatLng(21, 78);
     earthGroup.quaternion.copy(initQ);
 
     // 11. Mouse & Touch Event Handlers
@@ -564,18 +577,24 @@ export function EarthGlobe3D({
         const deltaX = e.clientX - previousMousePositionRef.current.x;
         const deltaY = e.clientY - previousMousePositionRef.current.y;
 
-        // Controlled drag rotation
-        const rotY = new THREE.Quaternion().setFromAxisAngle(
+        // Controlled drag rotation:
+        // 1. Horizontal drag: spin around Earth polar axis (local Y), keeping North UP
+        const rotSpin = new THREE.Quaternion().setFromAxisAngle(
           new THREE.Vector3(0, 1, 0),
           deltaX * 0.0035
         );
+        earthGroup.quaternion.multiply(rotSpin);
+
+        // 2. Vertical drag: pitch around screen horizontal axis (world X)
         const rotX = new THREE.Quaternion().setFromAxisAngle(
           new THREE.Vector3(1, 0, 0),
           deltaY * 0.0035
         );
-
-        earthGroup.quaternion.premultiply(rotY);
-        earthGroup.quaternion.premultiply(rotX);
+        const currentPole = new THREE.Vector3(0, 1, 0).applyQuaternion(earthGroup.quaternion);
+        const testPole = currentPole.clone().applyQuaternion(rotX);
+        if (testPole.y >= 0.05) {
+          earthGroup.quaternion.premultiply(rotX);
+        }
 
         previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
       } else {
@@ -727,12 +746,12 @@ export function EarthGlobe3D({
           !selectedDetectionRef.current;
 
         if (canAutoRotate) {
-          const rotDelta = 0.00075; // Subtle, elegant rotation (~85s/rev)
+          const rotDelta = 0.00075; // Subtle, elegant rotation (~85s/rev) around polar axis
           const qRotate = new THREE.Quaternion().setFromAxisAngle(
             new THREE.Vector3(0, 1, 0),
             rotDelta
           );
-          earthGroup.quaternion.premultiply(qRotate);
+          earthGroup.quaternion.multiply(qRotate);
         }
       }
 
@@ -1104,14 +1123,8 @@ export function EarthGlobe3D({
     const lon = parseFloat(selectedDetection.longitude);
     if (isNaN(lat) || isNaN(lon)) return;
 
-    // 1. Vector pointing from center to this exact lat/lon on the sphere
-    const targetPt = latLngToVector3(lat, lon, 100).normalize();
-
-    // 2. Compute quaternion Q such that Q * targetPt = (0, 0, 1) (faces camera directly)
-    const targetQ = new THREE.Quaternion().setFromUnitVectors(
-      targetPt,
-      new THREE.Vector3(0, 0, 1)
-    );
+    // Upright geographic orientation: target lat/lon centered, North strictly UP
+    const targetQ = getUprightOrientationForLatLng(lat, lon);
 
     // 3. Setup smooth transition to controlled observation distance (NO OVER-ZOOM)
     startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
@@ -1136,11 +1149,7 @@ export function EarthGlobe3D({
     const lon = parseFloat(targetDet.longitude);
     if (isNaN(lat) || isNaN(lon)) return;
 
-    const targetPt = latLngToVector3(lat, lon, 100).normalize();
-    const targetQ = new THREE.Quaternion().setFromUnitVectors(
-      targetPt,
-      new THREE.Vector3(0, 0, 1)
-    );
+    const targetQ = getUprightOrientationForLatLng(lat, lon);
 
     startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
     targetQuaternionRef.current.copy(targetQ);
@@ -1157,12 +1166,8 @@ export function EarthGlobe3D({
     if (!earthGroupRef.current) return;
     onSelectDetection(null);
 
-    // Rotate back to canonical view of Indian subcontinent (~21N, 78E)
-    const initTarget = latLngToVector3(21, 78, 100).normalize();
-    const targetQ = new THREE.Quaternion().setFromUnitVectors(
-      initTarget,
-      new THREE.Vector3(0, 0, 1)
-    );
+    // Rotate back to canonical upright view of Indian subcontinent (~21N, 78E)
+    const targetQ = getUprightOrientationForLatLng(21, 78);
 
     startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
     targetQuaternionRef.current.copy(targetQ);
@@ -1780,8 +1785,7 @@ export function EarthGlobe3D({
                 if (!selectedDetection) {
                   onSelectDetection(targetDet);
                 }
-                const targetPt = latLngToVector3(lat, lon, 100).normalize();
-                const targetQ = new THREE.Quaternion().setFromUnitVectors(targetPt, new THREE.Vector3(0, 0, 1));
+                const targetQ = getUprightOrientationForLatLng(lat, lon);
                 startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
                 targetQuaternionRef.current.copy(targetQ);
                 startDistanceRef.current = cameraDistanceRef.current;
