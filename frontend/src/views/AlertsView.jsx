@@ -56,6 +56,42 @@ export function AlertsView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* Purpose Banner */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(56, 189, 248, 0.28)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldAlert size={18} style={{ color: '#EF4444' }} />
+            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
+              ALERTS &bull; INCIDENT REVIEW QUEUE
+            </span>
+            <span style={{ fontSize: '10.5px', color: '#EF4444', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              What needs attention?
+            </span>
+          </div>
+          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 600, marginTop: '3px' }}>
+            "Review high-risk thermal events requiring human decision and verification."
+          </div>
+        </div>
+
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+          {filtered.length} active alerts queued
+        </div>
+      </div>
+
       {/* Safety & Protocol Banner */}
       <div
         style={{

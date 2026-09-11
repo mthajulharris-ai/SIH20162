@@ -32,7 +32,32 @@ export function AiIntelligenceView() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-      {/* Scientific Validation Notice Banner */}
+      {/* Purpose Banner */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(6, 78, 119, 0.25) 0%, rgba(15, 23, 42, 0.4) 100%)',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            How does SATRA make its AI prediction?
+          </span>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
+            AI Model Architecture, Feature Weights &amp; Benchmark Metrics
+          </h2>
+        </div>
+        <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8', lineHeight: 1.5 }}>
+          Inspect the multi-feature classifier, spatial cross-validation benchmarks, and triage criteria behind every prediction.
+        </p>
+      </div>
+
+      {/* Decision-Support Truth Disclaimer Banner */}
       <div
         style={{
           background: 'rgba(15, 32, 50, 0.7)',
@@ -48,10 +73,9 @@ export function AiIntelligenceView() {
       >
         <Cpu size={20} style={{ color: 'var(--primary-cyan)', flexShrink: 0 }} />
         <div>
-          <strong style={{ color: '#FFFFFF' }}>Scientific Model Validation Notice:</strong> Model{' '}
-          <code style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)' }}>2.0.0-scientific-prototype</code>{' '}
-          classifies thermal observations into <strong>Industrial Fire</strong>, <strong>Persistent Thermal Source</strong>, or <strong>Other</strong>.
-          Partitioning enforces strict zero spatial leakage via <code>StratifiedGroupKFold</code> across 34 geographic clusters. All automated classifications represent candidate detections requiring ground-truth confirmation.
+          <strong style={{ color: '#FFFFFF' }}>Decision Support Notice:</strong> SATRA AI classification provides{' '}
+          <strong>probabilistic candidate predictions</strong>, not absolute ground truth. Model{' '}
+          <code style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)' }}>v2.0.0-sci</code> evaluates FRP, brightness temperature, recurrence, and spatial density. Detections below 60% confidence are automatically triaged for operational field verification.
         </div>
       </div>
 

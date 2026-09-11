@@ -30,6 +30,31 @@ export function AnalyticsView({ analytics }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
+      {/* Purpose Banner */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(6, 78, 119, 0.25) 0%, rgba(15, 23, 42, 0.4) 100%)',
+          border: '1px solid rgba(56, 189, 248, 0.3)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '6px',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            What is happening over time?
+          </span>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
+            Temporal Analytics & Incident Lifecycle
+          </h2>
+        </div>
+        <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8', lineHeight: 1.5 }}>
+          Understand thermal detection trends, class distribution, and operational verification lifecycle over time across satellite passes.
+        </p>
+      </div>
+
       {/* Notice Banner */}
       <div
         style={{

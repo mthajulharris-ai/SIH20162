@@ -157,6 +157,62 @@ export function GisInvestigationView({
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+      {/* GIS Investigation Purpose Header */}
+      <div
+        style={{
+          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
+          backdropFilter: 'blur(14px)',
+          border: '1px solid rgba(56, 189, 248, 0.28)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: '12px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <MapIcon size={18} style={{ color: '#38BDF8' }} />
+            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
+              GIS INVESTIGATION
+            </span>
+            <span style={{ fontSize: '10.5px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Surface Geographic Context Deck
+            </span>
+          </div>
+          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 600, marginTop: '3px' }}>
+            "Understand what exists around the detected thermal event."
+          </div>
+          <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '900px', lineHeight: 1.5 }}>
+            At this exact location, SATRA helps investigate the surrounding surface context:
+            <span style={{ color: '#FFFFFF', fontWeight: 600 }}> industrial facilities &bull; buildings &bull; roads &bull; forest / vegetation &bull; nearby populated areas &bull; geographic features</span>.
+          </div>
+        </div>
+
+        {selectedDetection && (
+          <div
+            style={{
+              background: 'rgba(3, 7, 18, 0.65)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '11.5px',
+            }}
+          >
+            <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Target Under Investigation</div>
+            <div style={{ color: '#FFFFFF', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              {parseFloat(selectedDetection.latitude).toFixed(4)}° N, {parseFloat(selectedDetection.longitude).toFixed(4)}° E
+            </div>
+            <div style={{ color: '#38BDF8', fontSize: '11px', marginTop: '2px' }}>
+              Likely {selectedDetection.predicted_class || 'Thermal Event'} &bull; {selectedDetection.frp || 50} MW
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Top Controls Bar */}
       <div className="filter-bar">
         <select

@@ -148,9 +148,12 @@ export function EarthIntelligenceView({
           <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Globe size={20} style={{ color: '#38BDF8' }} />
             <span>EARTH INTELLIGENCE</span>
+            <span style={{ fontSize: '10px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+              Where are the detections?
+            </span>
           </div>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Global Satellite Observation &amp; Holographic Thermal Intelligence
+          <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '2px', fontWeight: 500 }}>
+            "Explore where satellite thermal detections are occurring around Earth."
           </div>
         </div>
 

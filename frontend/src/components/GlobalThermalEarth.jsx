@@ -75,14 +75,14 @@ export function GlobalThermalEarth({
       attributionControl: false,
     });
 
-    // 1. Transparent Blue World Tiles
-    // Using CartoDB Dark Matter with high-contrast electric blue filter
+    // 1. NASA GIBS / Satellite True Color Tiles (No CARTO dependency)
     const baseBlueTiles = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+      'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
       {
-        subdomains: 'abcd',
+        subdomains: 'abc',
+        maxNativeZoom: 9,
         maxZoom: 16,
-        className: 'global-thermal-blue-tiles',
+        className: 'global-thermal-satellite-tiles',
       }
     );
     // Suppress any tile error images or watermarks from appearing

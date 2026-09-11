@@ -36,14 +36,14 @@ import {
 } from 'lucide-react';
 import { KpiCard } from '../components/KpiCard';
 import { ClassBadge, StatusBadge, ProvenanceBadge } from '../components/StatusBadge';
+import { getSatelliteStatus } from '../services/api';
 
-// Helper: FRP intensity classification
+// Helper: FRP intensity classification (Low -> Yellow, Medium -> Orange, High -> Red)
 function getFrpTier(frpValue) {
   const v = parseFloat(frpValue) || 0;
-  if (v >= 100) return { key: 'CRITICAL', label: 'Critical (> 100 MW)', color: '#FF1744', radius: 11 };
-  if (v >= 50) return { key: 'HIGH', label: 'High (50 - 100 MW)', color: '#FF453A', radius: 9 };
-  if (v >= 20) return { key: 'MEDIUM', label: 'Medium (20 - 50 MW)', color: '#FF8A00', radius: 7 };
-  return { key: 'LOW', label: 'Low (< 20 MW)', color: '#45C8F5', radius: 5 };
+  if (v >= 50) return { key: 'HIGH', label: 'High (≥ 50 MW)', color: '#EF4444', radius: 9 };
+  if (v >= 20) return { key: 'MEDIUM', label: 'Medium (20 - 50 MW)', color: '#F97316', radius: 7 };
+  return { key: 'LOW', label: 'Low (< 20 MW)', color: '#FACC15', radius: 5 };
 }
 
 // Helper: Format coordinate string
@@ -81,6 +81,30 @@ export function ThermalIntelligenceView({
   const formattedUtc = useMemo(() => {
     return currentDateTime.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
   }, [currentDateTime]);
+
+  // --------------------------------------------------------------------------
+  // NASA FIRMS Live Connection & Satellite Layer State
+  // --------------------------------------------------------------------------
+  const [firmsStatus, setFirmsStatus] = useState(null);
+  const [activeLayer, setActiveLayer] = useState('nasa_viirs'); // 'nasa_viirs' | 'nasa_modis' | 'satellite_hires'
+  const [isSearchingLocation, setIsSearchingLocation] = useState(false);
+  const [searchedLocation, setSearchedLocation] = useState(null);
+  const [searchMessage, setSearchMessage] = useState(null);
+  const baseTileLayerRef = useRef(null);
+  const labelsLayerRef = useRef(null);
+
+  const loadFirmsStatus = useCallback(async () => {
+    try {
+      const res = await getSatelliteStatus();
+      setFirmsStatus(res);
+    } catch (e) {
+      console.warn('Failed to load NASA FIRMS status:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadFirmsStatus();
+  }, [loadFirmsStatus, isBackendHealthy]);
 
   // --------------------------------------------------------------------------
   // 2. Synchronized Filter State
@@ -248,37 +272,52 @@ export function ThermalIntelligenceView({
   const [mapZoomLevel, setMapZoomLevel] = useState(3);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
 
-  // Initialize Map
+  // Initialize Map with NASA GIBS Satellite Imagery (No CARTO dependency)
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
 
-    // Aerospace Dark Center: Equator/Indian Ocean center for full global spread
+    // Aerospace Geographic Center: Centered over South Asia / Indian Ocean
     const map = L.map(mapContainerRef.current, {
-      center: [20.0, 50.0],
-      zoom: 3,
+      center: [20.5937, 78.9629],
+      zoom: 4,
       minZoom: 2,
-      maxZoom: 16,
+      maxZoom: 18,
       zoomControl: false,
       attributionControl: false,
       worldCopyJump: true,
     });
 
-    // Dark continent basemap without labels
-    const darkTiles = L.tileLayer(
-      'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',
+    // 1. Primary NASA GIBS True Color Satellite Layer (VIIRS SNPP TrueColor 375m)
+    const gibsViirsTiles = L.tileLayer(
+      'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
       {
-        subdomains: 'abcd',
-        maxZoom: 16,
-        className: 'global-thermal-blue-tiles',
+        subdomains: 'abc',
+        maxNativeZoom: 9,
+        maxZoom: 18,
+        className: 'nasa-gibs-viirs-tiles',
       }
     );
 
-    darkTiles.on('tileerror', (e) => {
+    gibsViirsTiles.on('tileerror', (e) => {
       if (e.tile) e.tile.style.display = 'none';
     });
+    gibsViirsTiles.addTo(map);
+    baseTileLayerRef.current = gibsViirsTiles;
 
-    darkTiles.addTo(map);
+    // 2. High-precision geographic boundaries & places overlay
+    const labelsTiles = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      {
+        maxZoom: 18,
+        opacity: 0.8,
+      }
+    );
+    labelsTiles.on('tileerror', (e) => {
+      if (e.tile) e.tile.style.display = 'none';
+    });
+    labelsTiles.addTo(map);
+    labelsLayerRef.current = labelsTiles;
 
     // Track mouse coordinate telemetry
     map.on('mousemove', (e) => {
@@ -302,7 +341,56 @@ export function ThermalIntelligenceView({
     };
   }, []);
 
-  // Update Markers when filtered detections or selected detection changes
+  // Synchronize Active Satellite Imagery Layer
+  useEffect(() => {
+    if (!mapInstanceRef.current || !baseTileLayerRef.current) return;
+    const map = mapInstanceRef.current;
+    map.removeLayer(baseTileLayerRef.current);
+
+    let newTileLayer;
+    if (activeLayer === 'nasa_viirs') {
+      newTileLayer = L.tileLayer(
+        'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+        {
+          subdomains: 'abc',
+          maxNativeZoom: 9,
+          maxZoom: 18,
+          className: 'nasa-gibs-viirs-tiles',
+        }
+      );
+    } else if (activeLayer === 'nasa_modis') {
+      newTileLayer = L.tileLayer(
+        'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+        {
+          subdomains: 'abc',
+          maxNativeZoom: 9,
+          maxZoom: 18,
+          className: 'nasa-gibs-modis-tiles',
+        }
+      );
+    } else {
+      // High-resolution local satellite imagery
+      newTileLayer = L.tileLayer(
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        {
+          maxZoom: 18,
+          className: 'highres-satellite-tiles',
+        }
+      );
+    }
+
+    newTileLayer.on('tileerror', (e) => {
+      if (e.tile) e.tile.style.display = 'none';
+    });
+    newTileLayer.addTo(map);
+    baseTileLayerRef.current = newTileLayer;
+
+    if (labelsLayerRef.current) {
+      labelsLayerRef.current.bringToFront();
+    }
+  }, [activeLayer]);
+
+  // Update Markers: Real FIRMS observations overlaid with FRP color tiers & pulse
   useEffect(() => {
     if (!mapInstanceRef.current || !markersLayerRef.current) return;
 
@@ -317,36 +405,41 @@ export function ThermalIntelligenceView({
       const tier = getFrpTier(d.frp);
       const isSelected = activeDetectionId === d.id;
 
-      // Circle Marker
+      // Circle Marker: Low FRP -> Yellow (#FACC15), Medium -> Orange (#F97316), High -> Red (#EF4444)
+      const markerColor = isSelected ? '#FF0033' : tier.color;
       const circle = L.circleMarker([lat, lon], {
         radius: isSelected ? tier.radius + 4 : tier.radius,
-        fillColor: tier.color,
-        color: isSelected ? '#FFFFFF' : tier.color,
-        weight: isSelected ? 2.5 : 1.2,
+        fillColor: markerColor,
+        color: isSelected ? '#FFFFFF' : markerColor,
+        weight: isSelected ? 3 : 1.2,
         opacity: 0.95,
-        fillOpacity: isSelected ? 0.95 : 0.75,
+        fillOpacity: isSelected ? 0.95 : 0.8,
       });
 
-      // Hover Tooltip
+      // Hover Tooltip displaying actual FIRMS telemetry
       const confPercent = d.prediction_confidence
         ? `${(parseFloat(d.prediction_confidence) * 100).toFixed(1)}%`
-        : d.confidence || 'N/A';
+        : d.confidence || 'Nominal';
       const frpText = d.frp ? `${parseFloat(d.frp).toFixed(1)} MW` : 'N/A';
-      const satText = d.instrument || d.source || 'VIIRS';
+      const satText = d.source || d.satellite || d.instrument || 'VIIRS';
       const timeText = `${d.acq_date || ''} ${d.acq_time || ''}`.trim() || 'Live Observation';
+      const isRealFirms = d.data_provenance === 'REAL_FIRMS';
 
       const tooltipContent = `
-        <div style="font-family: var(--font-sans); min-width: 170px;">
+        <div style="font-family: var(--font-sans); min-width: 185px;">
           <div style="font-weight: 700; color: #FFFFFF; font-size: 12px; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
-            <span>${d.predicted_class || 'Thermal Source'}</span>
-            <span style="font-size: 10px; color: ${tier.color}; font-weight: 800;">${d.alert_level || tier.key}</span>
+            <span>${d.predicted_class || 'Thermal Hotspot'}</span>
+            <span style="font-size: 10px; color: ${tier.color}; font-weight: 800;">${tier.key}</span>
           </div>
           <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.5;">
             <div>FRP: <strong style="color: ${tier.color};">${frpText}</strong></div>
-            <div>Confidence: <strong style="color: #FFFFFF;">${confPercent}</strong></div>
-            <div>Coords: <span style="font-family: var(--font-mono);">${lat.toFixed(3)}°, ${lon.toFixed(3)}°</span></div>
+            <div>AI Confidence: <strong style="color: #FFFFFF;">${confPercent}</strong></div>
+            <div>Coords: <span style="font-family: var(--font-mono);">${lat.toFixed(4)}°, ${lon.toFixed(4)}°</span></div>
             <div>Satellite: <span style="color: var(--ice-blue);">${satText}</span></div>
-            <div>Obs Time: <span>${timeText}</span></div>
+            <div>Acq Time: <span style="font-family: var(--font-mono);">${timeText} UTC</span></div>
+            <div style="margin-top: 4px; font-size: 9.5px; font-weight: 700; color: ${isRealFirms ? '#10B981' : '#BAE6FD'};">
+              ${isRealFirms ? 'PROVENANCE: REAL FIRMS DATA' : 'PROVENANCE: SATELLITE TELEMETRY'}
+            </div>
           </div>
         </div>
       `;
@@ -363,11 +456,11 @@ export function ThermalIntelligenceView({
 
       markersGroup.addLayer(circle);
 
-      // Add animated pulse ring for critical events
-      if (tier.key === 'CRITICAL' || isSelected) {
+      // Selected Detection Pulse Ring Marker
+      if (isSelected) {
         const pulseIcon = L.divIcon({
-          className: 'critical-pulse-marker',
-          html: `<div class="critical-pulse-ring" style="border-color: ${tier.color};"></div>`,
+          className: 'selected-hotspot-container',
+          html: '<div class="selected-hotspot-ring"></div>',
           iconSize: [12, 12],
           iconAnchor: [6, 6],
         });
@@ -380,7 +473,88 @@ export function ThermalIntelligenceView({
     });
   }, [filteredDetections, activeDetectionId, handleSelectDetection]);
 
-  // Map Navigation Functions
+  // Real Geographic Location Search (OpenStreetMap Nominatim Geocoding)
+  const handleExecuteLocationSearch = async (overrideQuery) => {
+    const q = (overrideQuery !== undefined ? overrideQuery : searchQuery).trim();
+    if (!q) {
+      setSearchedLocation(null);
+      setSearchMessage(null);
+      return;
+    }
+
+    setIsSearchingLocation(true);
+    setSearchMessage(null);
+
+    try {
+      // Check if coordinates entered directly e.g. "13.08, 80.27"
+      const coordMatch = q.match(/^([-+]?\d{1,2}\.?\d*)[,\s]+([-+]?\d{1,3}\.?\d*)$/);
+      let targetLat = null;
+      let targetLon = null;
+      let targetName = q;
+
+      if (coordMatch) {
+        targetLat = parseFloat(coordMatch[1]);
+        targetLon = parseFloat(coordMatch[2]);
+        targetName = `${targetLat.toFixed(4)}°, ${targetLon.toFixed(4)}°`;
+      } else {
+        // Query Nominatim OpenStreetMap Geocoder
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`,
+          { headers: { 'Accept': 'application/json' } }
+        );
+        const data = await res.json();
+        if (data && data.length > 0) {
+          targetLat = parseFloat(data[0].lat);
+          targetLon = parseFloat(data[0].lon);
+          targetName = data[0].display_name;
+        }
+      }
+
+      if (targetLat !== null && targetLon !== null) {
+        // Move & zoom map smoothly to real coordinates
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.flyTo([targetLat, targetLon], 10, { duration: 1.5 });
+        }
+
+        // Find existing FIRMS observations in database near this location (within ~0.6 deg / ~65km)
+        const nearby = detections.filter((d) => {
+          const dLat = parseFloat(d.latitude);
+          const dLon = parseFloat(d.longitude);
+          return Math.abs(dLat - targetLat) <= 0.6 && Math.abs(dLon - targetLon) <= 0.6;
+        });
+
+        if (nearby.length > 0) {
+          setSearchedLocation({
+            name: targetName,
+            lat: targetLat,
+            lon: targetLon,
+            count: nearby.length,
+          });
+          setSearchMessage(null);
+          // Select closest detection
+          handleSelectDetection(nearby[0]);
+        } else {
+          setSearchedLocation({
+            name: targetName,
+            lat: targetLat,
+            lon: targetLon,
+            count: 0,
+          });
+          // Explicit message required by prompt; DO NOT create fake hotspots
+          setSearchMessage('No recent NASA FIRMS thermal observations found for this area.');
+        }
+      } else {
+        setSearchMessage(`Location "${q}" not found. Please try a valid city name or coordinates.`);
+      }
+    } catch (err) {
+      console.warn('Geocoding error:', err);
+      setSearchMessage(`Unable to resolve location "${q}".`);
+    } finally {
+      setIsSearchingLocation(false);
+    }
+  };
+
+  // Map Navigation Controls
   const handleZoomIn = () => {
     if (mapInstanceRef.current) mapInstanceRef.current.zoomIn();
   };
@@ -391,8 +565,10 @@ export function ThermalIntelligenceView({
 
   const handleResetMap = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([20.0, 50.0], 3, { animate: true });
+      mapInstanceRef.current.setView([20.5937, 78.9629], 4, { animate: true });
     }
+    setSearchedLocation(null);
+    setSearchMessage(null);
   };
 
   const handleFitToWorld = () => {
@@ -428,7 +604,7 @@ export function ThermalIntelligenceView({
     const lat = parseFloat(d.latitude);
     const lon = parseFloat(d.longitude);
     if (!isNaN(lat) && !isNaN(lon)) {
-      mapInstanceRef.current.setView([lat, lon], Math.max(mapInstanceRef.current.getZoom(), 7), {
+      mapInstanceRef.current.setView([lat, lon], Math.max(mapInstanceRef.current.getZoom(), 8), {
         animate: true,
       });
     }
@@ -743,33 +919,37 @@ export function ThermalIntelligenceView({
                 letterSpacing: '0.05em',
               }}
             >
-              NASA FIRMS &bull; VIIRS &bull; MODIS
+              Where is thermal activity strongest?
             </span>
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
-            Global Satellite Thermal Activity Analysis & Radiative Telemetry
+          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', marginTop: '3px', fontWeight: 500 }}>
+            "Visualize the intensity and distribution of detected thermal activity."
           </div>
         </div>
 
         {/* Header Right Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-          {/* Quick Search Bar */}
-          <div
+          {/* Working Location Search Form */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleExecuteLocationSearch();
+            }}
             style={{
               display: 'flex',
               alignItems: 'center',
-              background: 'rgba(5, 11, 20, 0.6)',
+              background: 'rgba(5, 11, 20, 0.7)',
               border: '1px solid var(--border-color)',
               borderRadius: '8px',
-              padding: '6px 12px',
+              padding: '4px 10px',
               gap: '8px',
-              minWidth: '220px',
+              minWidth: '280px',
             }}
           >
-            <Search size={14} style={{ color: 'var(--text-muted)' }} />
+            <Search size={14} style={{ color: isSearchingLocation ? 'var(--primary-cyan)' : 'var(--text-muted)' }} />
             <input
               type="text"
-              placeholder="Search hotspots, coords..."
+              placeholder="Search location (e.g. Chennai, Tiruppur)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               style={{
@@ -783,13 +963,36 @@ export function ThermalIntelligenceView({
             />
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchedLocation(null);
+                  setSearchMessage(null);
+                }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '14px' }}
+                title="Clear search"
               >
                 &times;
               </button>
             )}
-          </div>
+            <button
+              type="submit"
+              disabled={isSearchingLocation}
+              style={{
+                background: 'rgba(56, 189, 248, 0.15)',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                color: '#38BDF8',
+                borderRadius: '5px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {isSearchingLocation ? 'Locating...' : 'Locate'}
+            </button>
+          </form>
 
           {/* Dynamic UTC & Local Timestamp */}
           <div
@@ -805,41 +1008,73 @@ export function ThermalIntelligenceView({
               fontFamily: 'var(--font-mono)',
               color: 'var(--ice-blue)',
             }}
+            title="System UTC Clock (distinct from satellite observation time)"
           >
             <Clock size={13} style={{ color: 'var(--primary-cyan)' }} />
-            <span>{formattedUtc}</span>
+            <span>SYS: {formattedUtc}</span>
           </div>
 
-          {/* System Status Indicator */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '7px',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              padding: '6px 12px',
-              borderRadius: '8px',
-              background: isBackendHealthy ? 'rgba(69, 212, 131, 0.1)' : 'rgba(255, 69, 58, 0.1)',
-              border: `1px solid ${isBackendHealthy ? 'rgba(69, 212, 131, 0.3)' : 'rgba(255, 69, 58, 0.3)'}`,
-              color: isBackendHealthy ? '#45D483' : '#FF453A',
-            }}
-          >
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: isBackendHealthy ? '#45D483' : '#FF453A',
-                boxShadow: isBackendHealthy ? '0 0 8px #45D483' : '0 0 8px #FF453A',
-              }}
-            />
-            {isBackendHealthy ? 'LIVE TELEMETRY' : 'SENSOR OFFLINE'}
-          </div>
+          {/* NASA FIRMS Real API Status Indicator */}
+          {(() => {
+            const st = firmsStatus?.status || (isBackendHealthy ? 'STANDBY' : 'API ERROR');
+            let color = '#F59E0B';
+            let bg = 'rgba(245, 158, 11, 0.1)';
+            let border = 'rgba(245, 158, 11, 0.3)';
+            let label = 'NASA FIRMS API KEY REQUIRED';
+
+            if (st === 'CONNECTED') {
+              color = '#10B981';
+              bg = 'rgba(16, 185, 129, 0.1)';
+              border = 'rgba(16, 185, 129, 0.3)';
+              label = 'NASA FIRMS CONNECTED';
+            } else if (st === 'NO DATA') {
+              color = '#38BDF8';
+              bg = 'rgba(56, 189, 248, 0.1)';
+              border = 'rgba(56, 189, 248, 0.3)';
+              label = 'NASA FIRMS NO DATA';
+            } else if (st === 'API ERROR') {
+              color = '#EF4444';
+              bg = 'rgba(239, 68, 68, 0.1)';
+              border = 'rgba(239, 68, 68, 0.3)';
+              label = 'NASA FIRMS API ERROR';
+            }
+
+            return (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  fontSize: '11.5px',
+                  fontWeight: 600,
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  background: bg,
+                  border: `1px solid ${border}`,
+                  color: color,
+                }}
+                title={firmsStatus?.message || 'Real-time NASA FIRMS satellite telemetry feed'}
+              >
+                <span
+                  style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    backgroundColor: color,
+                    boxShadow: `0 0 8px ${color}`,
+                  }}
+                />
+                {label}
+              </div>
+            );
+          })()}
 
           {/* Refresh Action */}
           <button
-            onClick={onRefresh}
+            onClick={() => {
+              onRefresh();
+              loadFirmsStatus();
+            }}
             className="satra-icon-btn"
             title="Refresh satellite telemetry feed"
           >
@@ -1100,8 +1335,72 @@ export function ThermalIntelligenceView({
               </div>
             </div>
 
-            {/* Quick Map Controls Header */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Layer Switcher & Quick Map Controls Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  background: 'rgba(5, 11, 20, 0.8)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  padding: '2px',
+                  gap: '2px',
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveLayer('nasa_viirs')}
+                  style={{
+                    background: activeLayer === 'nasa_viirs' ? 'rgba(69, 200, 245, 0.25)' : 'transparent',
+                    color: activeLayer === 'nasa_viirs' ? '#FFFFFF' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  title="NASA GIBS VIIRS True Color spaceborne imagery"
+                >
+                  NASA VIIRS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLayer('nasa_modis')}
+                  style={{
+                    background: activeLayer === 'nasa_modis' ? 'rgba(69, 200, 245, 0.25)' : 'transparent',
+                    color: activeLayer === 'nasa_modis' ? '#FFFFFF' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  title="NASA GIBS MODIS Terra True Color imagery"
+                >
+                  NASA MODIS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLayer('satellite_hires')}
+                  style={{
+                    background: activeLayer === 'satellite_hires' ? 'rgba(69, 200, 245, 0.25)' : 'transparent',
+                    color: activeLayer === 'satellite_hires' ? '#FFFFFF' : 'var(--text-secondary)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '3px 8px',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                  title="High-Resolution Satellite Imagery for sub-meter local terrain & facility inspection"
+                >
+                  High-Res
+                </button>
+              </div>
+
               <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                 ZOOM: {mapZoomLevel}x
               </span>
@@ -1124,6 +1423,53 @@ export function ThermalIntelligenceView({
             {/* The Actual Leaflet Map Element */}
             <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
 
+            {/* Location Search Floating Alert Banner */}
+            {(searchMessage || (searchedLocation && searchedLocation.count > 0)) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  left: '12px',
+                  zIndex: 1000,
+                  background: searchMessage ? 'rgba(15, 23, 42, 0.94)' : 'rgba(6, 78, 119, 0.92)',
+                  border: `1px solid ${searchMessage ? 'rgba(239, 68, 68, 0.5)' : 'rgba(16, 185, 129, 0.5)'}`,
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  maxWidth: '380px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                  backdropFilter: 'blur(8px)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700, color: searchMessage ? '#FF6B6B' : '#45D483' }}>
+                    <MapPin size={15} />
+                    <span>{searchMessage ? 'Location Notice' : 'Location Identified'}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setSearchedLocation(null);
+                      setSearchMessage(null);
+                    }}
+                    style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', fontSize: '14px' }}
+                    title="Close banner"
+                  >
+                    &times;
+                  </button>
+                </div>
+                <div style={{ fontSize: '12px', color: '#FFFFFF', lineHeight: 1.4 }}>
+                  {searchMessage || `Showing ${searchedLocation?.count} NASA FIRMS thermal observations in vicinity.`}
+                </div>
+                {searchedLocation && (
+                  <div style={{ fontSize: '11px', color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)' }}>
+                    {searchedLocation.name.split(',').slice(0, 3).join(',')} ({searchedLocation.lat.toFixed(4)}°, {searchedLocation.lon.toFixed(4)}°)
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Map Telemetry Graticule Overlay Badge (Bottom Left) */}
             <div
               style={{
@@ -1131,7 +1477,7 @@ export function ThermalIntelligenceView({
                 bottom: '12px',
                 left: '12px',
                 zIndex: 1000,
-                background: 'rgba(5, 11, 20, 0.85)',
+                background: 'rgba(5, 11, 20, 0.88)',
                 backdropFilter: 'blur(8px)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '6px',
@@ -1140,16 +1486,24 @@ export function ThermalIntelligenceView({
                 fontFamily: 'var(--font-mono)',
                 color: 'var(--ice-blue)',
                 pointerEvents: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '2px',
               }}
             >
-              {hoverCoords ? (
-                <span>
-                  LAT: {Math.abs(hoverCoords.lat).toFixed(4)}° {hoverCoords.lat >= 0 ? 'N' : 'S'} &bull; LON:{' '}
-                  {Math.abs(hoverCoords.lng).toFixed(4)}° {hoverCoords.lng >= 0 ? 'E' : 'W'}
-                </span>
-              ) : (
-                <span>HOVER MAP FOR COORDINATES &bull; NASA FIRMS FEED</span>
-              )}
+              <div>
+                {hoverCoords ? (
+                  <span>
+                    LAT: {Math.abs(hoverCoords.lat).toFixed(4)}° {hoverCoords.lat >= 0 ? 'N' : 'S'} &bull; LON:{' '}
+                    {Math.abs(hoverCoords.lng).toFixed(4)}° {hoverCoords.lng >= 0 ? 'E' : 'W'}
+                  </span>
+                ) : (
+                  <span>HOVER MAP FOR COORDINATES &bull; REAL DATA OVERLAY</span>
+                )}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                IMAGERY: NASA GIBS / NASA WORLDVIEW SATELLITE
+              </div>
             </div>
 
             {/* Aerospace Map Control Buttons (Top Right HUD) */}
@@ -1170,7 +1524,7 @@ export function ThermalIntelligenceView({
               <button onClick={handleZoomOut} className="thermal-hud-btn" title="Zoom Out (−)">
                 &minus;
               </button>
-              <button onClick={handleResetMap} className="thermal-hud-btn" title="Reset to Home View">
+              <button onClick={handleResetMap} className="thermal-hud-btn" title="Reset to India / Regional View">
                 <RotateCcw size={14} />
               </button>
               <button onClick={handleFitToWorld} className="thermal-hud-btn" title="Fit to Hotspots / World">
@@ -1188,7 +1542,7 @@ export function ThermalIntelligenceView({
                 bottom: '12px',
                 right: '12px',
                 zIndex: 1000,
-                background: 'rgba(11, 23, 38, 0.9)',
+                background: 'rgba(11, 23, 38, 0.92)',
                 backdropFilter: 'blur(10px)',
                 border: '1px solid var(--border-color)',
                 borderRadius: '8px',
@@ -1207,13 +1561,13 @@ export function ThermalIntelligenceView({
               >
                 THERMAL INTENSITY (FRP)
               </div>
-              {/* Visual Gradient Bar */}
+              {/* Visual Gradient Bar (Low Yellow -> Medium Orange -> High Red) */}
               <div
                 style={{
                   height: '6px',
                   width: '180px',
                   borderRadius: '3px',
-                  background: 'linear-gradient(to right, #45C8F5, #FF8A00, #FF453A, #FF1744)',
+                  background: 'linear-gradient(to right, #FACC15, #F97316, #EF4444)',
                   marginBottom: '6px',
                 }}
               />
@@ -1226,10 +1580,9 @@ export function ThermalIntelligenceView({
                   fontFamily: 'var(--font-mono)',
                 }}
               >
-                <span>Low &lt;20</span>
-                <span>Med 20-50</span>
-                <span>High 50-100</span>
-                <span style={{ color: '#FF1744', fontWeight: 700 }}>Crit &gt;100</span>
+                <span style={{ color: '#FACC15' }}>Low &lt;20</span>
+                <span style={{ color: '#F97316' }}>Med 20-50</span>
+                <span style={{ color: '#EF4444', fontWeight: 700 }}>High &ge;50 MW</span>
               </div>
             </div>
           </div>
@@ -1289,217 +1642,219 @@ export function ThermalIntelligenceView({
                   Select a thermal detection to inspect
                 </div>
                 <div style={{ fontSize: '12px', maxWidth: '280px', lineHeight: 1.5 }}>
-                  Click any hotspot marker on the global thermal map or choose an observation from the telemetry table below.
+                  Click any hotspot marker on the satellite map or choose an observation from the telemetry table below.
                 </div>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                {/* Header Badge Row */}
+                {/* Header Provenance & Location Bar */}
                 <div
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: 'rgba(15, 32, 50, 0.6)',
+                    background: 'rgba(15, 32, 50, 0.7)',
                     padding: '10px 14px',
                     borderRadius: '8px',
                     border: '1px solid var(--border-color)',
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      CLASSIFICATION
-                    </div>
-                    <div style={{ marginTop: '2px' }}>
-                      <ClassBadge predictedClass={currentSelectedDetection.predicted_class} />
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      RISK STATUS
-                    </div>
-                    <div style={{ marginTop: '2px' }}>
-                      <StatusBadge
-                        status={currentSelectedDetection.alert_level || 'MEDIUM'}
-                        type="severity"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Primary Telemetry Grid */}
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: '10px',
-                  }}
-                >
-                  {/* FRP */}
-                  <div
-                    style={{
-                      background: 'rgba(16, 34, 55, 0.6)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                    }}
-                  >
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      FIRE RADIATIVE POWER
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        color: getFrpTier(currentSelectedDetection.frp).color,
-                        fontFamily: 'var(--font-mono)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {currentSelectedDetection.frp ? `${parseFloat(currentSelectedDetection.frp).toFixed(1)} MW` : 'FRP data unavailable'}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      {getFrpTier(currentSelectedDetection.frp).label}
-                    </div>
-                  </div>
-
-                  {/* Brightness Temperature */}
-                  <div
-                    style={{
-                      background: 'rgba(16, 34, 55, 0.6)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                    }}
-                  >
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      BRIGHTNESS TEMPERATURE
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        color: '#FFFFFF',
-                        fontFamily: 'var(--font-mono)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {currentSelectedDetection.brightness
-                        ? `${parseFloat(currentSelectedDetection.brightness).toFixed(1)} K`
-                        : 'Unavailable'}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Sensor 4-micron channel
-                    </div>
-                  </div>
-
-                  {/* Confidence */}
-                  <div
-                    style={{
-                      background: 'rgba(16, 34, 55, 0.6)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                    }}
-                  >
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      MODEL CONFIDENCE
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '18px',
-                        fontWeight: 700,
-                        color: 'var(--ice-blue)',
-                        fontFamily: 'var(--font-mono)',
-                        marginTop: '2px',
-                      }}
-                    >
-                      {currentSelectedDetection.prediction_confidence
-                        ? `${(parseFloat(currentSelectedDetection.prediction_confidence) * 100).toFixed(1)}%`
-                        : currentSelectedDetection.confidence || 'N/A'}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Inference certainty
-                    </div>
-                  </div>
-
-                  {/* Satellite Source */}
-                  <div
-                    style={{
-                      background: 'rgba(16, 34, 55, 0.6)',
-                      border: '1px solid var(--border-color)',
-                      borderRadius: '8px',
-                      padding: '10px 12px',
-                    }}
-                  >
-                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-                      SATELLITE & SENSOR
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '14px',
-                        fontWeight: 700,
-                        color: 'var(--primary-cyan)',
-                        marginTop: '4px',
-                        wordBreak: 'break-word',
-                      }}
-                    >
-                      {currentSelectedDetection.instrument || currentSelectedDetection.source || 'VIIRS'}
-                    </div>
-                    <div style={{ fontSize: '10.5px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                      Polar low-Earth orbit
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Detailed Telemetry Specs */}
-                <div
-                  style={{
-                    background: 'rgba(11, 23, 38, 0.6)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '8px',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    flexDirection: 'column',
+                    flexWrap: 'wrap',
                     gap: '8px',
-                    fontSize: '11.5px',
                   }}
                 >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>LOCATION:</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: '#FFFFFF', fontWeight: 600 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <MapPin size={15} style={{ color: 'var(--primary-cyan)' }} />
+                    <span style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
                       {formatCoords(currentSelectedDetection.latitude, currentSelectedDetection.longitude)}
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>OBSERVATION TIME:</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>
-                      {currentSelectedDetection.acq_date || 'N/A'} {currentSelectedDetection.acq_time || ''} UTC
+                  <div>
+                    {currentSelectedDetection.data_provenance === 'REAL_FIRMS' ? (
+                      <span
+                        style={{
+                          fontSize: '10.5px',
+                          fontWeight: 800,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(16, 185, 129, 0.15)',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          color: '#10B981',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        DATA PROVENANCE: REAL FIRMS DATA
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          fontSize: '10.5px',
+                          fontWeight: 700,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(56, 189, 248, 0.12)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          color: '#BAE6FD',
+                        }}
+                      >
+                        PROVENANCE: {currentSelectedDetection.data_provenance || 'SATELLITE TELEMETRY'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 1. NASA FIRMS OBSERVATION (Physical Sensor Telemetry) */}
+                <div
+                  style={{
+                    background: 'rgba(11, 23, 38, 0.7)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Satellite size={14} style={{ color: 'var(--ice-blue)' }} />
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--ice-blue)', letterSpacing: '0.05em' }}>
+                        NASA FIRMS OBSERVATION
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '10px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.15)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      Physical Anomaly Detected
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>MODEL VERSION:</span>
-                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)' }}>
-                      {currentSelectedDetection.model_version || 'v2.0.0-scientific-prototype'}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {/* FRP */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fire Radiative Power</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: getFrpTier(currentSelectedDetection.frp).color, fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                        {currentSelectedDetection.frp ? `${parseFloat(currentSelectedDetection.frp).toFixed(1)} MW` : 'N/A'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{getFrpTier(currentSelectedDetection.frp).label}</div>
+                    </div>
+
+                    {/* Brightness Temperature */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Brightness Temp (4µm)</div>
+                      <div style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                        {currentSelectedDetection.brightness ? `${parseFloat(currentSelectedDetection.brightness).toFixed(1)} K` : 'N/A'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Infrared Radiance</div>
+                    </div>
+
+                    {/* Satellite Platform & Instrument */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Satellite & Sensor</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--primary-cyan)', marginTop: '2px' }}>
+                        {currentSelectedDetection.source || currentSelectedDetection.satellite || 'VIIRS'}
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        {currentSelectedDetection.instrument || 'Infrared Suite'}
+                      </div>
+                    </div>
+
+                    {/* Acquisition Timestamp */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Acquisition Timestamp</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                        {currentSelectedDetection.acq_date || 'N/A'} {currentSelectedDetection.acq_time || ''} UTC
+                      </div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>
+                        {currentSelectedDetection.daynight === 'D' ? 'Daytime (D)' : currentSelectedDetection.daynight === 'N' ? 'Nighttime (N)' : 'Illuminated'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. SATRA AI PREDICTION (Machine Learning Decision Support) */}
+                <div
+                  style={{
+                    background: 'rgba(11, 23, 38, 0.7)',
+                    border: '1px solid rgba(167, 139, 250, 0.25)',
+                    borderRadius: '8px',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '10px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Zap size={14} style={{ color: 'var(--accent-purple)' }} />
+                      <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--accent-purple)', letterSpacing: '0.05em' }}>
+                        SATRA AI PREDICTION
+                      </span>
+                    </div>
+                    <span style={{ fontSize: '10px', color: 'var(--accent-purple)', background: 'rgba(167, 139, 250, 0.15)', padding: '2px 6px', borderRadius: '4px', fontWeight: 700 }}>
+                      Model v2.0.0
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>DATA PROVENANCE:</span>
-                    <ProvenanceBadge provenance={currentSelectedDetection.data_provenance} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    {/* Likely Classification */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Likely Classification</div>
+                      <div style={{ marginTop: '4px' }}>
+                        <ClassBadge predictedClass={currentSelectedDetection.predicted_class} />
+                      </div>
+                    </div>
+
+                    {/* AI Confidence */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>AI Confidence</div>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
+                        {currentSelectedDetection.prediction_confidence
+                          ? `${(parseFloat(currentSelectedDetection.prediction_confidence) * 100).toFixed(1)}%`
+                          : currentSelectedDetection.confidence || 'Nominal'}
+                      </div>
+                    </div>
+
+                    {/* Operational Risk */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Risk Level</div>
+                      <div style={{ marginTop: '4px' }}>
+                        <StatusBadge status={currentSelectedDetection.alert_level || 'MEDIUM'} type="severity" />
+                      </div>
+                    </div>
+
+                    {/* Verification Status */}
+                    <div style={{ background: 'rgba(16, 34, 55, 0.6)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Verification Status</div>
+                      <div style={{ marginTop: '4px' }}>
+                        <span
+                          style={{
+                            fontSize: '10px',
+                            fontWeight: 700,
+                            padding: '3px 7px',
+                            borderRadius: '4px',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            color: '#F59E0B',
+                            display: 'inline-block',
+                          }}
+                        >
+                          {currentSelectedDetection.verification_status || 'AI Prediction — Requires Verification'}
+                        </span>
+                      </div>
+                    </div>
                   </div>
 
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>VERIFICATION:</span>
-                    <StatusBadge
-                      status={
-                        currentSelectedDetection.verification_status ||
-                        (currentSelectedDetection.alert_level === 'CRITICAL' ? 'REQUIRES_VERIFICATION' : 'GROUND_VERIFIED')
-                      }
-                      type="verification"
-                    />
+                  {/* Scientific Rule Notice (Requirement 8) */}
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      background: 'rgba(5, 11, 20, 0.5)',
+                      padding: '8px 10px',
+                      borderRadius: '5px',
+                      borderLeft: '2px solid var(--primary-cyan)',
+                      lineHeight: 1.45,
+                    }}
+                  >
+                    <strong style={{ color: '#E2E8F0' }}>Scientific Protocol:</strong> NASA FIRMS thermal detections indicate physical spaceborne radiometric heat anomalies. SATRA AI classifies candidate source types for operational decision-support triage.
                   </div>
                 </div>
               </div>

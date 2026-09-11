@@ -229,9 +229,6 @@ class FirmsService:
         elif self._last_sync_status in ("CONNECTED", "NO DATA", "API ERROR"):
             status_label = self._last_sync_status
             msg = self._last_sync_message
-        elif real_firms_count > 0:
-            status_label = "CONNECTED"
-            msg = f"NASA FIRMS telemetry active. {real_firms_count} real satellite observations in database."
         else:
             status_label = "STANDBY"
             msg = "NASA FIRMS MAP_KEY configured. Ready for live synchronization."

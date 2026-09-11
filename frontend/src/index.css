@@ -951,4 +951,18 @@ body {
   pointer-events: none;
 }
 
+.selected-hotspot-ring {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2.5px solid #FF0033;
+  box-shadow: 0 0 14px rgba(255, 0, 51, 0.8);
+  animation: thermal-ripple 1.5s ease-out infinite;
+  pointer-events: none;
+}
+
+
 

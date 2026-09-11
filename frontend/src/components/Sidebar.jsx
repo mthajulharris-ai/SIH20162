@@ -17,17 +17,17 @@ import {
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true }) {
   const navItems = [
-    { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
-    { id: 'earth-intel', num: '02', label: 'Earth Intelligence', icon: Globe },
-    { id: 'thermal-intel', num: '03', label: 'Thermal Intelligence', icon: Flame },
-    { id: 'detection-explorer', num: '04', label: 'Detection Explorer', icon: Crosshair },
-    { id: 'alerts', num: '05', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
-    { id: 'analytics', num: '06', label: 'Analytics', icon: BarChart3 },
-    { id: 'gis-investigation', num: '07', label: 'GIS Investigation', icon: Map },
-    { id: 'satellite-data', num: '08', label: 'Satellite Data', icon: Satellite },
-    { id: 'ai-intelligence', num: '09', label: 'AI Intelligence', icon: Cpu },
-    { id: 'space-explorer', num: '10', label: 'Space Explorer', icon: Sparkles },
-    { id: 'settings', num: '11', label: 'Settings', icon: Settings },
+    { id: 'overview', num: '01', label: 'Overview', desc: 'Monitor and investigate thermal events', icon: LayoutDashboard },
+    { id: 'earth-intel', num: '02', label: 'Earth Intelligence', desc: 'Explore detections on a 3D Earth', icon: Globe },
+    { id: 'thermal-intel', num: '03', label: 'Thermal Intelligence', desc: 'Visualize thermal intensity', icon: Flame },
+    { id: 'detection-explorer', num: '04', label: 'Detection Explorer', desc: 'Inspect individual detections', icon: Crosshair },
+    { id: 'alerts', num: '05', label: 'Alerts', desc: 'Review high-risk events', icon: ShieldAlert, badge: alertCount },
+    { id: 'analytics', num: '06', label: 'Analytics', desc: 'Understand thermal trends', icon: BarChart3 },
+    { id: 'gis-investigation', num: '07', label: 'GIS Investigation', desc: 'Investigate the exact location', icon: Map },
+    { id: 'satellite-data', num: '08', label: 'Satellite Data', desc: 'View satellite sources and observations', icon: Satellite },
+    { id: 'ai-intelligence', num: '09', label: 'AI Intelligence', desc: 'Understand AI predictions and performance', icon: Cpu },
+    { id: 'space-explorer', num: '10', label: 'Space Explorer', desc: 'Explore the Solar System', icon: Sparkles },
+    { id: 'settings', num: '11', label: 'Settings', desc: 'System configuration & preferences', icon: Settings },
   ];
 
   return (
@@ -55,14 +55,24 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
               key={item.id}
               onClick={() => setCurrentTab(item.id)}
               className={`nav-item ${isActive ? 'active' : ''}`}
-              title={`Switch to ${item.label}`}
+              title={`${item.label} — ${item.desc}`}
+              style={{
+                height: 'auto',
+                padding: '7px 10px',
+                alignItems: 'flex-start',
+              }}
             >
-              <span className="nav-num">{item.num}</span>
-              <Icon size={16} style={{ color: isActive ? 'var(--primary-cyan)' : 'inherit', flexShrink: 0 }} />
-              <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {item.label}
-              </span>
-              {item.badge > 0 && <span className="nav-badge">{item.badge}</span>}
+              <span className="nav-num" style={{ marginTop: '2px' }}>{item.num}</span>
+              <Icon size={16} style={{ color: isActive ? 'var(--primary-cyan)' : 'inherit', flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ flex: 1, minWidth: 0, textAlign: 'left', lineHeight: 1.25 }}>
+                <div style={{ fontSize: '12.5px', fontWeight: isActive ? 700 : 500, color: isActive ? '#FFFFFF' : 'inherit', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  {item.label}
+                </div>
+                <div style={{ fontSize: '10px', color: isActive ? 'var(--ice-blue)' : 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginTop: '1px' }}>
+                  {item.desc}
+                </div>
+              </div>
+              {item.badge > 0 && <span className="nav-badge" style={{ marginTop: '2px' }}>{item.badge}</span>}
             </button>
           );
         })}
