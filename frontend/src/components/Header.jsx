@@ -15,6 +15,7 @@ import {
   UploadCloud,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge } from './StatusBadge';
+import { useLiveClock } from '../services/useLiveClock';
 
 export function Header({
   pageTitle,
@@ -28,24 +29,12 @@ export function Header({
   onNavigate,
   onOpenUploadModal,
 }) {
-  const [dateStr, setDateStr] = useState('');
-  const [timeStr, setTimeStr] = useState('');
+  const { dateStr, timeStr } = useLiveClock();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const searchContainerRef = useRef(null);
   const notifContainerRef = useRef(null);
-
-  useEffect(() => {
-    const update = () => {
-      const now = new Date();
-      setDateStr(now.toLocaleDateString('en-GB', { timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }));
-      setTimeStr(`${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}:${String(now.getUTCSeconds()).padStart(2, '0')} UTC`);
-    };
-    update();
-    const timer = setInterval(update, 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Handle clicking outside of search results or notifications popover
   useEffect(() => {
