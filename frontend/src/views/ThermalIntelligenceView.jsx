@@ -862,7 +862,7 @@ export function ThermalIntelligenceView({
       d.alert_level || 'MEDIUM',
       `"${(d.source || d.instrument || 'VIIRS').replace(/"/g, '""')}"`,
       d.model_version || '2.0.0',
-      d.data_provenance || 'SAMPLE',
+      d.data_provenance || 'REAL_FIRMS',
     ]);
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');

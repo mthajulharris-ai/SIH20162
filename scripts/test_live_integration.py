@@ -7,7 +7,7 @@ import json
 import urllib.request
 
 BASE_BACKEND = "http://127.0.0.1:8000"
-BASE_FRONTEND_PROXY = "http://127.0.0.1:5173"
+BASE_FRONTEND_PROXY = "http://localhost:5173"
 
 # Labelled test/sample observation
 sample_observation = {
@@ -86,6 +86,20 @@ def main():
             print(f"Operational Alert Verified: ID={alt['id']}, Level={alt['alert_level']}, State={alt['verification_status']}")
         else:
             print(f"Observation was classified with severity level: {prediction.get('alert_level')}")
+
+    # 7. Clean up temporary test detection
+    print("\n[STEP 7] Cleaning up temporary test detection...")
+    try:
+        import sqlite3
+        conn = sqlite3.connect("thermal_detections.db")
+        cur = conn.cursor()
+        cur.execute("DELETE FROM detections WHERE id = ?", (det_id,))
+        cur.execute("DELETE FROM alerts WHERE detection_id = ?", (det_id,))
+        conn.commit()
+        conn.close()
+        print(f"Temporary test detection ID={det_id} cleanly removed.")
+    except Exception as e:
+        print(f"Cleanup note: {e}")
 
     print("\n" + "=" * 60)
     print("END-TO-END INTEGRATION TEST COMPLETED SUCCESSFULLY!")

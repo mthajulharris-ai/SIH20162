@@ -157,7 +157,7 @@ def create_alert_if_eligible(db: Session, detection: Detection) -> Optional[Aler
         brightness=detection.brightness,
         acq_date=detection.acq_date,
         acq_time=detection.acq_time,
-        data_provenance=detection.data_provenance or "SAMPLE",
+        data_provenance=detection.data_provenance or "USER_UPLOADED",
         model_version=detection.model_version or "2.0.0-scientific-prototype",
         disclaimer="AI detected thermal signature. Requires ground/field verification.",
     )

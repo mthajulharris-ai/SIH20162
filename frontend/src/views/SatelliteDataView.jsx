@@ -31,13 +31,25 @@ export function SatelliteDataView({
   const [selectedDays, setSelectedDays] = useState(1);
 
   // Filter actual detection records by sensor
-  const viirsCount = detections.filter(
-    (d) => (d.source || '').includes('VIIRS') || (d.instrument || '').includes('VIIRS') || (d.satellite || '').includes('VIIRS')
-  ).length;
+  const noaa20Count = detections.filter((d) => {
+    const s = ((d.source || '') + ' ' + (d.satellite || '') + ' ' + (d.instrument || '')).toUpperCase();
+    return s.includes('NOAA-20') || s.includes('NOAA20') || s.includes('JPSS-1') || d.source === 'N' || d.satellite === 'N';
+  }).length;
 
-  const modisCount = detections.filter(
-    (d) => (d.source || '').includes('MODIS') || (d.instrument || '').includes('MODIS') || (d.satellite || '').includes('MODIS')
-  ).length;
+  const snppCount = detections.filter((d) => {
+    const s = ((d.source || '') + ' ' + (d.satellite || '') + ' ' + (d.instrument || '')).toUpperCase();
+    return s.includes('SNPP') || s.includes('S-NPP') || s.includes('SUOMI');
+  }).length;
+
+  const noaa21Count = detections.filter((d) => {
+    const s = ((d.source || '') + ' ' + (d.satellite || '') + ' ' + (d.instrument || '')).toUpperCase();
+    return s.includes('NOAA-21') || s.includes('NOAA21') || s.includes('JPSS-2') || d.source === '21' || d.satellite === '21';
+  }).length;
+
+  const modisCount = detections.filter((d) => {
+    const s = ((d.source || '') + ' ' + (d.satellite || '') + ' ' + (d.instrument || '')).toUpperCase();
+    return s.includes('MODIS') || s.includes('TERRA') || s.includes('AQUA');
+  }).length;
 
   const realFirmsCount = detections.filter((d) => d.data_provenance === 'REAL_FIRMS').length;
 
@@ -146,7 +158,7 @@ export function SatelliteDataView({
       resolution: '375m (I-Band I4/I5)',
       orbit: 'Sun-synchronous, 824 km altitude, 50-min orbital separation from S-NPP',
       crossing: '13:30 Ascending / 01:30 Descending',
-      activeDetections: Math.floor(viirsCount * 0.6) || 12,
+      activeDetections: noaa20Count,
       status: isBackendHealthy ? 'OPERATIONAL' : 'DEGRADED',
       freshness: '< 3 hours latency (NASA FIRMS NRT)',
     },
@@ -158,7 +170,7 @@ export function SatelliteDataView({
       resolution: '375m (I-Band I4/I5)',
       orbit: 'Sun-synchronous, 824 km altitude, 98.7° inclination',
       crossing: '13:30 Ascending / 01:30 Descending (Local Solar Time)',
-      activeDetections: Math.floor(viirsCount * 0.4) || 16,
+      activeDetections: snppCount,
       status: isBackendHealthy ? 'OPERATIONAL' : 'DEGRADED',
       freshness: '< 3 hours latency (NASA FIRMS NRT)',
     },
@@ -170,7 +182,7 @@ export function SatelliteDataView({
       resolution: '375m (I-Band I4/I5)',
       orbit: 'Sun-synchronous, 824 km altitude',
       crossing: '13:30 Ascending / 01:30 Descending',
-      activeDetections: Math.floor(viirsCount * 0.2) || 4,
+      activeDetections: noaa21Count,
       status: isBackendHealthy ? 'OPERATIONAL' : 'DEGRADED',
       freshness: '< 3 hours latency (NASA FIRMS NRT)',
     },
@@ -182,7 +194,7 @@ export function SatelliteDataView({
       resolution: '1 km Thermal Bands (21, 22, 31, 32)',
       orbit: 'Sun-synchronous, 705 km altitude',
       crossing: '10:30 (Terra) / 13:30 (Aqua)',
-      activeDetections: modisCount || 4,
+      activeDetections: modisCount,
       status: isBackendHealthy ? 'OPERATIONAL' : 'DEGRADED',
       freshness: '< 4 hours latency (NASA FIRMS NRT)',
     },

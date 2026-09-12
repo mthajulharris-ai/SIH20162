@@ -939,7 +939,7 @@ export function EarthGlobe3D({
         isSelected: !!isSelected,
       };
 
-      const frpVal = parseFloat(d.frp || 20);
+      const frpVal = parseFloat(d.frp || 0);
       const isCritical = d.alert_level === 'CRITICAL' || frpVal >= 80;
       const isHighFRP = frpVal >= 50;
       const isMediumFRP = frpVal >= 20;

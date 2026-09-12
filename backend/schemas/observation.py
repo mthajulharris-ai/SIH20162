@@ -72,7 +72,7 @@ class ThermalObservationInput(BaseModel):
     )
     data_provenance: Optional[str] = Field(
         default=None,
-        description="Data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+        description="Data provenance ('REAL_FIRMS', 'USER_UPLOADED', 'PROTOTYPE_LABELLED')",
         examples=["REAL_FIRMS"],
     )
     source_file: Optional[str] = Field(
@@ -292,4 +292,23 @@ class UploadAndAnalyzeResponse(BaseModel):
     analysis_summary: Optional[DatasetAnalysisSummary] = None
     analysis: Optional[Dict[str, Any]] = Field(default=None, description="Standard analysis summary block")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Processing metadata block")
+
+
+class DatasetValidationResponse(BaseModel):
+    """
+    Validation response returned when validating satellite datasets (CSV, JSON, ZIP).
+    Provides instant pre-analysis feedback to the operator.
+    """
+    status: str = Field(default="VALID")
+    filename: str = Field(..., description="Uploaded file name")
+    identified_file: str = Field(..., description="Internal observation file identified inside archive or original file")
+    format_detected: str = Field(..., description="Detected format and satellite sensor family")
+    record_count: int = Field(..., description="Number of validated satellite observations found")
+    detected_fields: List[str] = Field(default_factory=list, description="List of recognized satellite observation fields")
+    missing_fields: List[str] = Field(default_factory=list, description="List of optional or unavailable fields")
+    sample_preview: Optional[Dict[str, Any]] = Field(None, description="Sample first observation coordinates and attributes")
+    message: str = Field(
+        default="Satellite observation data found — ready for AI analysis.",
+        description="Status message",
+    )
 

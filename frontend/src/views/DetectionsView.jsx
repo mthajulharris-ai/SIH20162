@@ -70,8 +70,8 @@ export function DetectionsView({ detections = [], onRefresh, loading = false, on
         >
           <option value="">All Data Origins</option>
           <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+          <option value="USER_UPLOADED">USER_UPLOADED</option>
           <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
-          <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
 
         <button onClick={onRefresh} disabled={loading} className="btn-secondary">

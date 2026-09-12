@@ -39,7 +39,7 @@ class Detection(Base):
     prediction_confidence: float = Column(Float, nullable=False)  # Model probability: 0.0 - 1.0
     is_persistent: bool = Column(Boolean, default=False, nullable=False, index=True)
     model_version: Optional[str] = Column(String(32), default="2.0.0-scientific-prototype", nullable=True)
-    data_provenance: str = Column(String(32), default="SAMPLE", nullable=False, index=True)  # REAL_FIRMS, SAMPLE, PROTOTYPE_LABELLED
+    data_provenance: str = Column(String(32), default="USER_UPLOADED", nullable=False, index=True)  # REAL_FIRMS, USER_UPLOADED, PROTOTYPE_LABELLED
     alert_level: Optional[str] = Column(String(32), default="LOW", nullable=True, index=True)  # CRITICAL, HIGH, MEDIUM, LOW, LOW_CONFIDENCE_REVIEW
     
     # Ingestion Metadata
@@ -121,7 +121,7 @@ class Detection(Base):
             "prediction_confidence": self.prediction_confidence,
             "is_persistent": self.is_persistent,
             "model_version": self.model_version or "2.0.0-scientific-prototype",
-            "data_provenance": self.data_provenance or "SAMPLE",
+            "data_provenance": self.data_provenance or "USER_UPLOADED",
             "alert_level": self.alert_level or "LOW",
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }

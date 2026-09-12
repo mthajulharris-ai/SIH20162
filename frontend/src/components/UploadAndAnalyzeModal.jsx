@@ -24,12 +24,18 @@ import {
   Info,
   RotateCcw,
 } from 'lucide-react';
-import { uploadAndAnalyzeSatelliteFile, predictAndStoreObservation } from '../services/api';
+import {
+  uploadAndAnalyzeSatelliteFile,
+  predictAndStoreObservation,
+  validateSatelliteDataset,
+  startSatelliteAnalysisJob,
+  getSatelliteAnalysisJobStatus,
+} from '../services/api';
 
 /**
  * Built-in real satellite test records for immediate operator analysis
  */
-const BUILT_IN_SATELLITE_SAMPLES = [
+const VERIFIED_FIRMS_OBSERVATIONS = [
   {
     id: 'firms-viirs-1',
     name: 'NASA FIRMS VIIRS 375m — Jamshedpur Industrial Belt',
@@ -125,7 +131,7 @@ export function UploadAndAnalyzeModal({
   onAnalysisSuccess,
   onViewExactLocation,
 }) {
-  const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'samples' | 'manual'
+  const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'templates' | 'manual'
   const [analysisViewTab, setAnalysisViewTab] = useState('summary'); // 'summary' | 'thermal' | 'spatial' | 'temporal'
 
   // Upload State (multi-file capable)
@@ -152,37 +158,85 @@ export function UploadAndAnalyzeModal({
   const [uiState, setUiState] = useState('IDLE'); // 'IDLE' | 'FILE_SELECTED' | 'VALIDATING' | 'READY' | 'ANALYZING' | 'SUCCESS' | 'ERROR' | 'TIMEOUT'
   const [isProcessing, setIsProcessing] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
+  const [validationNotice, setValidationNotice] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [jobProgress, setJobProgress] = useState({
+    currentBatch: 0,
+    totalBatches: 0,
+    processedRecords: 0,
+    totalRecords: 0,
+    progressPercent: 0,
+    statusMessage: '',
+  });
 
   if (!isOpen) return null;
 
   // Inspect and validate each selected file content
   const processFiles = async (fileList) => {
     setErrorMsg(null);
+    setValidationNotice(null);
     setAnalysisResult(null);
-    setUiState('VALIDATING');
 
-    const filesArray = Array.from(fileList);
-    if (filesArray.length === 0) return;
+    const filesArray = Array.from(fileList || []);
+    if (filesArray.length === 0) {
+      setErrorMsg('Please select a satellite observation file first.');
+      setUiState('IDLE');
+      setSelectedFiles([]);
+      setFilePreviews([]);
+      return;
+    }
+
+    setUiState('VALIDATING');
 
     const newSelectedFiles = [];
     const newPreviews = [];
+    let hadZipFile = false;
 
     for (const file of filesArray) {
+      const isZip = file.name.toLowerCase().endsWith('.zip');
+      if (isZip) {
+        hadZipFile = true;
+        setValidationNotice('ZIP dataset detected — scanning for satellite observation files...');
+        try {
+          const valRes = await validateSatelliteDataset(file);
+          newSelectedFiles.push(file);
+          newPreviews.push({
+            name: file.name,
+            identifiedFile: valRes.identified_file,
+            sizeKb: Math.round(file.size / 1024) || 1,
+            recordCount: valRes.record_count,
+            format: valRes.format_detected,
+            previewLat: valRes.sample_preview?.latitude,
+            previewLon: valRes.sample_preview?.longitude,
+            previewBright: valRes.sample_preview?.brightness,
+            previewFrp: valRes.sample_preview?.frp,
+            isZip: true,
+          });
+          continue;
+        } catch (zipErr) {
+          setUiState('ERROR');
+          setValidationNotice(null);
+          setErrorMsg(zipErr.message || 'No compatible NASA FIRMS / VIIRS / MODIS observation file found inside ZIP.');
+          setSelectedFiles([]);
+          setFilePreviews([]);
+          return;
+        }
+      }
+
       try {
         const text = await file.text();
         const trimmed = text.trim();
 
         if (!trimmed) {
-          throw new Error(`File '${file.name}' is empty.`);
+          throw new Error(`File '${file.name}' is empty. Please select a valid satellite observation file.`);
         }
 
         let recordCount = 0;
         let detectedFormat = 'CSV';
-        let sampleLat = null;
-        let sampleLon = null;
-        let sampleBright = null;
-        let sampleFrp = null;
+        let previewLat = null;
+        let previewLon = null;
+        let previewBright = null;
+        let previewFrp = null;
         let hasThermalSignal = false;
 
         // Check JSON / GeoJSON
@@ -230,10 +284,10 @@ export function UploadAndAnalyzeModal({
               );
             }
 
-            sampleLat = parseFloat(first.latitude || first.lat);
-            sampleLon = parseFloat(first.longitude || first.lon || first.long);
-            sampleBright = first.brightness || first.bright_ti4 || first.temp ? parseFloat(first.brightness || first.bright_ti4 || first.temp) : null;
-            sampleFrp = first.frp ? parseFloat(first.frp) : null;
+            previewLat = parseFloat(first.latitude || first.lat);
+            previewLon = parseFloat(first.longitude || first.lon || first.long);
+            previewBright = first.brightness || first.bright_ti4 || first.temp ? parseFloat(first.brightness || first.bright_ti4 || first.temp) : null;
+            previewFrp = first.frp ? parseFloat(first.frp) : null;
           } catch (jsonErr) {
             throw new Error(jsonErr.message || `Malformed JSON in file '${file.name}'.`);
           }
@@ -244,7 +298,15 @@ export function UploadAndAnalyzeModal({
             throw new Error(`File '${file.name}' must contain a column header row and at least 1 observation row.`);
           }
 
-          const rawHeaders = lines[0].split(',').map((h) => h.trim());
+          // Detect delimiter: tab, semicolon, or comma
+          const firstLine = lines[0];
+          let delimiter = ',';
+          if (firstLine.includes('\t')) delimiter = '\t';
+          else if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
+
+          const parseRow = (line) => line.split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim());
+
+          const rawHeaders = parseRow(lines[0]);
           const mappedHeaders = rawHeaders.map(cleanCol).map((k) => COLUMN_ALIASES[k] || k);
 
           const latIdx = mappedHeaders.indexOf('latitude');
@@ -257,22 +319,26 @@ export function UploadAndAnalyzeModal({
           );
 
           if (latIdx === -1 || lonIdx === -1 || !hasThermal) {
+            const missing = [];
+            if (latIdx === -1) missing.push('latitude');
+            if (lonIdx === -1) missing.push('longitude');
+            if (!hasThermal) missing.push('thermal observation signal (brightness/FRP)');
             throw new Error(
-              `Unsupported observation format. We could not identify sufficient satellite thermal/fire observation fields in this file. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
+              `Unsupported observation format in '${file.name}'. Missing required fields: ${missing.join(', ')}. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
             );
           }
 
           recordCount = lines.length - 1;
-          const firstRow = lines[1].split(',').map((v) => v.trim());
-          sampleLat = parseFloat(firstRow[latIdx]);
-          sampleLon = parseFloat(firstRow[lonIdx]);
-          sampleBright = brightIdx !== -1 && firstRow[brightIdx] ? parseFloat(firstRow[brightIdx]) : null;
-          sampleFrp = frpIdx !== -1 && firstRow[frpIdx] ? parseFloat(firstRow[frpIdx]) : null;
+          const firstRow = parseRow(lines[1]);
+          previewLat = parseFloat(firstRow[latIdx]);
+          previewLon = parseFloat(firstRow[lonIdx]);
+          previewBright = brightIdx !== -1 && firstRow[brightIdx] ? parseFloat(firstRow[brightIdx]) : null;
+          previewFrp = frpIdx !== -1 && firstRow[frpIdx] ? parseFloat(firstRow[frpIdx]) : null;
 
-          if (isNaN(sampleLat) || sampleLat < -90.0 || sampleLat > 90.0) {
+          if (isNaN(previewLat) || previewLat < -90.0 || previewLat > 90.0) {
             throw new Error(`Invalid latitude ${firstRow[latIdx]} in '${file.name}'. Coordinate must be between -90° and +90°.`);
           }
-          if (isNaN(sampleLon) || sampleLon < -180.0 || sampleLon > 180.0) {
+          if (isNaN(previewLon) || previewLon < -180.0 || previewLon > 180.0) {
             throw new Error(`Invalid longitude ${firstRow[lonIdx]} in '${file.name}'. Coordinate must be between -180° and +180°.`);
           }
 
@@ -291,26 +357,39 @@ export function UploadAndAnalyzeModal({
           sizeKb: Math.round(file.size / 1024) || 1,
           recordCount,
           format: detectedFormat,
-          sampleLat,
-          sampleLon,
-          sampleBright,
-          sampleFrp,
+          previewLat,
+          previewLon,
+          previewBright,
+          previewFrp,
         });
       } catch (err) {
+        setUiState('ERROR');
+        setValidationNotice(null);
         setErrorMsg(err.message);
+        setSelectedFiles([]);
+        setFilePreviews([]);
         return;
       }
     }
 
-    setSelectedFiles((prev) => [...prev, ...newSelectedFiles]);
-    setFilePreviews((prev) => [...prev, ...newPreviews]);
+    setSelectedFiles(newSelectedFiles);
+    setFilePreviews(newPreviews);
     setUiState('READY');
+    setErrorMsg(null);
+    if (hadZipFile) {
+      setValidationNotice('Satellite observation data found — ready for AI analysis.');
+    }
   };
 
   const handleFileChange = (e) => {
     if (e.target.files && e.target.files.length > 0) {
       setUiState('FILE_SELECTED');
       processFiles(e.target.files);
+    } else {
+      if (selectedFiles.length === 0) {
+        setErrorMsg('Please select a satellite observation file first.');
+        setUiState('IDLE');
+      }
     }
   };
 
@@ -320,31 +399,46 @@ export function UploadAndAnalyzeModal({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setUiState('FILE_SELECTED');
       processFiles(e.dataTransfer.files);
+    } else {
+      if (selectedFiles.length === 0) {
+        setErrorMsg('Please select a satellite observation file first.');
+        setUiState('IDLE');
+      }
     }
   };
 
   const handleRemoveFile = (index) => {
     setSelectedFiles((prev) => {
       const updated = prev.filter((_, i) => i !== index);
-      if (updated.length === 0) setUiState('IDLE');
+      if (updated.length === 0) {
+        setUiState('IDLE');
+        setErrorMsg(null);
+      }
       return updated;
     });
     setFilePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Select a built-in sample
-  const handleSelectSample = (sample) => {
-    const blob = new Blob([sample.csvContent], { type: 'text/csv' });
-    const file = new File([blob], `${sample.id}.csv`, { type: 'text/csv' });
+  // Select a built-in observation template
+  const handleSelectObservation = async (obs) => {
+    const blob = new Blob([obs.csvContent], { type: 'text/csv' });
+    const file = new File([blob], `${obs.id}.csv`, { type: 'text/csv' });
     setSelectedFiles([]);
     setFilePreviews([]);
     setUiState('FILE_SELECTED');
-    processFiles([file]);
+    await processFiles([file]);
     setActiveTab('upload');
   };
 
   // Execute Core AI Analysis Pipeline
   const handleExecuteAnalysis = async () => {
+    // 1. Strict guard: NEVER run analysis without an actual valid selected file
+    if (activeTab === 'upload' && (!selectedFiles || selectedFiles.length === 0 || uiState !== 'READY')) {
+      setErrorMsg('Please select a satellite observation file first.');
+      setUiState('IDLE');
+      return;
+    }
+
     setErrorMsg(null);
     setUiState('ANALYZING');
     setIsProcessing(true);
@@ -379,7 +473,7 @@ export function UploadAndAnalyzeModal({
           source: manualForm.satellite,
           instrument: manualForm.satellite.includes('MODIS') ? 'MODIS' : 'VIIRS',
           daynight: manualForm.daynight,
-          data_provenance: 'SAMPLE',
+          data_provenance: 'USER_UPLOADED',
         };
 
         const response = await predictAndStoreObservation(payload);
@@ -419,9 +513,54 @@ export function UploadAndAnalyzeModal({
         };
       } else {
         if (!selectedFiles || selectedFiles.length === 0) {
-          throw new Error('Please select or upload at least one satellite observation file.');
+          throw new Error('Please select or upload at least one valid satellite observation file before executing AI analysis.');
         }
-        result = await uploadAndAnalyzeSatelliteFile(selectedFiles);
+
+        // Asynchronous batch job workflow: splits observations into 1,000-record batches
+        const startJobRes = await startSatelliteAnalysisJob(selectedFiles);
+        const jobId = startJobRes.job_id;
+
+        setJobProgress({
+          currentBatch: 0,
+          totalBatches: startJobRes.total_batches || 1,
+          processedRecords: 0,
+          totalRecords: startJobRes.total_records || 0,
+          progressPercent: 0,
+          statusMessage: 'Starting batch analysis...',
+        });
+
+        let isDone = false;
+        let finalResult = null;
+        let pollCount = 0;
+        const maxPolls = 600; // 150 seconds safety timeout
+
+        while (!isDone && pollCount < maxPolls) {
+          await new Promise((resolve) => setTimeout(resolve, 250));
+          pollCount++;
+
+          const jobStatus = await getSatelliteAnalysisJobStatus(jobId);
+          setJobProgress({
+            currentBatch: jobStatus.current_batch || 0,
+            totalBatches: jobStatus.total_batches || 1,
+            processedRecords: jobStatus.processed_records || 0,
+            totalRecords: jobStatus.total_records || 0,
+            progressPercent: jobStatus.progress_percent || 0,
+            statusMessage: jobStatus.status_message || 'Analyzing satellite observations in batches...',
+          });
+
+          if (jobStatus.status === 'COMPLETED') {
+            isDone = true;
+            finalResult = jobStatus.result;
+          } else if (jobStatus.status === 'FAILED') {
+            throw new Error(jobStatus.error || 'AI batch analysis failed.');
+          }
+        }
+
+        if (!finalResult) {
+          throw new Error('AI analysis timed out. The batch processing job took longer than expected.');
+        }
+
+        result = finalResult;
       }
 
       setAnalysisResult(result);
@@ -431,7 +570,7 @@ export function UploadAndAnalyzeModal({
       }
     } catch (err) {
       console.error('[SATRA ERROR] Pipeline error:', err);
-      const isTimeout = err.message && err.message.toLowerCase().includes('timed out');
+      const isTimeout = err.name === 'AbortError' || (err.message && err.message.toLowerCase().includes('timed out'));
       setUiState(isTimeout ? 'TIMEOUT' : 'ERROR');
       setErrorMsg(err.message || 'AI analysis execution failed.');
     } finally {
@@ -459,6 +598,13 @@ export function UploadAndAnalyzeModal({
 
   const totalRecordsCount = filePreviews.reduce((sum, f) => sum + f.recordCount, 0);
   const summaryData = analysisResult?.analysis_summary;
+
+  // Real validation check: Must have at least one validated file in READY state
+  const hasValidFile = Boolean(selectedFiles && selectedFiles.length > 0 && uiState === 'READY');
+  const isAnalyzeDisabled =
+    isProcessing ||
+    (activeTab === 'upload' && !hasValidFile) ||
+    (activeTab === 'templates' && !hasValidFile);
 
   return (
     <div
@@ -589,14 +735,14 @@ export function UploadAndAnalyzeModal({
               </button>
 
               <button
-                onClick={() => setActiveTab('samples')}
+                onClick={() => setActiveTab('templates')}
                 style={{
                   flex: 1,
                   padding: '8px 14px',
                   borderRadius: '6px',
-                  border: activeTab === 'samples' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'samples' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                  color: activeTab === 'samples' ? '#FFFFFF' : 'var(--text-muted)',
+                  border: activeTab === 'templates' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
+                  background: activeTab === 'templates' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                  color: activeTab === 'templates' ? '#FFFFFF' : 'var(--text-muted)',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -607,7 +753,7 @@ export function UploadAndAnalyzeModal({
                 }}
               >
                 <Database size={14} />
-                <span>Real FIRMS Samples</span>
+                <span>NASA FIRMS Observations</span>
               </button>
 
               <button
@@ -645,7 +791,12 @@ export function UploadAndAnalyzeModal({
                 }}
                 onDragLeave={() => setIsDragging(false)}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => {
+                  if (selectedFiles.length === 0) {
+                    setErrorMsg('Please select a satellite observation file first.');
+                  }
+                  fileInputRef.current?.click();
+                }}
                 style={{
                   border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.35)'}`,
                   background: isDragging ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.55)',
@@ -665,8 +816,13 @@ export function UploadAndAnalyzeModal({
                   ref={fileInputRef}
                   style={{ display: 'none' }}
                   multiple
-                  accept=".csv,.txt,.json,.geojson"
+                  accept=".csv,.txt,.json,.geojson,.zip"
                   onChange={handleFileChange}
+                  onCancel={() => {
+                    if (selectedFiles.length === 0) {
+                      setErrorMsg('Please select a satellite observation file first.');
+                    }
+                  }}
                 />
 
                 <div
@@ -690,10 +846,10 @@ export function UploadAndAnalyzeModal({
                   Upload Satellite Observation Data
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
-                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV or JSON file.
+                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, or ZIP dataset.
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Filename does not matter &mdash; SATRA AI automatically detects the data format and required fields.
+                  Filename does not matter &mdash; SATRA AI automatically scans archives, validates headers, and extracts observation data.
                 </div>
 
                 {/* Supported formats pill list */}
@@ -701,7 +857,7 @@ export function UploadAndAnalyzeModal({
                   <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Supported formats:
                   </span>
-                  {['CSV', 'JSON', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
+                  {['CSV', 'JSON', 'ZIP DATASETS', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
                     <span
                       key={fmt}
                       style={{
@@ -719,6 +875,125 @@ export function UploadAndAnalyzeModal({
                   ))}
                 </div>
               </div>
+
+              {/* Dynamic Status / ZIP Scanning Notice */}
+              {validationNotice && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 14px',
+                    borderRadius: '8px',
+                    background: validationNotice.includes('scanning')
+                      ? 'rgba(56, 189, 248, 0.12)'
+                      : 'rgba(34, 197, 94, 0.12)',
+                    border: validationNotice.includes('scanning')
+                      ? '1px solid rgba(56, 189, 248, 0.35)'
+                      : '1px solid rgba(34, 197, 94, 0.35)',
+                    color: validationNotice.includes('scanning')
+                      ? 'var(--ice-blue)'
+                      : '#86EFAC',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {validationNotice.includes('scanning') ? (
+                    <Activity size={16} className="animate-spin" />
+                  ) : (
+                    <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
+                  )}
+                  <span>{validationNotice}</span>
+                </div>
+              )}
+
+              {/* Real-time Batch Processing Progress HUD */}
+              {isProcessing && (
+                <div
+                  style={{
+                    background: 'rgba(15, 32, 50, 0.85)',
+                    border: '1px solid rgba(56, 189, 248, 0.45)',
+                    borderRadius: '10px',
+                    padding: '16px 20px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(56, 189, 248, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Activity size={18} className="animate-spin" style={{ color: 'var(--primary-cyan)' }} />
+                      <div>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
+                          Analyzing satellite observations...
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--ice-blue)', marginTop: '2px' }}>
+                          {jobProgress.statusMessage || 'Processing observations with SATRA AI model v2.0.0-scientific-prototype...'}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span
+                        style={{
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          fontFamily: 'var(--font-mono)',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(56, 189, 248, 0.15)',
+                          border: '1px solid rgba(56, 189, 248, 0.3)',
+                          color: 'var(--primary-cyan)',
+                        }}
+                      >
+                        Batch {jobProgress.currentBatch} / {jobProgress.totalBatches}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progress Bar Track */}
+                  <div
+                    style={{
+                      width: '100%',
+                      height: '8px',
+                      borderRadius: '4px',
+                      background: 'rgba(2, 6, 23, 0.7)',
+                      overflow: 'hidden',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: `${Math.min(100, Math.max(jobProgress.progressPercent, 2))}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #0284C7 0%, #38BDF8 100%)',
+                        borderRadius: '4px',
+                        transition: 'width 0.25s ease-out',
+                        boxShadow: '0 0 12px rgba(56, 189, 248, 0.5)',
+                      }}
+                    />
+                  </div>
+
+                  {/* Progress Metrics & Real Counters */}
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      fontSize: '11.5px',
+                      color: 'var(--text-muted)',
+                    }}
+                  >
+                    <span>
+                      <strong style={{ color: '#FFFFFF' }}>{jobProgress.processedRecords.toLocaleString()}</strong> /{' '}
+                      {jobProgress.totalRecords.toLocaleString()} observations processed
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)', fontWeight: 700 }}>
+                      {jobProgress.progressPercent.toFixed(1)}% complete
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Selected Files List with Badges */}
               {filePreviews.length > 0 && (
@@ -758,9 +1033,24 @@ export function UploadAndAnalyzeModal({
                           border: '1px solid rgba(255, 255, 255, 0.05)',
                         }}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <FileText size={14} style={{ color: 'var(--primary-cyan)' }} />
                           <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{p.name}</span>
+                          {p.identifiedFile && p.identifiedFile !== p.name && (
+                            <span
+                              style={{
+                                fontSize: '10.5px',
+                                padding: '1px 6px',
+                                borderRadius: '4px',
+                                background: 'rgba(56, 189, 248, 0.1)',
+                                color: 'var(--primary-cyan)',
+                                fontFamily: 'var(--font-mono)',
+                                border: '1px solid rgba(56, 189, 248, 0.25)',
+                              }}
+                            >
+                              &rarr; {p.identifiedFile}
+                            </span>
+                          )}
                           <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>({p.sizeKb} KB)</span>
                           <span
                             style={{
@@ -804,17 +1094,17 @@ export function UploadAndAnalyzeModal({
             </div>
           )}
 
-          {/* TAB 2: REAL FIRMS SAMPLES */}
-          {!analysisResult && activeTab === 'samples' && (
+          {/* TAB 2: REAL FIRMS OBSERVATIONS */}
+          {!analysisResult && activeTab === 'templates' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                 Select a verified NASA FIRMS satellite observation from the ground validation registry:
               </div>
 
-              {BUILT_IN_SATELLITE_SAMPLES.map((sample) => (
+              {VERIFIED_FIRMS_OBSERVATIONS.map((obs) => (
                 <div
-                  key={sample.id}
-                  onClick={() => handleSelectSample(sample)}
+                  key={obs.id}
+                  onClick={() => handleSelectObservation(obs)}
                   style={{
                     background: 'rgba(15, 32, 50, 0.6)',
                     border: '1px solid rgba(56, 189, 248, 0.2)',
@@ -836,10 +1126,10 @@ export function UploadAndAnalyzeModal({
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>{sample.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{sample.desc}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>{obs.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{obs.desc}</div>
                     <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--ice-blue)', marginTop: '4px' }}>
-                      Exact: {sample.lat}° N, {sample.lon}° E &bull; {sample.satellite} &bull; FRP: {sample.frp} MW
+                      Exact: {obs.lat}° N, {obs.lon}° E &bull; {obs.satellite} &bull; FRP: {obs.frp} MW
                     </div>
                   </div>
 
@@ -847,7 +1137,7 @@ export function UploadAndAnalyzeModal({
                     className="btn-secondary"
                     style={{ padding: '6px 12px', fontSize: '11px', gap: '4px', whiteSpace: 'nowrap' }}
                   >
-                    <span>Load Sample</span>
+                    <span>Load Observation</span>
                     <ChevronRight size={13} />
                   </button>
                 </div>
@@ -1001,50 +1291,90 @@ export function UploadAndAnalyzeModal({
             </div>
           )}
 
-          {/* Professional Error / Timeout Notification */}
+          {/* Professional Error / Timeout / Validation Notification */}
           {(errorMsg || uiState === 'TIMEOUT') && (
             <div
               style={{
-                background: uiState === 'TIMEOUT' ? 'rgba(234, 179, 8, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                border: uiState === 'TIMEOUT' ? '1px solid rgba(234, 179, 8, 0.4)' : '1px solid rgba(239, 68, 68, 0.4)',
+                background:
+                  uiState === 'TIMEOUT'
+                    ? 'rgba(234, 179, 8, 0.15)'
+                    : errorMsg?.includes('Please select')
+                    ? 'rgba(56, 189, 248, 0.12)'
+                    : 'rgba(239, 68, 68, 0.15)',
+                border:
+                  uiState === 'TIMEOUT'
+                    ? '1px solid rgba(234, 179, 8, 0.4)'
+                    : errorMsg?.includes('Please select')
+                    ? '1px solid rgba(56, 189, 248, 0.4)'
+                    : '1px solid rgba(239, 68, 68, 0.4)',
                 borderRadius: '8px',
                 padding: '14px 18px',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'space-between',
                 gap: '12px',
-                color: uiState === 'TIMEOUT' ? '#FDE68A' : '#FCA5A5',
+                color:
+                  uiState === 'TIMEOUT'
+                    ? '#FDE68A'
+                    : errorMsg?.includes('Please select')
+                    ? 'var(--ice-blue)'
+                    : '#FCA5A5',
                 fontSize: '12.5px',
                 lineHeight: 1.5,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                <AlertTriangle size={20} style={{ flexShrink: 0, color: uiState === 'TIMEOUT' ? '#EAB308' : 'var(--critical-red)', marginTop: '2px' }} />
+                <AlertTriangle
+                  size={20}
+                  style={{
+                    flexShrink: 0,
+                    color:
+                      uiState === 'TIMEOUT'
+                        ? '#EAB308'
+                        : errorMsg?.includes('Please select')
+                        ? 'var(--primary-cyan)'
+                        : 'var(--critical-red)',
+                    marginTop: '2px',
+                  }}
+                />
                 <div>
                   <strong style={{ color: '#FFFFFF', display: 'block', marginBottom: '2px' }}>
-                    {uiState === 'TIMEOUT' ? 'AI Analysis Timed Out' : 'Execution Notice'}
+                    {uiState === 'TIMEOUT'
+                      ? 'AI Analysis Timed Out'
+                      : errorMsg && errorMsg.includes('Please select')
+                      ? 'File Selection Required'
+                      : errorMsg && errorMsg.toLowerCase().includes('unavailable')
+                      ? 'AI Service Unavailable'
+                      : errorMsg &&
+                        (errorMsg.toLowerCase().includes('unsupported') ||
+                          errorMsg.toLowerCase().includes('missing') ||
+                          errorMsg.toLowerCase().includes('invalid'))
+                      ? 'Observation Validation Notice'
+                      : 'AI Analysis Notice'}
                   </strong>
-                  {errorMsg || 'AI analysis timed out. Please check the AI service/backend connection and try again.'}
+                  {errorMsg || (uiState === 'TIMEOUT' ? 'AI analysis timed out. Please check the AI service/backend connection and try again.' : 'An unexpected error occurred during AI analysis.')}
                 </div>
               </div>
-              <button
-                onClick={handleExecuteAnalysis}
-                className="btn-primary"
-                disabled={isProcessing}
-                style={{
-                  padding: '6px 14px',
-                  fontSize: '11.5px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  background: '#0284C7',
-                  flexShrink: 0,
-                }}
-              >
-                <RotateCcw size={12} />
-                <span>Retry</span>
-              </button>
+              {hasValidFile && (
+                <button
+                  onClick={handleExecuteAnalysis}
+                  className="btn-primary"
+                  disabled={isProcessing}
+                  style={{
+                    padding: '6px 14px',
+                    fontSize: '11.5px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#0284C7',
+                    flexShrink: 0,
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  <span>Retry</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -1295,7 +1625,7 @@ export function UploadAndAnalyzeModal({
                     <div style={{ background: 'rgba(5, 11, 20, 0.6)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', overflow: 'hidden' }}>
                       <div style={{ padding: '8px 14px', background: 'rgba(15, 32, 50, 0.5)', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--ice-blue)' }}>
-                          DETECTED HOTSPOTS REGISTER ({analysisResult.all_detections.length})
+                          DETECTED HOTSPOTS REGISTER ({analysisResult.total_records || analysisResult.all_detections.length})
                         </span>
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Click to focus GIS</span>
                       </div>
@@ -1534,11 +1864,11 @@ export function UploadAndAnalyzeModal({
                 Cancel
               </button>
 
-              {(uiState === 'ERROR' || uiState === 'TIMEOUT') ? (
+              {(uiState === 'ERROR' || uiState === 'TIMEOUT') && hasValidFile ? (
                 <button
                   onClick={handleExecuteAnalysis}
                   className="btn-primary"
-                  disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
+                  disabled={isAnalyzeDisabled}
                   style={{
                     padding: '9px 22px',
                     fontSize: '12.5px',
@@ -1554,23 +1884,38 @@ export function UploadAndAnalyzeModal({
                   <span>Retry Analysis</span>
                 </button>
               ) : (
-                <button
-                  onClick={handleExecuteAnalysis}
-                  className="btn-primary"
-                  disabled={isProcessing || (activeTab === 'upload' && selectedFiles.length === 0)}
-                  style={{
-                    padding: '9px 22px',
-                    fontSize: '12.5px',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    opacity: isProcessing || (activeTab === 'upload' && selectedFiles.length === 0) ? 0.6 : 1,
+                <div
+                  onClick={() => {
+                    if (isAnalyzeDisabled && activeTab === 'upload' && !hasValidFile) {
+                      setErrorMsg('Please select a satellite observation file first.');
+                    }
                   }}
+                  style={{ display: 'inline-flex', cursor: isAnalyzeDisabled ? 'not-allowed' : 'pointer' }}
                 >
-                  <Zap size={14} />
-                  <span>{isProcessing ? 'Executing AI Inference...' : 'ANALYZE WITH SATRA AI'}</span>
-                </button>
+                  <button
+                    onClick={handleExecuteAnalysis}
+                    className="btn-primary"
+                    disabled={isAnalyzeDisabled}
+                    style={{
+                      padding: '9px 22px',
+                      fontSize: '12.5px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      opacity: isAnalyzeDisabled ? 0.45 : 1,
+                      cursor: isAnalyzeDisabled ? 'not-allowed' : 'pointer',
+                      pointerEvents: isAnalyzeDisabled ? 'none' : 'auto',
+                    }}
+                  >
+                    <Zap size={14} />
+                    <span>
+                      {isProcessing
+                        ? `Batch ${jobProgress.currentBatch} / ${jobProgress.totalBatches} (${jobProgress.progressPercent.toFixed(0)}%)...`
+                        : 'ANALYZE WITH SATRA AI'}
+                    </span>
+                  </button>
+                </div>
               )}
             </div>
           )}

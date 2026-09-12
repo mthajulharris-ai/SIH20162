@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   RefreshCw,
-  PlusCircle,
   Search,
   Bell,
   Sliders,
@@ -21,8 +20,6 @@ export function Header({
   pageTitle,
   isBackendHealthy,
   onRefresh,
-  onIngestSample,
-  isIngesting = false,
   detections = [],
   alerts = [],
   onFocusDetection,
@@ -187,19 +184,7 @@ export function Header({
           </div>
         </div>
 
-        {/* Quick Sample Ingest for Live Testing */}
-        {onIngestSample && (
-          <button
-            onClick={onIngestSample}
-            disabled={isIngesting}
-            className="btn-secondary"
-            style={{ padding: '6px 12px', fontSize: '11.5px', gap: '5px', whiteSpace: 'nowrap' }}
-            title="Ingests a real test hotspot via POST /api/v1/inference/predict-and-store"
-          >
-            <PlusCircle size={13} />
-            <span>{isIngesting ? 'Ingesting...' : 'Test Hotspot'}</span>
-          </button>
-        )}
+
 
         {/* Notifications Bell */}
         <div style={{ position: 'relative' }} ref={notifContainerRef}>

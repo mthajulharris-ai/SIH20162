@@ -71,7 +71,7 @@ export function HistoryView({ detections = [], onQueryHistory }) {
       d.brightness ? parseFloat(d.brightness).toFixed(1) : '',
       `"${d.source || ''}"`,
       `"${d.instrument || 'VIIRS'}"`,
-      `"${d.data_provenance || 'SAMPLE'}"`,
+      `"${d.data_provenance || 'REAL_FIRMS'}"`,
       `"${d.model_version || '2.0.0-scientific-prototype'}"`,
       `"${d.alert_level || 'LOW'}"`,
       d.is_persistent ? 'TRUE' : 'FALSE',
@@ -182,8 +182,8 @@ export function HistoryView({ detections = [], onQueryHistory }) {
         >
           <option value="">All Origins</option>
           <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+          <option value="USER_UPLOADED">USER_UPLOADED</option>
           <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
-          <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
 
         <button onClick={handleExportCsv} className="btn-primary" style={{ marginLeft: 'auto' }}>

@@ -68,7 +68,7 @@ def init_db(engine: Engine = default_engine) -> None:
                                 is_persistent BOOLEAN NOT NULL,
                                 created_at DATETIME NOT NULL,
                                 model_version VARCHAR(32) DEFAULT '2.0.0-scientific-prototype',
-                                data_provenance VARCHAR(32) DEFAULT 'SAMPLE',
+                                data_provenance VARCHAR(32) DEFAULT 'USER_UPLOADED',
                                 alert_level VARCHAR(32) DEFAULT 'LOW',
                                 source_file VARCHAR(255)
                             );

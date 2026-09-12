@@ -78,11 +78,34 @@ export function AnalyticsView({ analytics }) {
         </div>
       </div>
 
-      {/* KPI Cards Grid */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: 0 }}>
-        <KpiCard
-          title="Total Observations"
-          value={total}
+      {/* Main Content or Empty State */}
+      {total === 0 ? (
+        <div
+          className="card-panel"
+          style={{
+            padding: '56px 24px',
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '12px',
+          }}
+        >
+          <BarChart3 size={44} style={{ color: 'var(--primary-cyan)', opacity: 0.6 }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+            Insufficient real data for analytics.
+          </h3>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, maxWidth: '460px' }}>
+            Connect NASA FIRMS or upload satellite observation files to generate temporal analytics and class distributions.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* KPI Cards Grid */}
+          <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '16px', marginBottom: 0 }}>
+            <KpiCard
+              title="Total Observations"
+              value={total}
           subtext="Processed FIRMS hotspots"
           icon={Flame}
           accentColor="cyan"
@@ -281,38 +304,33 @@ export function AnalyticsView({ analytics }) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--ice-blue)' }}>VIIRS S-NPP (Suomi NPP 375m)</span>
-                <span className="mono-cell">58.3%</span>
+            {Object.entries(sourceDist).length === 0 ? (
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', padding: '12px 0' }}>
+                No satellite distribution data available.
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '58.3%', height: '100%', backgroundColor: 'var(--ice-blue)' }} />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--primary-cyan)' }}>VIIRS NOAA-20 / NOAA-21 (375m)</span>
-                <span className="mono-cell">29.2%</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '29.2%', height: '100%', backgroundColor: 'var(--primary-cyan)' }} />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: 'var(--text-secondary)' }}>MODIS Terra & Aqua (1km)</span>
-                <span className="mono-cell">12.5%</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ width: '12.5%', height: '100%', backgroundColor: 'var(--text-secondary)' }} />
-              </div>
-            </div>
+            ) : (
+              Object.entries(sourceDist).map(([sourceName, count], idx) => {
+                const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+                const colors = ['var(--ice-blue)', 'var(--primary-cyan)', 'var(--text-secondary)', '#10B981', '#F59E0B'];
+                const color = colors[idx % colors.length];
+                return (
+                  <div key={sourceName}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: '5px' }}>
+                      <span style={{ fontWeight: 600, color }}>{sourceName || 'Satellite Sensor'}</span>
+                      <span className="mono-cell">{count} ({pct}%)</span>
+                    </div>
+                    <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.06)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct}%`, height: '100%', backgroundColor: color }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 }

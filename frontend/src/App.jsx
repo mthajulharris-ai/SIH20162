@@ -60,7 +60,6 @@ export function App() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isBackendHealthy, setIsBackendHealthy] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [isIngesting, setIsIngesting] = useState(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const isFetchingRef = useRef(false);
 
@@ -135,47 +134,7 @@ export function App() {
     return () => clearInterval(interval);
   }, [loadDashboardData]);
 
-  // Handle Ingesting a Controlled Real Test Hotspot into Backend
-  const handleIngestTestHotspot = async () => {
-    try {
-      setIsIngesting(true);
-      const testCoordinates = [
-        { lat: 21.1702, lon: 72.8311, name: 'Hazira Petrochemical Zone, Surat', cls: 'Industrial Fire', frp: 68.4, temp: 378.2 },
-        { lat: 22.4707, lon: 70.0577, name: 'Jamnagar Refinery Flare Cluster', cls: 'Persistent Thermal Source', frp: 54.0, temp: 362.5 },
-        { lat: 22.5726, lon: 88.3639, name: 'Haldia Industrial Complex', cls: 'Industrial Fire', frp: 82.1, temp: 395.0 },
-        { lat: 17.6868, lon: 83.2185, name: 'Visakhapatnam Steel Zone', cls: 'Persistent Thermal Source', frp: 45.0, temp: 348.0 },
-      ];
-      // Pick random test site
-      const site = testCoordinates[Math.floor(Math.random() * testCoordinates.length)];
-      const now = new Date();
 
-      const payload = {
-        latitude: site.lat + (Math.random() - 0.5) * 0.02,
-        longitude: site.lon + (Math.random() - 0.5) * 0.02,
-        brightness: site.temp,
-        confidence: 'high',
-        acq_date: now.toISOString().slice(0, 10),
-        acq_time: `${String(now.getUTCHours()).padStart(2, '0')}${String(now.getUTCMinutes()).padStart(2, '0')}`,
-        source: 'SAMPLE_TEST_HOTSPOT',
-        instrument: 'VIIRS_SIMULATED',
-        frp: site.frp,
-        daynight: now.getUTCHours() >= 6 && now.getUTCHours() < 18 ? 'D' : 'N',
-        predicted_class: site.cls,
-        prediction_confidence: 0.92 + Math.random() * 0.07,
-        is_persistent: site.cls.includes('Persistent'),
-        data_provenance: 'SAMPLE',
-        model_version: '2.0.0-scientific-prototype',
-        alert_level: 'CRITICAL',
-      };
-
-      await createDetection(payload);
-      await loadDashboardData();
-    } catch (err) {
-      alert(`Ingestion failed: ${err.message}`);
-    } finally {
-      setIsIngesting(false);
-    }
-  };
 
   // Handle Status Update on an Alert
   const handleUpdateAlertStatus = async (alertId, newStatus, notes) => {
@@ -232,8 +191,6 @@ export function App() {
           pageTitle={getPageTitle()}
           isBackendHealthy={isBackendHealthy}
           onRefresh={loadDashboardData}
-          onIngestSample={handleIngestTestHotspot}
-          isIngesting={isIngesting}
           detections={detections}
           alerts={alerts}
           onFocusDetection={handleFocusDetection}

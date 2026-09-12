@@ -136,9 +136,9 @@ export function DetectionExplorerView({
           className="filter-input"
         >
           <option value="">All Data Origins</option>
-          <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
-          <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
-          <option value="SAMPLE">DEMO / SAMPLE</option>
+          <option value="REAL_FIRMS">REAL_FIRMS (NASA Satellite Observations)</option>
+          <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED (Project Model Benchmark)</option>
+          <option value="USER_UPLOADED">USER_UPLOADED (Uploaded Datasets)</option>
         </select>
 
         <select
@@ -236,8 +236,13 @@ export function DetectionExplorerView({
                   })
                 ) : (
                   <tr>
-                    <td colSpan="10" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                      No thermal detection records match the active filters.
+                    <td colSpan="10" style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                        NO REAL THERMAL DETECTIONS AVAILABLE
+                      </div>
+                      <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>
+                        No satellite observations match the selected criteria. Connect NASA FIRMS or upload satellite observation files to begin analysis.
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -343,6 +348,16 @@ export function DetectionExplorerView({
                 <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>DATA PROVENANCE</span>
                   <ProvenanceBadge provenance={inspectorDetection.data_provenance} />
+                  {inspectorDetection.data_provenance === 'PROTOTYPE_LABELLED' && (
+                    <div style={{ fontSize: '9.5px', color: '#F59E0B', marginTop: '4px', lineHeight: 1.25 }}>
+                      Prototype model benchmark; not field-verified ground truth.
+                    </div>
+                  )}
+                  {inspectorDetection.data_provenance === 'REAL_FIRMS' && (
+                    <div style={{ fontSize: '9.5px', color: '#10B981', marginTop: '4px', lineHeight: 1.25 }}>
+                      Direct NASA FIRMS spaceborne observation.
+                    </div>
+                  )}
                 </div>
                 <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>ALERT LEVEL</span>

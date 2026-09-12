@@ -190,3 +190,33 @@ def test_observation_input_validation_failure(client):
     data = response.json()
     assert data["status"] == "error"
     assert data["code"] == 422
+
+
+def test_start_batch_job_and_poll_status(client):
+    """
+    Test start-job and job-status endpoints for satellite dataset batch processing.
+    """
+    import io
+    csv_content = (
+        "latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,confidence,bright_t31,frp,daynight\n"
+        "22.4707,70.0577,340.5,1.0,1.0,2023-05-10,1230,Aqua,MODIS,85,300.2,45.0,D\n"
+        "22.4800,70.0600,345.0,1.0,1.0,2023-05-10,1230,Aqua,MODIS,90,302.0,52.0,D\n"
+    )
+
+    files = {"file": ("test_satellite_batch.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")}
+    start_resp = client.post("/api/v1/inference/start-job", files=files)
+    assert start_resp.status_code == 202
+    start_data = start_resp.json()
+    assert start_data["status"] == "PROCESSING"
+    assert start_data["total_records"] == 2
+    assert start_data["total_batches"] == 1
+    assert "job_id" in start_data
+
+    job_id = start_data["job_id"]
+    status_resp = client.get(f"/api/v1/inference/job-status/{job_id}")
+    assert status_resp.status_code == 200
+    status_data = status_resp.json()
+    assert status_data["job_id"] == job_id
+    assert status_data["total_records"] == 2
+    assert status_data["status"] in ["PROCESSING", "COMPLETED"]
+

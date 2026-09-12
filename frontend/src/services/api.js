@@ -6,13 +6,36 @@
 
 const API_BASE = '/api';
 const API_V1 = '/api/v1';
+const DIRECT_BACKEND_URL = 'http://127.0.0.1:8000';
+
+/**
+ * Resilient fetch wrapper with automatic direct-backend fallback
+ */
+async function fetchWithFallback(endpoint, fetchOptions = {}) {
+  try {
+    const res = await fetch(endpoint, fetchOptions);
+    return res;
+  } catch (err) {
+    if (endpoint.startsWith('/')) {
+      try {
+        console.warn(`[ SATRA ] Proxy request to ${endpoint} failed. Falling back directly to ${DIRECT_BACKEND_URL}${endpoint}...`);
+        const directRes = await fetch(`${DIRECT_BACKEND_URL}${endpoint}`, fetchOptions);
+        return directRes;
+      } catch (directErr) {
+        console.error(`[SATRA ERROR] Direct connection to backend also failed:`, directErr);
+        throw new Error('AI service unavailable. Please check that the SATRA backend server is running and accessible at http://127.0.0.1:8000.');
+      }
+    }
+    throw err;
+  }
+}
 
 /**
  * Generic fetch wrapper with error handling
  */
 async function request(url, options = {}) {
   try {
-    const res = await fetch(url, {
+    const res = await fetchWithFallback(url, {
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
@@ -22,12 +45,15 @@ async function request(url, options = {}) {
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      const message = errorData.message || errorData.detail || `HTTP Error ${res.status}`;
+      const message = errorData.message || errorData.detail || errorData.error || `HTTP Error ${res.status}`;
       throw new Error(message);
     }
 
     return await res.json();
   } catch (err) {
+    if (err.name === 'TypeError' && err.message?.includes('fetch')) {
+      throw new Error('AI service unavailable. Please check that the SATRA backend server is running.');
+    }
     console.error(`API Error on ${url}:`, err);
     throw err;
   }
@@ -71,65 +97,192 @@ export async function createDetection(payload) {
 }
 
 // 4. ML Inference Pipeline
-export async function predictAndStoreObservation(observationPayload, timeoutMs = 45000) {
+export async function predictAndStoreObservation(observationPayload, timeoutMs = 60000) {
   console.log('[ SATRA ] Starting AI inference (single observation)');
-  console.log('[ SATRA ] Sending observations');
+  console.log('[ SATRA ] Sending observation payload');
+
+  let timedOut = false;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const endpointUrl = `${API_V1}/inference/predict-and-store`;
+  console.log(`[ SATRA ] API request started: POST ${endpointUrl}`);
 
   try {
-    console.log('[ SATRA ] API request started');
-    const res = await fetch(`${API_V1}/inference/predict-and-store`, {
+    const res = await fetchWithFallback(endpointUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(observationPayload),
       signal: controller.signal,
     });
+
     clearTimeout(timer);
     console.log(`[ SATRA ] API response received (status ${res.status})`);
+
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       const msg = errData.message || errData.error || errData.detail || `Inference failed with HTTP ${res.status}`;
-      console.error(`[SATRA ERROR] ${msg}`);
+      console.error(`[SATRA ERROR] HTTP ${res.status}: ${msg}`);
       throw new Error(msg);
     }
+
     const data = await res.json();
-    console.log('[ SATRA ] Analysis completed');
+    console.log('[ SATRA ] Analysis completed successfully');
     return data;
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      const timeoutMsg = 'AI analysis timed out. Please check the AI service/backend connection and try again.';
+    if (timedOut || err.name === 'AbortError') {
+      const timeoutMsg = 'AI analysis timed out. The AI inference request took longer than expected to complete. Please try again.';
       console.error(`[SATRA ERROR] ${timeoutMsg}`);
       throw new Error(timeoutMsg);
+    }
+    if (err.name === 'TypeError' && err.message?.includes('fetch')) {
+      const unavailableMsg = 'AI service unavailable. Please check that the SATRA backend server is running at http://127.0.0.1:8000.';
+      console.error(`[SATRA ERROR] ${unavailableMsg}`);
+      throw new Error(unavailableMsg);
     }
     console.error(`[SATRA ERROR] ${err.message || err}`);
     throw err;
   }
 }
 
-export async function uploadAndAnalyzeSatelliteFile(fileOrFiles, timeoutMs = 45000) {
-  console.log('[ SATRA ] Starting AI inference');
+export async function validateSatelliteDataset(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const endpointUrl = `${API_V1}/inference/validate-dataset`;
+  const res = await fetchWithFallback(endpointUrl, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    const message =
+      errorData.detail ||
+      errorData.message ||
+      errorData.error ||
+      `Validation failed with HTTP ${res.status}`;
+    throw new Error(message);
+  }
+
+  return await res.json();
+}
+
+export async function startSatelliteAnalysisJob(fileOrFiles, timeoutMs = 30000) {
+  console.log('[ SATRA ] Starting asynchronous AI batch analysis job');
 
   const formData = new FormData();
   let fileCount = 0;
+
   if (Array.isArray(fileOrFiles)) {
     fileCount = fileOrFiles.length;
-    if (fileOrFiles.length > 0) {
+    if (fileCount === 1) {
       formData.append('file', fileOrFiles[0]);
+    } else if (fileCount > 1) {
+      fileOrFiles.forEach((f) => {
+        formData.append('files', f);
+      });
     }
-    fileOrFiles.forEach((f) => {
-      formData.append('files', f);
-    });
   } else if (fileOrFiles) {
     fileCount = 1;
     formData.append('file', fileOrFiles);
   }
 
-  console.log(`[ SATRA ] Sending observations (${fileCount} file(s))`);
+  if (fileCount === 0) {
+    throw new Error('Please select or upload at least one satellite observation file.');
+  }
 
+  let timedOut = false;
   const controller = new AbortController();
   const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+
+  const endpointUrl = `${API_V1}/inference/start-job`;
+  try {
+    const res = await fetchWithFallback(endpointUrl, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData.detail || errData.message || `Job initialization failed with HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timer);
+    if (timedOut || err.name === 'AbortError') {
+      throw new Error('Timeout initiating analysis job. Please check backend connection.');
+    }
+    throw err;
+  }
+}
+
+export async function getSatelliteAnalysisJobStatus(jobId, timeoutMs = 8000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
+
+  const endpointUrl = `${API_V1}/inference/job-status/${jobId}`;
+  try {
+    const res = await fetchWithFallback(endpointUrl, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      const msg = errData.detail || errData.message || `Job polling failed with HTTP ${res.status}`;
+      throw new Error(msg);
+    }
+    return await res.json();
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+export async function uploadAndAnalyzeSatelliteFile(fileOrFiles, timeoutMs = 60000) {
+  console.log('[ SATRA ] Starting AI inference');
+
+  const formData = new FormData();
+  let fileCount = 0;
+
+  if (Array.isArray(fileOrFiles)) {
+    fileCount = fileOrFiles.length;
+    if (fileCount === 1) {
+      formData.append('file', fileOrFiles[0]);
+    } else if (fileCount > 1) {
+      fileOrFiles.forEach((f) => {
+        formData.append('files', f);
+      });
+    }
+  } else if (fileOrFiles) {
+    fileCount = 1;
+    formData.append('file', fileOrFiles);
+  }
+
+  if (fileCount === 0) {
+    throw new Error('Please select or upload at least one satellite observation file.');
+  }
+
+  console.log(`[ SATRA ] Sending observations (${fileCount} file(s))`);
+
+  let timedOut = false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => {
+    timedOut = true;
     controller.abort();
   }, timeoutMs);
 
@@ -137,7 +290,7 @@ export async function uploadAndAnalyzeSatelliteFile(fileOrFiles, timeoutMs = 450
   console.log(`[ SATRA ] API request started: POST ${endpointUrl}`);
 
   try {
-    const res = await fetch(endpointUrl, {
+    const res = await fetchWithFallback(endpointUrl, {
       method: 'POST',
       body: formData,
       signal: controller.signal,
@@ -155,15 +308,19 @@ export async function uploadAndAnalyzeSatelliteFile(fileOrFiles, timeoutMs = 450
     }
 
     const data = await res.json();
-    console.log('[ SATRA ] Analysis completed');
+    console.log('[ SATRA ] Analysis completed successfully');
     return data;
   } catch (err) {
     clearTimeout(timer);
-    if (err.name === 'AbortError') {
-      const timeoutMsg =
-        'AI analysis timed out. Please check the AI service/backend connection and try again.';
+    if (timedOut || err.name === 'AbortError') {
+      const timeoutMsg = 'AI analysis timed out. The AI inference request took longer than expected to complete. Please try again.';
       console.error(`[SATRA ERROR] ${timeoutMsg}`);
       throw new Error(timeoutMsg);
+    }
+    if (err.name === 'TypeError' && err.message?.includes('fetch')) {
+      const unavailableMsg = 'AI service unavailable. Please check that the SATRA backend server is running at http://127.0.0.1:8000.';
+      console.error(`[SATRA ERROR] ${unavailableMsg}`);
+      throw new Error(unavailableMsg);
     }
     console.error(`[SATRA ERROR] ${err.message || err}`);
     throw err;

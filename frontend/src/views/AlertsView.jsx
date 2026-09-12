@@ -146,8 +146,8 @@ export function AlertsView({
         >
           <option value="">All Data Origins</option>
           <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+          <option value="USER_UPLOADED">USER_UPLOADED</option>
           <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
-          <option value="SAMPLE">DEMO / SAMPLE</option>
         </select>
 
         <button onClick={onRefresh} disabled={loading} className="btn-secondary">
@@ -244,8 +244,13 @@ export function AlertsView({
                 ))
               ) : (
                 <tr>
-                  <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
-                    No alerts match the active filters.
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                      NO ACTIVE ALERTS
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>
+                      All systems nominal. No unverified critical thermal anomalies detected in the real satellite stream.
+                    </div>
                   </td>
                 </tr>
               )}

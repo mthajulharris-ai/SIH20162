@@ -25,6 +25,7 @@ import {
   Factory,
   Building,
   Info,
+  AlertCircle,
 } from 'lucide-react';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { ClassBadge } from '../components/StatusBadge';
@@ -179,40 +180,42 @@ export function EarthIntelligenceView({
   const riskInfo = getRiskLevelInfo(activeDetection);
   const formattedDateTime = formatDetectionDateTime(activeDetection);
 
-  const latNum = activeDetection ? parseFloat(activeDetection.latitude) : 22.4707;
-  const lonNum = activeDetection ? parseFloat(activeDetection.longitude) : 70.0577;
+  const latNum = activeDetection && !isNaN(parseFloat(activeDetection.latitude)) ? parseFloat(activeDetection.latitude) : null;
+  const lonNum = activeDetection && !isNaN(parseFloat(activeDetection.longitude)) ? parseFloat(activeDetection.longitude) : null;
 
-  const latDisplay = activeDetection
+  const latDisplay = latNum !== null
     ? `${Math.abs(latNum).toFixed(4)}° ${latNum >= 0 ? 'N' : 'S'}`
-    : '22.4707° N';
+    : 'N/A';
 
-  const lonDisplay = activeDetection
+  const lonDisplay = lonNum !== null
     ? `${Math.abs(lonNum).toFixed(4)}° ${lonNum >= 0 ? 'E' : 'W'}`
-    : '70.0577° E';
+    : 'N/A';
 
-  const frpDisplay = activeDetection?.frp
+  const frpDisplay = activeDetection?.frp != null && !isNaN(parseFloat(activeDetection.frp))
     ? `${parseFloat(activeDetection.frp).toFixed(1)} MW`
     : 'N/A';
 
-  const confDisplay = activeDetection?.prediction_confidence
+  const confDisplay = activeDetection?.prediction_confidence != null && !isNaN(parseFloat(activeDetection.prediction_confidence))
     ? `${(parseFloat(activeDetection.prediction_confidence) * 100).toFixed(1)}%`
-    : '88.5%';
+    : activeDetection?.confidence != null && !isNaN(parseFloat(activeDetection.confidence))
+    ? `${parseFloat(activeDetection.confidence).toFixed(1)}%`
+    : (activeDetection?.confidence ? `${activeDetection.confidence}` : 'N/A');
 
-  const satDisplay = activeDetection?.source || (activeDetection?.instrument ? activeDetection.instrument : 'VIIRS');
+  const satDisplay = activeDetection?.source || (activeDetection?.instrument ? activeDetection.instrument : 'N/A');
 
   // Popup dynamic information lines
   const popupFrp = activeDetection?.frp != null && !isNaN(parseFloat(activeDetection.frp))
     ? `${parseFloat(activeDetection.frp).toFixed(1)} MW`
-    : '54.0 MW';
+    : 'N/A';
 
   const popupConfidence = activeDetection?.prediction_confidence != null && !isNaN(parseFloat(activeDetection.prediction_confidence))
     ? `${(parseFloat(activeDetection.prediction_confidence) * 100).toFixed(1)}%`
     : activeDetection?.confidence != null && !isNaN(parseFloat(activeDetection.confidence))
     ? `${parseFloat(activeDetection.confidence).toFixed(1)}%`
-    : '98.5%';
+    : (activeDetection?.confidence ? `${activeDetection.confidence}` : 'N/A');
 
-  const popupSatellite = getCleanPopupSatellite(activeDetection);
-  const popupSensor = getCleanPopupSensor(activeDetection);
+  const popupSatellite = activeDetection ? getCleanPopupSatellite(activeDetection) : 'N/A';
+  const popupSensor = activeDetection ? getCleanPopupSensor(activeDetection) : 'N/A';
 
   // Deep Satellite Leaflet Map References
   const satelliteMapContainerRef = useRef(null);
@@ -651,6 +654,39 @@ out center 25;`;
               focusTrigger={focusTrigger}
             />
 
+            {/* Empty State when zero detections available */}
+            {detections.length === 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: '24px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 25,
+                  background: 'rgba(11, 23, 38, 0.92)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '10px',
+                  padding: '12px 20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
+                  maxWidth: '90%',
+                }}
+              >
+                <AlertCircle size={18} style={{ color: '#38BDF8', flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                    No real thermal detections available.
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                    Connect NASA FIRMS or upload satellite observation files to begin analysis.
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Descent Telemetry Overlay during Animation */}
             {viewLevel === 'descending' && (
               <div
@@ -778,10 +814,10 @@ out center 25;`;
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>
-                    VIIRS (S-NPP)
+                    {activeDetection ? `${satDisplay} (${activeDetection.instrument || 'Sensor'})` : 'No active detection'}
                   </div>
                   <div style={{ fontSize: '9.5px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                    {activeDetection?.acq_date || new Date().toISOString().slice(0, 10)} UTC
+                    {activeDetection ? (activeDetection.acq_date ? `${activeDetection.acq_date} ${activeDetection.acq_time || ''} UTC` : 'Real Observation') : 'Awaiting real data'}
                   </div>
                 </div>
               </div>

@@ -54,6 +54,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -86,14 +87,18 @@ from fastapi.encoders import jsonable_encoder
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning("[SATRA API] Validation error on %s: %s", request.url.path, exc.errors())
+    errors_list = exc.errors()
+    first_msg = errors_list[0].get("msg", "") if errors_list else "Validation error"
+    first_loc = " -> ".join([str(l) for l in errors_list[0].get("loc", []) if str(l) != "body"]) if errors_list else ""
+    user_msg = f"Invalid observation parameter ({first_loc}): {first_msg}" if first_loc else f"Invalid observation parameter: {first_msg}"
     return JSONResponse(
         status_code=422,
         content={
             "success": False,
             "status": "error",
-            "error": "Validation failed for request parameters or body.",
+            "error": user_msg,
             "code": 422,
-            "message": "Validation failed for request parameters or body.",
+            "message": user_msg,
             "details": jsonable_encoder(exc.errors()),
         },
     )

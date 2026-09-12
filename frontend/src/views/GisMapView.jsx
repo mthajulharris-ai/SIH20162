@@ -177,8 +177,8 @@ export function GisMapView({ initialSelectedDetection = null }) {
       }
 
       // Radius scaled with Fire Radiative Power (MW)
-      const frpVal = parseFloat(d.frp || 15);
-      const radius = Math.max(7, Math.min(24, Math.sqrt(frpVal) * 2.5));
+      const frpVal = parseFloat(d.frp || 0);
+      const radius = Math.max(7, Math.min(24, Math.sqrt(Math.max(1, frpVal)) * 2.5));
 
       const circle = L.circleMarker([lat, lon], {
         radius: radius,
@@ -190,13 +190,13 @@ export function GisMapView({ initialSelectedDetection = null }) {
       });
 
       const provenanceBadgeColor =
-        d.data_provenance === 'REAL_FIRMS' ? '#34D399' : d.data_provenance === 'PROTOTYPE_LABELLED' ? '#818CF8' : '#FBBF24';
+        d.data_provenance === 'REAL_FIRMS' ? '#34D399' : d.data_provenance === 'PROTOTYPE_LABELLED' ? '#818CF8' : '#38BDF8';
       const provenanceLabel =
         d.data_provenance === 'REAL_FIRMS'
           ? 'REAL_FIRMS'
           : d.data_provenance === 'PROTOTYPE_LABELLED'
           ? 'PROTOTYPE_LABELLED'
-          : 'DEMO / SAMPLE DATA';
+          : 'USER_UPLOADED';
 
       // Construct rich popup with all required fields (Step 3)
       const popupHtml = `
@@ -215,7 +215,7 @@ export function GisMapView({ initialSelectedDetection = null }) {
           <div><strong>Brightness Temp:</strong> ${d.brightness ? parseFloat(d.brightness).toFixed(1) + ' K' : 'N/A'}</div>
           <div><strong>Satellite / Instrument:</strong> ${d.source || 'VIIRS'} / ${d.instrument || 'VIIRS'}</div>
           <div><strong>Acquisition Time:</strong> ${d.acq_date} ${d.acq_time} UTC</div>
-          <div><strong>Data Provenance:</strong> <span style="color: ${provenanceBadgeColor}; font-weight: 600;">${d.data_provenance || 'SAMPLE'}</span></div>
+          <div><strong>Data Provenance:</strong> <span style="color: ${provenanceBadgeColor}; font-weight: 600;">${d.data_provenance || 'REAL_FIRMS'}</span></div>
           <div><strong>Model Version:</strong> <span style="color: #94A3B8; font-family: monospace;">${d.model_version || '2.0.0-scientific-prototype'}</span></div>
           <div><strong>Verification Status:</strong> <span style="color: #C084FC;">Requires Verification</span></div>
           <div style="margin-top: 8px; padding: 5px 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; color: #FCA5A5; font-size: 10.5px; font-weight: 600; text-align: center;">
@@ -416,8 +416,8 @@ export function GisMapView({ initialSelectedDetection = null }) {
           >
             <option value="">All Data Origins</option>
             <option value="REAL_FIRMS">REAL_FIRMS (NASA)</option>
+            <option value="USER_UPLOADED">USER_UPLOADED</option>
             <option value="PROTOTYPE_LABELLED">PROTOTYPE_LABELLED</option>
-            <option value="SAMPLE">DEMO / SAMPLE</option>
           </select>
         </div>
 

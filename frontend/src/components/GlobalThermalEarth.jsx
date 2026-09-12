@@ -237,7 +237,7 @@ export function GlobalThermalEarth({
         Math.abs(parseFloat(selectedDetection.latitude) - lat) < 0.0001 &&
         Math.abs(parseFloat(selectedDetection.longitude) - lon) < 0.0001;
 
-      const frpVal = parseFloat(d.frp || 15);
+      const frpVal = parseFloat(d.frp || 0);
       const isHighIntensity = frpVal >= 50.0;
       const isIndustrial = (d.predicted_class || '').toLowerCase().includes('industrial');
 
@@ -245,7 +245,7 @@ export function GlobalThermalEarth({
       // Low signal: radius 6-8px, bright red
       // Medium signal: radius 9-13px
       // High / Critical signal: radius 14-20px with outer glow halo
-      const baseRadius = Math.max(6, Math.min(18, Math.sqrt(frpVal) * 2.2));
+      const baseRadius = Math.max(6, Math.min(18, Math.sqrt(Math.max(1, frpVal)) * 2.2));
       const radius = isSelected ? baseRadius + 6 : baseRadius;
 
       // Outer Heat Glow Halo

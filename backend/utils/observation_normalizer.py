@@ -14,14 +14,20 @@ import csv
 import io
 import json
 import logging
+import os
+from pathlib import Path
 import re
-from datetime import datetime, timezone
+import tempfile
 from typing import Any, Dict, List, Optional, Set, Tuple
+import zipfile
+from datetime import datetime, timezone
 
 logger = logging.getLogger("backend.observation_normalizer")
 
-# Maximum allowed file size in bytes (50 MB)
-MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
+# Maximum allowed file size in bytes (250 MB for compressed archive / datasets)
+MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024
+# Maximum total uncompressed size permitted for ZIP archives to prevent zip-bomb denial of service
+MAX_UNCOMPRESSED_ZIP_BYTES = 500 * 1024 * 1024
 
 # Standard column mapping dictionary
 # Maps raw column names (lowercased, stripped, underscores normalized) to canonical keys
@@ -290,21 +296,207 @@ def parse_raw_records(content_bytes: bytes, filename: str) -> Tuple[List[Dict[st
     return raw_rows, detected_format
 
 
+def check_record_compatibility(
+    raw_rows: List[Dict[str, Any]]
+) -> Tuple[bool, Set[str], Optional[str]]:
+    """
+    Validates whether raw observation records contain the required satellite columns:
+    latitude, longitude, and thermal/fire signals (brightness, FRP, etc.).
+    Returns (is_compatible, mapped_canonical_keys, detected_flavor).
+    """
+    if not raw_rows:
+        return False, set(), None
+
+    sample_rows = raw_rows[:100]
+    all_raw_keys = set()
+    for row in sample_rows:
+        all_raw_keys.update(row.keys())
+
+    mapped_keys = {COLUMN_ALIASES.get(clean_column_name(k), clean_column_name(k)) for k in all_raw_keys}
+
+    has_lat = "latitude" in mapped_keys
+    has_lon = "longitude" in mapped_keys
+
+    thermal_indicators = {
+        "brightness",
+        "bright_t31",
+        "frp",
+        "confidence",
+        "satellite",
+        "instrument",
+        "acq_date",
+        "daynight",
+        "scan",
+    }
+    has_thermal = bool(mapped_keys.intersection(thermal_indicators))
+
+    if not (has_lat and has_lon and has_thermal):
+        return False, mapped_keys, None
+
+    is_viirs = "bright_ti4" in [clean_column_name(k) for k in all_raw_keys]
+    is_modis = "bright_t31" in [clean_column_name(k) for k in all_raw_keys] and not is_viirs
+    if is_viirs:
+        flavor = "NASA FIRMS VIIRS"
+    elif is_modis:
+        flavor = "NASA FIRMS MODIS"
+    else:
+        flavor = "Thermal Observation Data"
+
+    return True, mapped_keys, flavor
+
+
+def parse_zip_archive(
+    content_bytes: bytes,
+    filename: str,
+) -> Tuple[List[Dict[str, Any]], str, str]:
+    """
+    Safely extracts a ZIP archive in an isolated temporary sandbox,
+    recursively scans directory contents for satellite observation files,
+    ignores documentation/metadata/media files, validates required headers,
+    prioritizes active NRT datasets, and cleans up temporary files.
+
+    Returns:
+        Tuple of (raw_rows, detected_format_flavor, identified_filename)
+    """
+    if len(content_bytes) > MAX_FILE_SIZE_BYTES:
+        raise ValueError(
+            f"ZIP archive '{filename}' exceeds maximum allowed size of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB."
+        )
+
+    try:
+        zip_buffer = io.BytesIO(content_bytes)
+        with zipfile.ZipFile(zip_buffer, "r") as zf:
+            # 1. Path traversal and zip-bomb denial of service protection
+            total_uncompressed_bytes = 0
+            for member in zf.infolist():
+                member_path = member.filename
+                if (
+                    os.path.isabs(member_path)
+                    or member_path.startswith(("/", "\\"))
+                    or ".." in Path(member_path).parts
+                    or ".." in member_path
+                ):
+                    raise ValueError(f"Security error: ZIP archive contains unsafe path traversal '{member_path}'.")
+
+                total_uncompressed_bytes += member.file_size
+                if total_uncompressed_bytes > MAX_UNCOMPRESSED_ZIP_BYTES:
+                    raise ValueError(
+                        f"Security error: Total uncompressed archive size ({total_uncompressed_bytes // (1024 * 1024)} MB) "
+                        f"exceeds safe limit of {MAX_UNCOMPRESSED_ZIP_BYTES // (1024 * 1024)} MB."
+                    )
+
+            # 2. Extract into safe temporary sandbox directory
+            with tempfile.TemporaryDirectory() as temp_dir:
+                zf.extractall(temp_dir)
+                temp_path = Path(temp_dir)
+
+                # 3. Recursively scan directory contents for candidate observation files
+                ignore_patterns = [
+                    "readme",
+                    "metadata",
+                    "license",
+                    "licence",
+                    "notice",
+                    "changelog",
+                    "manifest",
+                    ".ds_store",
+                    "__macosx",
+                ]
+                candidate_files: List[Path] = []
+
+                for p in temp_path.rglob("*"):
+                    if not p.is_file():
+                        continue
+                    p_name_lower = p.name.lower()
+                    rel_p_lower = str(p.relative_to(temp_path)).lower()
+
+                    # Ignore non-data / documentation / media files
+                    if any(ign in rel_p_lower for ign in ignore_patterns):
+                        continue
+                    if p_name_lower.endswith(
+                        (".png", ".jpg", ".jpeg", ".gif", ".pdf", ".exe", ".sh", ".bat", ".md", ".doc", ".html")
+                    ):
+                        continue
+
+                    # Supported data formats
+                    if p_name_lower.endswith((".json", ".geojson", ".csv", ".tsv", ".txt")):
+                        candidate_files.append(p)
+
+                if not candidate_files:
+                    raise ValueError("No compatible NASA FIRMS / VIIRS / MODIS observation file found inside ZIP.")
+
+                # 4. Inspect headers and fields of candidate files
+                compatible_candidates = []
+                for cand in candidate_files:
+                    try:
+                        cand_bytes = cand.read_bytes()
+                        if not cand_bytes or len(cand_bytes.strip()) == 0:
+                            continue
+                        rows, file_type = parse_raw_records(cand_bytes, cand.name)
+                        is_compat, mapped_keys, flavor = check_record_compatibility(rows)
+                        if is_compat:
+                            rel_name = str(cand.relative_to(temp_path)).replace("\\", "/")
+                            is_nrt = "nrt" in cand.name.lower()
+                            compatible_candidates.append({
+                                "file_path": cand,
+                                "rel_name": rel_name,
+                                "rows": rows,
+                                "format": f"{file_type} ({flavor})",
+                                "record_count": len(rows),
+                                "is_nrt": is_nrt,
+                            })
+                    except Exception as e:
+                        logger.debug("Skipping non-observation candidate '%s': %s", cand.name, str(e))
+                        continue
+
+                if not compatible_candidates:
+                    raise ValueError("No compatible NASA FIRMS / VIIRS / MODIS observation file found inside ZIP.")
+
+                # Prioritize NRT (near real-time) active observation datasets, then record count
+                compatible_candidates.sort(
+                    key=lambda c: (1 if c["is_nrt"] else 0, c["record_count"]),
+                    reverse=True,
+                )
+                selected = compatible_candidates[0]
+
+                logger.info(
+                    "[SATRA ZIP] Identified satellite observation file '%s' (%d records, %s) inside archive '%s'",
+                    selected["rel_name"],
+                    selected["record_count"],
+                    selected["format"],
+                    filename,
+                )
+
+                return selected["rows"], selected["format"], selected["rel_name"]
+
+    except zipfile.BadZipFile:
+        raise ValueError(f"File '{filename}' is not a valid or readable ZIP archive.")
+
+
 def normalize_and_validate_file(
     content_bytes: bytes,
     filename: str,
-) -> Tuple[List[NormalizedObservation], Set[str], Set[str], str]:
+) -> Tuple[List[NormalizedObservation], Set[str], Set[str], str, str]:
     """
-    Parses, normalizes, and validates observations from an uploaded file.
+    Parses, normalizes, and validates observations from an uploaded file or ZIP archive.
     Returns:
     - List of validated NormalizedObservation objects
     - Set of detected available canonical fields
     - Set of unavailable fields
-    - Detected format description (e.g. "NASA FIRMS VIIRS CSV", "MODIS CSV", "JSON")
+    - Detected format description (e.g. "NASA FIRMS MODIS", "NASA FIRMS VIIRS CSV")
+    - Identified observation filename (either direct filename or extracted file from ZIP)
     """
-    raw_rows, file_type = parse_raw_records(content_bytes, filename)
+    is_zip = filename.lower().endswith(".zip") or content_bytes[:4] == b"PK\x03\x04"
+    if is_zip:
+        raw_rows, detected_flavor, identified_filename = parse_zip_archive(content_bytes, filename)
+        file_type = "ZIP Archive"
+    else:
+        raw_rows, file_type = parse_raw_records(content_bytes, filename)
+        identified_filename = filename
+        detected_flavor = None
+
     if not raw_rows:
-        raise ValueError(f"Zero observation records found in '{filename}'.")
+        raise ValueError(f"Zero observation records found in '{identified_filename}'.")
 
     all_raw_keys = set()
     for row in raw_rows:
@@ -348,22 +540,18 @@ def normalize_and_validate_file(
             f"{UNSUPPORTED_FORMAT_ERROR} (Missing required fields: {missing_desc})"
         )
 
-    is_viirs = "bright_ti4" in [clean_column_name(k) for k in all_raw_keys]
-    is_modis = "bright_t31" in [clean_column_name(k) for k in all_raw_keys] and not is_viirs
-    if is_viirs:
-        detected_flavor = f"{file_type} (NASA FIRMS VIIRS)"
-    elif is_modis:
-        detected_flavor = f"{file_type} (NASA FIRMS MODIS)"
-    else:
-        detected_flavor = f"{file_type} (Thermal Observation Data)"
+    if detected_flavor is None:
+        is_viirs = "bright_ti4" in [clean_column_name(k) for k in all_raw_keys]
+        is_modis = "bright_t31" in [clean_column_name(k) for k in all_raw_keys] and not is_viirs
+        if is_viirs:
+            detected_flavor = f"{file_type} (NASA FIRMS VIIRS)"
+        elif is_modis:
+            detected_flavor = f"{file_type} (NASA FIRMS MODIS)"
+        else:
+            detected_flavor = f"{file_type} (Thermal Observation Data)"
 
-    fn_lower = filename.lower()
-    if any(k in fn_lower for k in ["firms", "viirs", "modis", "real", "satellite", "india"]):
-        provenance = "REAL_FIRMS"
-    elif "sample" in fn_lower:
-        provenance = "SAMPLE"
-    else:
-        provenance = "REAL_FIRMS" if (is_viirs or is_modis) else "SATELLITE_OBSERVATION"
+    # Requirement 12: Uploaded dataset remains USER_UPLOADED. Do not label uploaded data as REAL_FIRMS.
+    provenance = "USER_UPLOADED"
 
     available_fields: Set[str] = set()
     validated_observations: List[NormalizedObservation] = []
@@ -529,7 +717,7 @@ def normalize_and_validate_file(
             scan=scan,
             track=track,
             daynight=daynight,
-            source_file=filename,
+            source_file=identified_filename,
             data_provenance=provenance,
             raw_properties=row,
         )
@@ -537,7 +725,7 @@ def normalize_and_validate_file(
 
     if not validated_observations:
         err_msg = " ".join(validation_errors[:4]) if validation_errors else "All records failed coordinate validation."
-        raise ValueError(f"Data Validation Failed in '{filename}': {err_msg}")
+        raise ValueError(f"Data Validation Failed in '{identified_filename}': {err_msg}")
 
     standard_expected = {
         "latitude",
@@ -554,4 +742,4 @@ def normalize_and_validate_file(
     }
     unavailable_fields = standard_expected - available_fields
 
-    return validated_observations, available_fields, unavailable_fields, detected_flavor
+    return validated_observations, available_fields, unavailable_fields, detected_flavor, identified_filename

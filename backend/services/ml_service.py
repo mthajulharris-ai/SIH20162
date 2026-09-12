@@ -109,6 +109,18 @@ class MLInferenceService:
             logger.error("[SATRA ERROR] Error during ML inference: %s", str(e), exc_info=True)
             raise MLServiceException(f"ML inference execution failed: {str(e)}")
 
+    def predict_batch(self, observations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Executes ML batch prediction on a list of thermal observation dictionaries.
+        Leverages vectorized array operations in src.inference.service for maximum performance.
+        """
+        service = self._ensure_loaded()
+        try:
+            return service.predict_batch(observations)
+        except Exception as e:
+            logger.error("[SATRA ERROR] Error during ML batch inference: %s", str(e), exc_info=True)
+            raise MLServiceException(f"ML batch inference execution failed: {str(e)}")
+
     def predict_with_fallback(self, observation: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
         """
         Executes ML prediction. If ML inference fails or is not configured,

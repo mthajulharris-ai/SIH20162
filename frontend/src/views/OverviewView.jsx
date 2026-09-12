@@ -48,17 +48,17 @@ export function OverviewView({
   const forestFires =
     detections.filter((d) => {
       const c = (d.predicted_class || '').toLowerCase();
-      return c.includes('forest') || c.includes('wildfire') || c.includes('bushfire') || c.includes('vegetation');
-    }).length || Math.max(0, detections.length - indFires - 2);
+      return c.includes('forest') || c.includes('wildfire') || c.includes('bushfire');
+    }).length;
 
   const avgConf =
     detections.length > 0
       ? (
-          (detections.reduce((acc, d) => acc + (parseFloat(d.prediction_confidence) || 0.92), 0) /
+          (detections.reduce((acc, d) => acc + (parseFloat(d.prediction_confidence) || 0), 0) /
             detections.length) *
           100
         ).toFixed(1)
-      : '92.4';
+      : null;
 
   // State for in-panel upload & analyze
   const fileInputRef = useRef(null);
@@ -81,8 +81,8 @@ export function OverviewView({
     if (onNavigate) onNavigate('gis-investigation');
   };
 
-  // Real Sample Presets for 1-click test
-  const SAMPLE_PRESETS = [
+  // Real NASA FIRMS Presets for 1-click test
+  const REAL_FIRMS_PRESETS = [
     {
       label: 'Jamshedpur (VIIRS 375m)',
       csv: `# NASA FIRMS VIIRS 375m NRT Real Observation
@@ -424,13 +424,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>&uarr; 12%</span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>vs. previous period</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Spaceborne thermal observations</span>
             </div>
-            {/* Sparkline curve */}
-            <svg width="72" height="22" viewBox="0 0 72 22" fill="none">
-              <path d="M 2 18 Q 18 16 28 8 T 50 12 T 70 4" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" />
-            </svg>
           </div>
         </div>
 
@@ -477,13 +472,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>&uarr; 8%</span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>vs. previous period</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Refinery, flare & plant signatures</span>
             </div>
-            {/* Sparkline curve */}
-            <svg width="72" height="22" viewBox="0 0 72 22" fill="none">
-              <path d="M 2 16 Q 16 18 32 10 T 52 12 T 70 3" stroke="#38BDF8" strokeWidth="2" strokeLinecap="round" />
-            </svg>
           </div>
         </div>
 
@@ -530,13 +520,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>&uarr; 15%</span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>vs. previous period</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Wildfire & vegetation anomalies</span>
             </div>
-            {/* Sparkline curve */}
-            <svg width="72" height="22" viewBox="0 0 72 22" fill="none">
-              <path d="M 2 17 Q 20 14 34 16 T 54 8 T 70 4" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" />
-            </svg>
           </div>
         </div>
 
@@ -561,8 +546,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 AI Confidence
               </div>
-              <div style={{ fontSize: '30px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
-                {avgConf}%
+              <div style={{ fontSize: avgConf ? '30px' : '18px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+                {avgConf ? `${avgConf}%` : 'No data available'}
               </div>
             </div>
             <div
@@ -583,13 +568,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#10B981' }}>&uarr; 2.4%</span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Average precision</span>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Model v2.0.0 inference confidence</span>
             </div>
-            {/* Sparkline curve */}
-            <svg width="72" height="22" viewBox="0 0 72 22" fill="none">
-              <path d="M 2 18 Q 18 12 36 14 T 54 6 T 70 2" stroke="#10B981" strokeWidth="2" strokeLinecap="round" />
-            </svg>
           </div>
         </div>
       </div>
@@ -772,7 +752,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 Or test with real NASA FIRMS pass:
               </div>
               <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {SAMPLE_PRESETS.map((p, idx) => (
+                {REAL_FIRMS_PRESETS.map((p, idx) => (
                   <button
                     key={idx}
                     onClick={() => handlePresetSelect(p)}
@@ -1022,21 +1002,23 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI Prediction</div>
                   <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#EF4444', marginTop: '2px' }}>
-                    Likely {activeInspection.predicted_class || 'Industrial Fire'}
+                    {activeInspection.predicted_class || activeInspection.classification || 'Unclassified'}
                   </div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI Confidence</div>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                    {((parseFloat(activeInspection.prediction_confidence || activeInspection.confidence) || 0.956) * 100).toFixed(1)}%
+                    {(activeInspection.prediction_confidence != null || activeInspection.confidence != null)
+                      ? `${(parseFloat(activeInspection.prediction_confidence ?? activeInspection.confidence) * 100).toFixed(1)}%`
+                      : 'N/A'}
                   </div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FRP &bull; Risk</div>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#F97316', marginTop: '2px' }}>
-                    {activeInspection.frp || 54} MW &bull; {(activeInspection.alert_level || 'HIGH').toUpperCase()}
+                    {activeInspection.frp != null ? `${parseFloat(activeInspection.frp).toFixed(1)} MW` : 'N/A'} &bull; {(activeInspection.alert_level || 'STANDARD').toUpperCase()}
                   </div>
                 </div>
               </div>
@@ -1250,17 +1232,17 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
                         {/* Type */}
                         <td style={{ padding: '8px 8px', color: '#FFFFFF', fontWeight: 500 }}>
-                          {d.predicted_class || 'Thermal Hotspot'}
+                          {d.predicted_class || d.classification || 'Thermal Detection'}
                         </td>
 
                         {/* Confidence */}
                         <td style={{ padding: '8px 8px', fontFamily: 'monospace', color: '#38BDF8' }}>
-                          {((parseFloat(d.prediction_confidence) || 0.88) * 100).toFixed(1)}%
+                          {d.prediction_confidence != null ? `${(parseFloat(d.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}
                         </td>
 
                         {/* Time */}
                         <td style={{ padding: '8px 8px', color: 'var(--text-muted)', fontSize: '10.5px' }}>
-                          {d.acq_date ? d.acq_date.slice(5) : '10 Sep'} {d.acq_time ? `${d.acq_time.slice(0, 2)}:${d.acq_time.slice(2, 4)}` : '16:05'}
+                          {d.acq_date ? d.acq_date.slice(5) : ''} {d.acq_time ? `${d.acq_time.slice(0, 2)}:${d.acq_time.slice(2, 4)}` : (d.acq_date ? '' : 'N/A')}
                         </td>
 
                         {/* Alert Badge */}

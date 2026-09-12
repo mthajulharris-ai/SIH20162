@@ -116,7 +116,7 @@ def get_detections(
     ),
     data_provenance: Optional[str] = Query(
         None,
-        description="Filter by data provenance ('REAL_FIRMS', 'SAMPLE', 'PROTOTYPE_LABELLED')",
+        description="Filter by data provenance ('REAL_FIRMS', 'USER_UPLOADED', 'PROTOTYPE_LABELLED')",
     ),
     alert_level: Optional[str] = Query(
         None,

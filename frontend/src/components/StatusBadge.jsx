@@ -69,26 +69,33 @@ export function StatusBadge({ status, type = 'verification' }) {
 }
 
 export function ProvenanceBadge({ provenance }) {
-  if (!provenance) return <span className="badge badge-sample">DEMO / SAMPLE</span>;
+  if (!provenance) return <span className="badge badge-real-firms">REAL_FIRMS</span>;
 
   const upper = provenance.toUpperCase();
-  if (upper === 'REAL_FIRMS') {
+  if (upper === 'REAL_FIRMS' || upper.includes('FIRMS')) {
     return (
       <span className="badge badge-real-firms" title="Live NASA FIRMS satellite observation">
         REAL_FIRMS
       </span>
     );
   }
+  if (upper.includes('USER') || upper.includes('UPLOAD')) {
+    return (
+      <span className="badge badge-verified" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.35)' }} title="User-uploaded satellite observation">
+        USER_UPLOADED
+      </span>
+    );
+  }
   if (upper.includes('PROTOTYPE')) {
     return (
-      <span className="badge badge-prototype" title="Prototype ground-truth labelled benchmark">
+      <span className="badge badge-prototype" title="Project prototype/model-labelled data (NOT verified ground truth)">
         PROTOTYPE_LABELLED
       </span>
     );
   }
   return (
-    <span className="badge badge-sample" title="Synthetic demonstration observation">
-      DEMO / SAMPLE DATA
+    <span className="badge badge-real-firms" title="Satellite Observation Data">
+      REAL_FIRMS
     </span>
   );
 }

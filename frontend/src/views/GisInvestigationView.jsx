@@ -380,7 +380,7 @@ out center 35;`;
 
       // SATRA Thermal Detection Marker is visually dominant
       const markerColor = isSelected ? '#FFFFFF' : isIndustrial ? '#FF453A' : isPersistent ? '#FF8A00' : '#45C8F5';
-      const radius = isSelected ? 12 : Math.max(6, Math.min(14, Math.sqrt(parseFloat(det.frp) || 20) * 1.5));
+      const radius = isSelected ? 12 : Math.max(6, Math.min(14, Math.sqrt(Math.max(1, parseFloat(det.frp) || 0)) * 1.5));
 
       const marker = L.circleMarker([lat, lon], {
         radius,
@@ -405,7 +405,7 @@ out center 35;`;
             <strong>FRP:</strong> ${det.frp ? `${parseFloat(det.frp).toFixed(1)} MW` : 'N/A'}
           </div>
           <div style="font-size: 11px; margin-bottom: 3px;">
-            <strong>AI Confidence:</strong> ${((parseFloat(det.prediction_confidence) || 0.88) * 100).toFixed(1)}%
+            <strong>AI Confidence:</strong> ${det.prediction_confidence != null ? `${(parseFloat(det.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}
           </div>
           <div style="font-size: 11px; margin-bottom: 3px;">
             <strong>Sensor:</strong> ${det.source || 'VIIRS'} (${det.instrument || 'VIIRS'})
@@ -839,9 +839,9 @@ out center 35;`;
                   {parseFloat(selectedDetection.latitude).toFixed(5)}° N, {parseFloat(selectedDetection.longitude).toFixed(5)}° E
                 </div>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '11px', color: '#94A3B8' }}>
-                  <span>FRP: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.frp || 'N/A'} MW</strong></span>
+                  <span>FRP: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.frp != null ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}</strong></span>
                   <span>&bull;</span>
-                  <span>Confidence: <strong style={{ color: '#FFFFFF' }}>{((parseFloat(selectedDetection.prediction_confidence) || 0.88) * 100).toFixed(1)}%</strong></span>
+                  <span>Confidence: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.prediction_confidence != null ? `${(parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}</strong></span>
                   <span>&bull;</span>
                   <span>Sensor: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.instrument || 'VIIRS'}</strong></span>
                 </div>
@@ -890,7 +890,7 @@ out center 35;`;
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
                 <span style={{ color: '#94A3B8' }}>AI Confidence:</span>
                 <span style={{ color: '#FFFFFF', fontWeight: 600 }}>
-                  {selectedDetection ? `${((parseFloat(selectedDetection.prediction_confidence) || 0.88) * 100).toFixed(1)}%` : 'N/A'}
+                  {selectedDetection && selectedDetection.prediction_confidence != null ? `${(parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}
                 </span>
               </div>
 
