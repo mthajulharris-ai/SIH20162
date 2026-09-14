@@ -190,13 +190,13 @@ export function GisMapView({ initialSelectedDetection = null }) {
       });
 
       const provenanceBadgeColor =
-        d.data_provenance === 'REAL_FIRMS' ? '#34D399' : d.data_provenance === 'PROTOTYPE_LABELLED' ? '#818CF8' : '#38BDF8';
+        d.data_provenance === 'PROTOTYPE_LABELLED'
+          ? '#818CF8'
+          : (d.data_provenance === 'USER_UPLOADED' ? '#38BDF8' : '#34D399');
       const provenanceLabel =
-        d.data_provenance === 'REAL_FIRMS'
-          ? 'REAL_FIRMS'
-          : d.data_provenance === 'PROTOTYPE_LABELLED'
+        d.data_provenance === 'PROTOTYPE_LABELLED'
           ? 'PROTOTYPE_LABELLED'
-          : 'USER_UPLOADED';
+          : (d.data_provenance || 'REAL_FIRMS');
 
       // Construct rich popup with all required fields (Step 3)
       const popupHtml = `

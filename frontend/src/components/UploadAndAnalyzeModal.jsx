@@ -79,7 +79,6 @@ const VERIFIED_FIRMS_OBSERVATIONS = [
     temp: 362.5,
   },
 ];
-
 // Helper to normalize column names on client
 const COLUMN_ALIASES = {
   latitude: 'latitude',
@@ -142,15 +141,15 @@ export function UploadAndAnalyzeModal({
 
   // Manual Form State
   const [manualForm, setManualForm] = useState({
-    latitude: '22.8046',
-    longitude: '86.2029',
-    brightness: '345.2',
-    bright_t31: '298.0',
-    frp: '35.4',
+    latitude: '',
+    longitude: '',
+    brightness: '',
+    bright_t31: '',
+    frp: '',
     satellite: 'VIIRS_SNPP_NRT',
     confidence: 'high',
     acq_date: new Date().toISOString().slice(0, 10),
-    acq_time: '1200',
+    acq_time: '',
     daynight: 'D',
   });
 
@@ -429,7 +428,6 @@ export function UploadAndAnalyzeModal({
     await processFiles([file]);
     setActiveTab('upload');
   };
-
   // Execute Core AI Analysis Pipeline
   const handleExecuteAnalysis = async () => {
     // 1. Strict guard: NEVER run analysis without an actual valid selected file

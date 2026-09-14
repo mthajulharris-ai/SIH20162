@@ -183,11 +183,11 @@ export function EarthIntelligenceView({
   const latNum = activeDetection && !isNaN(parseFloat(activeDetection.latitude)) ? parseFloat(activeDetection.latitude) : null;
   const lonNum = activeDetection && !isNaN(parseFloat(activeDetection.longitude)) ? parseFloat(activeDetection.longitude) : null;
 
-  const latDisplay = latNum !== null
+  const latDisplay = activeDetection && latNum !== null
     ? `${Math.abs(latNum).toFixed(4)}° ${latNum >= 0 ? 'N' : 'S'}`
     : 'N/A';
 
-  const lonDisplay = lonNum !== null
+  const lonDisplay = activeDetection && lonNum !== null
     ? `${Math.abs(lonNum).toFixed(4)}° ${lonNum >= 0 ? 'E' : 'W'}`
     : 'N/A';
 
@@ -327,7 +327,7 @@ out center 25;`;
 
     if (!satelliteMapInstanceRef.current) {
       const map = L.map(satelliteMapContainerRef.current, {
-        center: [latNum, lonNum],
+        center: [latNum ?? 20.5937, lonNum ?? 78.9629],
         zoom: 15,
         zoomControl: true,
       });
@@ -368,74 +368,69 @@ out center 25;`;
       satelliteDetectionLayerRef.current = detectionGroup;
       satelliteContextLayerRef.current = contextGroup;
       satelliteMapInstanceRef.current = map;
-    } else {
+    }
+
+    if (latNum !== null && lonNum !== null && satelliteDetectionLayerRef.current && satelliteMapInstanceRef.current) {
+      const detectionGroup = satelliteDetectionLayerRef.current;
+      detectionGroup.clearLayers();
+      if (satelliteRadiusRef.current) {
+        satelliteMapInstanceRef.current.removeLayer(satelliteRadiusRef.current);
+      }
       satelliteMapInstanceRef.current.setView([latNum, lonNum], 15, { animate: true });
+
+      // Draw 1 km investigation perimeter circle
+      const circle = L.circle([latNum, lonNum], {
+        radius: 1000,
+        color: '#38BDF8',
+        weight: 1.5,
+        dashArray: '5, 5',
+        fillColor: '#38BDF8',
+        fillOpacity: 0.05,
+      }).addTo(satelliteMapInstanceRef.current);
+      satelliteRadiusRef.current = circle;
+
+      // Thermal detection marker (Visually Dominant)
+      const marker = L.circleMarker([latNum, lonNum], {
+        radius: 13,
+        color: '#38BDF8',
+        weight: 3,
+        fillColor: '#EF4444',
+        fillOpacity: 0.95,
+      });
+
+      marker.bindPopup(`
+        <div style="font-family: var(--font-sans); color: #07111F; min-width: 220px;">
+          <div style="display: flex; alignItems: center; gap: 6px; font-weight: 800; font-size: 13px; color: #DC2626; margin-bottom: 4px;">
+            <span>🔥</span>
+            <span>${activeDetection?.predicted_class || 'Thermal Detection'}</span>
+          </div>
+          <div style="font-size: 11px; margin-bottom: 6px; color: #475569;">
+            <strong>Exact Location:</strong> ${latNum.toFixed(5)}°, ${lonNum.toFixed(5)}°
+          </div>
+          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
+            <strong>FRP:</strong> ${popupFrp}
+          </div>
+          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
+            <strong>Confidence:</strong> ${popupConfidence}
+          </div>
+          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
+            <strong>Satellite:</strong> ${popupSatellite}
+          </div>
+          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
+            <strong>Sensor:</strong> ${popupSensor}
+          </div>
+          <div style="font-size: 10.5px; margin-top: 6px; padding-top: 4px; border-top: 1px solid #E2E8F0; color: #EF4444; font-weight: 700;">
+            Requires Ground Verification
+          </div>
+        </div>
+      `);
+
+      marker.addTo(detectionGroup);
+      marker.openPopup();
+
+      // Query OSM Context
+      fetchLocalOsmContext(latNum, lonNum);
     }
-
-    // Refresh layers
-    const map = satelliteMapInstanceRef.current;
-    const detectionGroup = satelliteDetectionLayerRef.current;
-    const contextGroup = satelliteContextLayerRef.current;
-
-    detectionGroup.clearLayers();
-    contextGroup.clearLayers();
-
-    if (satelliteRadiusRef.current) {
-      map.removeLayer(satelliteRadiusRef.current);
-    }
-
-    // Draw 1 km investigation perimeter circle
-    const circle = L.circle([latNum, lonNum], {
-      radius: 1000,
-      color: '#38BDF8',
-      weight: 1.5,
-      dashArray: '5, 5',
-      fillColor: '#38BDF8',
-      fillOpacity: 0.05,
-    }).addTo(map);
-    satelliteRadiusRef.current = circle;
-
-    // Thermal detection marker (Visually Dominant)
-    const marker = L.circleMarker([latNum, lonNum], {
-      radius: 13,
-      color: '#38BDF8',
-      weight: 3,
-      fillColor: '#EF4444',
-      fillOpacity: 0.95,
-    });
-
-    marker.bindPopup(`
-      <div style="font-family: var(--font-sans); color: #07111F; min-width: 220px;">
-        <div style="display: flex; alignItems: center; gap: 6px; font-weight: 800; font-size: 13px; color: #DC2626; margin-bottom: 4px;">
-          <span>🔥</span>
-          <span>${activeDetection?.predicted_class || 'Thermal Detection'}</span>
-        </div>
-        <div style="font-size: 11px; margin-bottom: 6px; color: #475569;">
-          <strong>Exact Location:</strong> ${latNum.toFixed(5)}°, ${lonNum.toFixed(5)}°
-        </div>
-        <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-          <strong>FRP:</strong> ${popupFrp}
-        </div>
-        <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-          <strong>Confidence:</strong> ${popupConfidence}
-        </div>
-        <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-          <strong>Satellite:</strong> ${popupSatellite}
-        </div>
-        <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-          <strong>Sensor:</strong> ${popupSensor}
-        </div>
-        <div style="font-size: 10.5px; margin-top: 6px; padding-top: 4px; border-top: 1px solid #E2E8F0; color: #EF4444; font-weight: 700;">
-          Requires Ground Verification
-        </div>
-      </div>
-    `);
-
-    marker.addTo(detectionGroup);
-    marker.openPopup();
-
-    // Query OSM Context
-    fetchLocalOsmContext(latNum, lonNum);
 
     return () => {
       // Clean up on component unmount

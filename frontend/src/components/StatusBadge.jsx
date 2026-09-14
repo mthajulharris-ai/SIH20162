@@ -69,10 +69,16 @@ export function StatusBadge({ status, type = 'verification' }) {
 }
 
 export function ProvenanceBadge({ provenance }) {
-  if (!provenance) return <span className="badge badge-real-firms">REAL_FIRMS</span>;
+  if (!provenance) {
+    return (
+      <span className="badge badge-real-firms" title="Live NASA FIRMS satellite observation">
+        REAL_FIRMS
+      </span>
+    );
+  }
 
   const upper = provenance.toUpperCase();
-  if (upper === 'REAL_FIRMS' || upper.includes('FIRMS')) {
+  if (upper === 'REAL_FIRMS' || upper.includes('FIRMS') || upper.includes('SATELLITE')) {
     return (
       <span className="badge badge-real-firms" title="Live NASA FIRMS satellite observation">
         REAL_FIRMS
@@ -94,8 +100,8 @@ export function ProvenanceBadge({ provenance }) {
     );
   }
   return (
-    <span className="badge badge-real-firms" title="Satellite Observation Data">
-      REAL_FIRMS
+    <span className="badge badge-real-firms" title={provenance}>
+      {upper}
     </span>
   );
 }

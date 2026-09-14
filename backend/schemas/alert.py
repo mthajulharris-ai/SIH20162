@@ -27,7 +27,7 @@ class AlertBase(BaseModel):
     acq_date: str = Field(..., description="Acquisition date (YYYY-MM-DD)")
     acq_time: str = Field(..., description="Acquisition time (HHMM)")
     data_provenance: str = Field(
-        default="USER_UPLOADED",
+        default="REAL_FIRMS",
         description="Data provenance ('REAL_FIRMS', 'USER_UPLOADED', 'PROTOTYPE_LABELLED')",
         examples=["REAL_FIRMS"],
     )

@@ -48,7 +48,7 @@ export function OverviewView({
   const forestFires =
     detections.filter((d) => {
       const c = (d.predicted_class || '').toLowerCase();
-      return c.includes('forest') || c.includes('wildfire') || c.includes('bushfire');
+      return c.includes('forest') || c.includes('wildfire') || c.includes('bushfire') || c.includes('vegetation');
     }).length;
 
   const avgConf =
@@ -105,7 +105,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       name: 'firms_jamnagar_refinery.csv',
     },
   ];
-
   const handleProcessFile = async (files) => {
     try {
       setIsAnalyzing(true);
@@ -160,7 +159,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     const blob = new Blob([preset.csv], { type: 'text/csv' });
     const file = new File([blob], preset.name, { type: 'text/csv' });
     setSelectedFile(file);
-    handleProcessFile(file);
+    handleProcessFile([file]);
   };
 
   // Helper to compute real temporal evidence for a location
@@ -424,7 +423,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Spaceborne thermal observations</span>
+              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                {activeHotspots > 0 ? 'Live satellite observations' : 'No active hotspots detected'}
+              </span>
             </div>
           </div>
         </div>
@@ -472,7 +473,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Refinery, flare & plant signatures</span>
+              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                {indFires > 0 ? 'High-risk industrial facilities' : 'No industrial incidents detected'}
+              </span>
             </div>
           </div>
         </div>
@@ -520,7 +523,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Wildfire & vegetation anomalies</span>
+              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                {forestFires > 0 ? 'Vegetation canopy fires' : 'No forest fires detected'}
+              </span>
             </div>
           </div>
         </div>
@@ -568,7 +573,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Model v2.0.0 inference confidence</span>
+              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                {avgConf ? 'Average inference confidence' : 'Awaiting satellite observations'}
+              </span>
             </div>
           </div>
         </div>
@@ -770,7 +777,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 ))}
               </div>
             </div>
-
             {/* SATRA Automated Steps Explanation */}
             {!isAnalyzing && !activeInspection && (
               <div
@@ -1018,7 +1024,10 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FRP &bull; Risk</div>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#F97316', marginTop: '2px' }}>
-                    {activeInspection.frp != null ? `${parseFloat(activeInspection.frp).toFixed(1)} MW` : 'N/A'} &bull; {(activeInspection.alert_level || 'STANDARD').toUpperCase()}
+                    {activeInspection.frp != null
+                      ? `${parseFloat(activeInspection.frp).toFixed(1)} MW`
+                      : 'N/A'}{' '}
+                    &bull; {(activeInspection.alert_level || 'MONITORED').toUpperCase()}
                   </div>
                 </div>
               </div>
@@ -1066,7 +1075,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
                   <strong style={{ color: '#FFFFFF', minWidth: '105px' }}>AI Evidence:</strong>
                   <span style={{ color: 'var(--text-secondary)' }}>
-                    Thermal characteristics match the predicted {activeInspection.predicted_class || 'thermal hotspot'} class ({activeInspection.frp || '54'} MW FRP, {activeInspection.brightness || '362'}K).
+                    Thermal characteristics match the predicted {activeInspection.predicted_class || 'thermal hotspot'} class ({activeInspection.frp !== null && activeInspection.frp !== undefined ? `${parseFloat(activeInspection.frp).toFixed(1)} MW FRP` : 'FRP N/A'}, {activeInspection.brightness ? `${parseFloat(activeInspection.brightness).toFixed(1)} K` : 'Brightness N/A'}).
                   </span>
                 </div>
 
@@ -1185,7 +1194,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   </tr>
                 </thead>
                 <tbody>
-                  {detections.slice(0, 5).map((d) => {
+                  {detections.length > 0 ? (
+                    detections.slice(0, 5).map((d) => {
                     const isSelected = selectedDetection?.id === d.id;
                     const alertLvl = d.alert_level || (d.predicted_class === 'Industrial Fire' ? 'CRITICAL' : 'HIGH');
                     const alertSty = getAlertStyle(alertLvl);
@@ -1264,7 +1274,14 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)', fontSize: '11.5px' }}>
+                      No real data available
+                    </td>
+                  </tr>
+                )}
                 </tbody>
               </table>
             </div>
@@ -1362,8 +1379,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               <strong style={{ color: '#A855F7', fontFamily: 'monospace' }}>v2.0.0-scientific</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Accuracy:</span>
-              <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>92.4% (F1: 0.912)</strong>
+              <span style={{ color: 'var(--text-muted)' }}>Holdout Score:</span>
+              <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>Multiclass F1: 0.80</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Status:</span>
@@ -1402,7 +1419,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>API Gateway:</span>
-              <strong style={{ color: '#FFFFFF' }}>Online (Latency: 18ms)</strong>
+              <strong style={{ color: '#FFFFFF' }}>Online (FastAPI)</strong>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Database:</span>
@@ -1410,7 +1427,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span style={{ color: 'var(--text-muted)' }}>Availability:</span>
-              <strong style={{ color: '#10B981', fontFamily: 'monospace' }}>99.98% Uptime</strong>
+              <strong style={{ color: '#10B981', fontFamily: 'monospace' }}>Ready</strong>
             </div>
           </div>
         </div>

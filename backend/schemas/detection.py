@@ -102,7 +102,7 @@ class DetectionBase(BaseModel):
         examples=["2.0.0-scientific-prototype"],
     )
     data_provenance: str = Field(
-        default="USER_UPLOADED",
+        default="REAL_FIRMS",
         description="Data origin provenance ('REAL_FIRMS', 'USER_UPLOADED', 'PROTOTYPE_LABELLED')",
         examples=["REAL_FIRMS"],
     )

@@ -1864,7 +1864,7 @@ export function EarthGlobe3D({
                 ? `${Math.abs(parseFloat(selectedDetection.latitude)).toFixed(4)}° ${parseFloat(selectedDetection.latitude) >= 0 ? 'N' : 'S'}`
                 : detections.length > 0
                 ? `${Math.abs(parseFloat(detections[0].latitude)).toFixed(4)}° ${parseFloat(detections[0].latitude) >= 0 ? 'N' : 'S'}`
-                : '22.8046° N'}
+                : 'N/A'}
             </span>
           </div>
           <div>
@@ -1873,7 +1873,7 @@ export function EarthGlobe3D({
                 ? `${Math.abs(parseFloat(selectedDetection.longitude)).toFixed(4)}° ${parseFloat(selectedDetection.longitude) >= 0 ? 'E' : 'W'}`
                 : detections.length > 0
                 ? `${Math.abs(parseFloat(detections[0].longitude)).toFixed(4)}° ${parseFloat(detections[0].longitude) >= 0 ? 'E' : 'W'}`
-                : '86.2029° E'}
+                : 'N/A'}
             </span>
           </div>
           <div style={{ color: '#38BDF8', fontSize: '10px' }}>
