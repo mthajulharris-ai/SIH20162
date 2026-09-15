@@ -1022,6 +1022,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 </div>
 
                 <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Status</div>
+                  <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '2px', color: (activeInspection.status === 'LOW_CONFIDENCE_REVIEW' || (activeInspection.prediction_confidence ?? activeInspection.confidence) < 0.6) ? '#F59E0B' : '#10B981' }}>
+                    {(activeInspection.status === 'LOW_CONFIDENCE_REVIEW' || (activeInspection.prediction_confidence ?? activeInspection.confidence) < 0.6) ? 'LOW CONFIDENCE REVIEW' : 'CLASSIFIED'}
+                  </div>
+                </div>
+
+                <div>
                   <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FRP &bull; Risk</div>
                   <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#F97316', marginTop: '2px' }}>
                     {activeInspection.frp != null

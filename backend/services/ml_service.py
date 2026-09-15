@@ -1,11 +1,14 @@
 """
 Machine Learning Inference Service Adapter for FastAPI Backend.
 Isolates the ML subsystem and model lifecycle from the API layer.
+Integrates the production soft-voting ensemble (RF + LightGBM + XGBoost).
 PS 26162: AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources.
 """
 
 import logging
-from typing import Any, Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
+
 from backend.services.fallback_service import FallbackRuleBasedClassifier
 
 logger = logging.getLogger("backend.ml_service")
@@ -26,12 +29,14 @@ class MLModelNotLoadedException(MLServiceException):
 class MLInferenceService:
     """
     Adapter encapsulating the inference interface provided by the ML subsystem.
-    Provides decoupled inference, robust error handling, test mockability,
-    and automatic rule-based fallback when the ML service is offline or unconfigured.
+    Prioritizes the production soft-voting ensemble (RF + LightGBM + XGBoost),
+    maintains backward compatibility with baseline models,
+    and supports deterministic satellite fallback.
     """
 
     def __init__(self, use_lazy_loading: bool = True):
         self._ml_service = None
+        self._is_ensemble: bool = False
         self._load_error: Optional[str] = None
         if not use_lazy_loading:
             self._ensure_loaded()
@@ -41,18 +46,31 @@ class MLInferenceService:
         if self._ml_service is not None:
             return self._ml_service
 
+        # 1. Try loading production soft-voting ensemble
+        try:
+            from backend.ml.model_loader import load_model
+            self._ml_service = load_model()
+            self._is_ensemble = True
+            self._load_error = None
+            logger.info("Successfully loaded production SATRA soft-voting ensemble classifier.")
+            return self._ml_service
+        except Exception as ensemble_err:
+            logger.info("Production ensemble not loaded (%s). Checking baseline fallback...", str(ensemble_err))
+
+        # 2. Try loading baseline model as fallback during setup
         try:
             from src.inference.service import get_prediction_service
             self._ml_service = get_prediction_service()
+            self._is_ensemble = False
             self._load_error = None
-            logger.info("Successfully loaded ML prediction service.")
+            logger.info("Successfully loaded baseline satellite fire prediction service.")
             return self._ml_service
         except FileNotFoundError as fnf:
             self._load_error = f"Model artifact not found: {str(fnf)}"
             logger.error("[SATRA ERROR] ML Model file missing: %s", str(fnf))
             raise MLModelNotLoadedException(
                 f"ML Model artifact not found: {str(fnf)}. "
-                "Ensure model is trained using 'python scripts/train_baseline.py' or weights exist in 'models/saved_models/'."
+                "Ensure model is trained using 'python -m backend.ml.train' or weights exist in 'models/'."
             )
         except Exception as e:
             self._load_error = f"Failed to initialize ML service: {str(e)}"
@@ -77,34 +95,58 @@ class MLInferenceService:
         - Returns status report without exposing credentials
         """
         available = self.is_available()
+        model_ver = "3.0.0-ensemble" if self._is_ensemble else (
+            getattr(self._ml_service, "model_version", "unknown") if self._ml_service else None
+        )
+        model_type = "RF_LightGBM_XGBoost_SoftVoting" if self._is_ensemble else "Baseline_Classifier"
+
         return {
             "configured": available,
             "model_loaded": self._ml_service is not None,
-            "model_version": getattr(self._ml_service, "model_version", "unknown") if self._ml_service else None,
+            "model_version": model_ver,
+            "model_type": model_type,
+            "is_ensemble": self._is_ensemble,
             "error": self._load_error,
         }
 
     def predict(self, observation: Dict[str, Any]) -> Dict[str, Any]:
         """
         Executes ML prediction on a validated thermal observation dictionary.
-        
-        Interface Contract with src.inference.service:
-            Input: observation dictionary with physical/spatial features
-            Output: {
-                "status": "SUCCESS",
-                "predicted_class": "Industrial Fire" | "Persistent Thermal Source" | "Other",
-                "predicted_class_id": 0 | 1 | 2,
-                "confidence": float (0.0 - 1.0),
-                "alert_level": "LOW" | "MEDIUM" | "CRITICAL",
-                "class_probabilities": {...},
-                "model_version": str,
-                "prediction_timestamp": str (ISO 8601 UTC)
-            }
+        Returns standardized response containing:
+            - classification: class name
+            - predicted_class: class name
+            - predicted_class_id: integer class ID
+            - confidence: float score
+            - status: "CLASSIFIED" or "LOW_CONFIDENCE_REVIEW"
+            - model_type: "RF_LightGBM_XGBoost_SoftVoting"
+            - fusion_source: "TABULAR_ONLY" or "TABULAR_PLUS_VISUAL"
+            - alert_level: severity level
+            - class_probabilities: distribution dict
+            - model_version: version string
+            - prediction_timestamp: ISO 8601 UTC string
         """
         service = self._ensure_loaded()
         try:
-            result = service.predict_single(observation)
-            return result
+            if self._is_ensemble:
+                from backend.ml.feature_extractor import extract_features_from_observation
+                features = extract_features_from_observation(observation)
+                image_input = (
+                    observation.get("image")
+                    or observation.get("image_bytes")
+                    or observation.get("image_path")
+                )
+                res = service.predict_single(features, image_input=image_input)
+                res["model_version"] = "3.0.0-ensemble"
+                res["prediction_timestamp"] = datetime.now(timezone.utc).isoformat()
+                return res
+            else:
+                result = service.predict_single(observation)
+                conf = float(result.get("confidence", 0.0))
+                result["classification"] = result.get("predicted_class", "Other")
+                result["status"] = "LOW_CONFIDENCE_REVIEW" if conf < 0.60 else "CLASSIFIED"
+                result["model_type"] = "Baseline_Classifier"
+                result["fusion_source"] = "TABULAR_ONLY"
+                return result
         except Exception as e:
             logger.error("[SATRA ERROR] Error during ML inference: %s", str(e), exc_info=True)
             raise MLServiceException(f"ML inference execution failed: {str(e)}")
@@ -112,11 +154,27 @@ class MLInferenceService:
     def predict_batch(self, observations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
         Executes ML batch prediction on a list of thermal observation dictionaries.
-        Leverages vectorized array operations in src.inference.service for maximum performance.
         """
         service = self._ensure_loaded()
         try:
-            return service.predict_batch(observations)
+            if self._is_ensemble:
+                from backend.ml.feature_extractor import extract_features_from_observation
+                features_list = [extract_features_from_observation(obs) for obs in observations]
+                results = service.predict_batch(features_list)
+                now_iso = datetime.now(timezone.utc).isoformat()
+                for r in results:
+                    r["model_version"] = "3.0.0-ensemble"
+                    r["prediction_timestamp"] = now_iso
+                return results
+            else:
+                results = service.predict_batch(observations)
+                for r in results:
+                    conf = float(r.get("confidence", 0.0))
+                    r["classification"] = r.get("predicted_class", "Other")
+                    r["status"] = "LOW_CONFIDENCE_REVIEW" if conf < 0.60 else "CLASSIFIED"
+                    r["model_type"] = "Baseline_Classifier"
+                    r["fusion_source"] = "TABULAR_ONLY"
+                return results
         except Exception as e:
             logger.error("[SATRA ERROR] Error during ML batch inference: %s", str(e), exc_info=True)
             raise MLServiceException(f"ML batch inference execution failed: {str(e)}")
@@ -125,9 +183,6 @@ class MLInferenceService:
         """
         Executes ML prediction. If ML inference fails or is not configured,
         automatically falls back to deterministic rule-based satellite analysis.
-
-        Returns:
-            Tuple[Dict[str, Any], bool]: (prediction_result, is_fallback_boolean)
         """
         try:
             if not self.is_available():

@@ -134,13 +134,17 @@ class MLPredictionDetails(BaseModel):
     """
     Standardized ML prediction output returned by the ML module.
     """
-    predicted_class: str = Field(..., description="Class name ('Industrial Fire', 'Persistent Thermal Source', 'Other')")
-    predicted_class_id: int = Field(..., description="Numeric class ID (0: Other, 1: Persistent, 2: Industrial)")
+    predicted_class: str = Field(..., description="Class name ('Industrial Fire', 'Forest Fire', 'Persistent Thermal Source', 'Other')")
+    predicted_class_id: int = Field(..., description="Numeric class ID (0: Industrial, 1: Forest, 2: Persistent, 3: Other)")
     confidence: float = Field(..., description="Prediction probability score [0.0, 1.0]")
-    alert_level: str = Field(..., description="Alert severity level ('LOW', 'MEDIUM', 'CRITICAL')")
+    alert_level: str = Field(..., description="Alert severity level ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL', 'LOW_CONFIDENCE_REVIEW')")
     class_probabilities: Dict[str, float] = Field(..., description="Probability distribution across all classes")
     model_version: str = Field(..., description="Model artifact version")
     prediction_timestamp: str = Field(..., description="Timestamp of inference execution")
+    classification: Optional[str] = Field(None, description="Ensemble classification label")
+    status: Optional[str] = Field(None, description="Operational status ('CLASSIFIED' or 'LOW_CONFIDENCE_REVIEW')")
+    model_type: Optional[str] = Field(None, description="Model architecture type")
+    fusion_source: Optional[str] = Field(None, description="Confidence source ('TABULAR_ONLY' or 'TABULAR_PLUS_VISUAL')")
 
 
 class ClassifyAndStoreResponse(BaseModel):
@@ -178,6 +182,11 @@ class PredictionSummary(BaseModel):
     confidence: float
     model_version: str
     class_probabilities: Dict[str, float] = Field(default_factory=dict)
+    classification: Optional[str] = Field(None, description="Ensemble classification label")
+    status: Optional[str] = Field(None, description="Operational status ('CLASSIFIED' or 'LOW_CONFIDENCE_REVIEW')")
+    model_type: Optional[str] = Field(None, description="Model type ('RF_LightGBM_XGBoost_SoftVoting')")
+    fusion_source: Optional[str] = Field(None, description="Fusion source ('TABULAR_ONLY' or 'TABULAR_PLUS_VISUAL')")
+    alert_level: Optional[str] = Field(None, description="Alert level")
 
 
 class RiskInfo(BaseModel):

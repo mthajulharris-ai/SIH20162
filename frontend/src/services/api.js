@@ -149,9 +149,17 @@ export async function predictAndStoreObservation(observationPayload, timeoutMs =
   }
 }
 
-export async function validateSatelliteDataset(file) {
+export async function validateSatelliteDataset(fileOrFiles) {
   const formData = new FormData();
-  formData.append('file', file);
+  if (Array.isArray(fileOrFiles)) {
+    if (fileOrFiles.length === 1) {
+      formData.append('file', fileOrFiles[0]);
+    } else {
+      fileOrFiles.forEach((f) => formData.append('files', f));
+    }
+  } else {
+    formData.append('file', fileOrFiles);
+  }
 
   const endpointUrl = `${API_V1}/inference/validate-dataset`;
   const res = await fetchWithFallback(endpointUrl, {
@@ -172,7 +180,7 @@ export async function validateSatelliteDataset(file) {
   return await res.json();
 }
 
-export async function startSatelliteAnalysisJob(fileOrFiles, timeoutMs = 30000) {
+export async function startSatelliteAnalysisJob(fileOrFiles, timeoutMs = 120000, chunkSize = null) {
   console.log('[ SATRA ] Starting asynchronous AI batch analysis job');
 
   const formData = new FormData();
@@ -203,7 +211,8 @@ export async function startSatelliteAnalysisJob(fileOrFiles, timeoutMs = 30000) 
     controller.abort();
   }, timeoutMs);
 
-  const endpointUrl = `${API_V1}/inference/start-job`;
+  const queryParams = chunkSize ? `?chunk_size=${chunkSize}` : '';
+  const endpointUrl = `${API_V1}/inference/start-job${queryParams}`;
   try {
     const res = await fetchWithFallback(endpointUrl, {
       method: 'POST',
@@ -227,7 +236,7 @@ export async function startSatelliteAnalysisJob(fileOrFiles, timeoutMs = 30000) 
   }
 }
 
-export async function getSatelliteAnalysisJobStatus(jobId, timeoutMs = 8000) {
+export async function getSatelliteAnalysisJobStatus(jobId, timeoutMs = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => {
     controller.abort();

@@ -14,9 +14,14 @@ import time
 import uuid
 from typing import Optional, List, Dict, Any, Set
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, BackgroundTasks
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+
+import os
+import shutil
+import tempfile
+from pathlib import Path
 
 from backend.db.session import get_db, SessionLocal
 from backend.models.detection import Detection
@@ -48,7 +53,8 @@ from backend.services.alert_service import (
 )
 from backend.services.fallback_service import FallbackRuleBasedClassifier
 from backend.utils.observation_normalizer import normalize_and_validate_file, NormalizedObservation
-from backend.utils.analysis_engine import compute_dataset_analysis
+from backend.utils.analysis_engine import compute_dataset_analysis, IncrementalDatasetAggregator
+from backend.utils.firms_stream_parser import FIRMSDataStreamer
 from src.data_pipeline.ingestion import FIELD_ALIASES
 
 logger = logging.getLogger("backend.inference")
@@ -82,7 +88,9 @@ def get_model_status(
         "status": "ready" if available else "model_not_loaded",
         "is_available": bool(available),
         "model_loaded": config_report.get("model_loaded", bool(available)),
-        "model_version": config_report.get("model_version", "2.0.0-scientific-prototype"),
+        "model_version": config_report.get("model_version", "3.0.0-ensemble"),
+        "model_type": config_report.get("model_type", "RF_LightGBM_XGBoost_SoftVoting"),
+        "is_ensemble": config_report.get("is_ensemble", False),
         "fallback_available": True,
         "message": (
             "ML inference service is active and ready."
@@ -106,6 +114,7 @@ def predict_and_store(
     """
     Classify a single satellite thermal observation and persist to database.
     """
+    observation = observation.populate_defaults_if_missing()
     try:
         prediction_result = ml_service.predict(observation.model_dump())
     except MLModelNotLoadedException as e:
@@ -165,6 +174,10 @@ def predict_and_store(
             class_probabilities=prediction_result.get("class_probabilities", {}),
             model_version=model_ver,
             prediction_timestamp=prediction_result.get("prediction_timestamp", datetime.now(timezone.utc).isoformat()),
+            classification=prediction_result.get("classification", predicted_class_name),
+            status=prediction_result.get("status", "LOW_CONFIDENCE_REVIEW" if predicted_conf < 0.60 else "CLASSIFIED"),
+            model_type=prediction_result.get("model_type", "RF_LightGBM_XGBoost_SoftVoting"),
+            fusion_source=prediction_result.get("fusion_source", "TABULAR_ONLY"),
         ),
     )
 
@@ -173,79 +186,110 @@ def predict_and_store(
     "/validate-dataset",
     response_model=DatasetValidationResponse,
     summary="Validate Satellite Dataset Archive or File",
-    description="Validates satellite observation file or ZIP archive structure, columns, and compatibility before executing AI inference.",
+    description="Validates satellite observation file, Shapefiles, or ZIP archive structure, columns, and compatibility before executing AI inference.",
 )
 async def validate_dataset(
     file: Optional[UploadFile] = File(None),
+    files: Optional[List[UploadFile]] = File(None),
 ) -> DatasetValidationResponse:
     """
     Operator pre-analysis dataset validation endpoint:
-    - Scans CSV, JSON, GeoJSON, or ZIP archives
+    - Scans CSV, JSON, GeoJSON, Shapefiles, or ZIP archives
     - For ZIP archives: safely unzips in sandbox, inspects headers, prioritizes NRT observation files
+    - For Shapefiles: accepts .shp or multi-file uploads (.shp + .shx + .dbf + .prj)
     - Verifies required latitude, longitude, and thermal indicators
     - Returns instant format feedback, identified observation filename, record count, and sample coordinates
     """
-    if not file or not file.filename:
+    target_files: List[UploadFile] = []
+    if file is not None and file.filename:
+        target_files.append(file)
+    if files:
+        for f in files:
+            if f is not None and f.filename and not any(existing.filename == f.filename for existing in target_files):
+                target_files.append(f)
+
+    if not target_files:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="No satellite observation file provided for validation. Please select a CSV, JSON, or ZIP archive.",
         )
 
+    temp_val_dir = tempfile.mkdtemp(prefix="satra_val_")
+    streamer = None
     try:
-        content_bytes = await file.read()
-        if not content_bytes or len(content_bytes.strip()) == 0:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"The uploaded satellite file '{file.filename}' is empty.",
-            )
+        for up_file in target_files:
+            dest = Path(temp_val_dir) / os.path.basename(up_file.filename)
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(up_file.file, f)
+            if dest.stat().st_size == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
+                )
+
+        candidates = list(Path(temp_val_dir).glob("*"))
+        if not candidates:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No files received.")
+
+        shp_files = [p for p in candidates if p.suffix.lower() == ".shp"]
+        zip_files = [p for p in candidates if p.suffix.lower() == ".zip"]
+        json_files = [p for p in candidates if p.suffix.lower() in (".json", ".geojson")]
+        csv_files = [p for p in candidates if p.suffix.lower() in (".csv", ".tsv", ".txt")]
+
+        if shp_files:
+            primary = shp_files[0]
+        elif zip_files:
+            primary = zip_files[0]
+        elif json_files:
+            primary = json_files[0]
+        elif csv_files:
+            primary = csv_files[0]
+        else:
+            primary = candidates[0]
+
+        streamer = FIRMSDataStreamer(primary, filename=primary.name, temp_dir=Path(temp_val_dir))
+        preview = streamer.get_preview(max_records=10)
+
+        standard_expected = {
+            "latitude", "longitude", "brightness", "bright_t31", "frp",
+            "confidence", "acq_date", "acq_time", "satellite", "instrument", "daynight",
+        }
+        detected = set(preview["detected_fields"])
+        missing = sorted(list(standard_expected - detected))
+
+        return DatasetValidationResponse(
+            status="VALID",
+            filename=primary.name,
+            identified_file=preview["identified_file"],
+            format_detected=preview["format_detected"],
+            record_count=preview["record_count"],
+            detected_fields=sorted(list(detected)),
+            missing_fields=missing,
+            sample_preview=preview["sample_preview"],
+            message="Satellite observation data found — ready for AI analysis.",
+        )
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to read file '{file.filename}': {str(e)}",
-        )
-
-    try:
-        obs_list, avail_f, unavail_f, detected_flavor, identified_filename = normalize_and_validate_file(
-            content_bytes, file.filename
-        )
     except ValueError as val_err:
-        logger.warning("[SATRA API] Validation failed on '%s': %s", file.filename, str(val_err))
+        logger.warning("[SATRA API] Validation failed: %s", str(val_err))
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(val_err),
         )
-
-    first_obs = obs_list[0]
-    sample_preview = {
-        "latitude": first_obs.latitude,
-        "longitude": first_obs.longitude,
-        "brightness": first_obs.brightness,
-        "bright_t31": first_obs.bright_t31,
-        "frp": first_obs.frp,
-        "confidence": first_obs.confidence,
-        "acq_date": first_obs.acq_date,
-        "acq_time": first_obs.acq_time,
-        "satellite": first_obs.satellite,
-        "instrument": first_obs.instrument,
-    }
-
-    return DatasetValidationResponse(
-        status="VALID",
-        filename=file.filename,
-        identified_file=identified_filename,
-        format_detected=detected_flavor,
-        record_count=len(obs_list),
-        detected_fields=sorted(list(avail_f)),
-        missing_fields=sorted(list(unavail_f)),
-        sample_preview=sample_preview,
-        message="Satellite observation data found — ready for AI analysis.",
-    )
+    except Exception as exc:
+        logger.error("[SATRA API] Validation error: %s", str(exc), exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Validation failed: {str(exc)}",
+        )
+    finally:
+        if streamer:
+            streamer.cleanup()
+        shutil.rmtree(temp_val_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
-# Batch Processing Job Architecture for Large Satellite Datasets
+# Streaming Batch Processing Job Architecture for Large Satellite Datasets
 # ---------------------------------------------------------------------------
 
 class StartJobResponse(BaseModel):
@@ -269,10 +313,281 @@ class JobStatusResponse(BaseModel):
     error: Optional[str] = Field(default=None, description="Error detail if job failed")
     result: Optional[UploadAndAnalyzeResponse] = Field(default=None, description="Final analysis intelligence response")
     elapsed_seconds: Optional[float] = Field(default=None, description="Elapsed processing time in seconds")
-    model_version: str = Field(default="2.0.0-scientific-prototype", description="AI model version used")
+    model_version: str = Field(default="3.0.0-ensemble", description="AI model version used")
 
 
 active_jobs: Dict[str, Dict[str, Any]] = {}
+
+
+async def run_streaming_batch_inference_job(
+    job_id: str,
+    streamer: FIRMSDataStreamer,
+    job_dir: str,
+    preview_info: Dict[str, Any],
+    primary_filename: str,
+):
+    """
+    Memory-safe streaming batch execution engine:
+    - Streams chunks of observations via FIRMSDataStreamer (O(1) memory)
+    - Applies soft voting ensemble (RF + LightGBM + XGBoost) without mock data
+    - Tracks multi-stage progress:
+      Uploading... 25% -> Parsing... 45% -> Feature extraction... 65% -> AI classification... 82% -> Generating analytics... 95% -> Complete 100%
+    - Dynamically accumulates dataset metrics into IncrementalDatasetAggregator
+    - Automatically cleans up disk spools on completion
+    """
+    job = active_jobs.get(job_id)
+    if not job:
+        return
+
+    ml_service = get_ml_service()
+    aggregator = IncrementalDatasetAggregator(max_map_hotspots=1000)
+    db: Session = SessionLocal()
+
+    total_records = job["total_records"]
+    batch_size = job["batch_size"]
+    total_batches = job["total_batches"]
+
+    persisted_detections: List[Detection] = []
+    any_fallback: bool = False
+    processed_count = 0
+    batch_num = 0
+
+    logger.info(
+        "[SATRA JOB %s] Starting streaming batch execution: %d records across %d batches (batch_size=%d)",
+        job_id,
+        total_records,
+        total_batches,
+        batch_size,
+    )
+
+    try:
+        # Stage 1: Parsing... 45%
+        job["status_message"] = f"Parsing... 45% ({total_records:,} observations recognized)"
+        job["progress_percent"] = 45.0
+        await asyncio.sleep(0.01)
+
+        primary_det_obj = None
+        first_obs_dict = None
+        first_pred_dict = None
+
+        for chunk in streamer.iter_record_chunks(chunk_size=batch_size):
+            if not chunk:
+                continue
+
+            batch_num += 1
+            chunk_len = len(chunk)
+
+            # Feature extraction and classification
+            processed_count += chunk_len
+            if processed_count > total_records:
+                total_records = max(total_records, processed_count + (chunk_len * 2))
+                job["total_records"] = total_records
+                total_batches = max(batch_num + 1, math.ceil(total_records / batch_size))
+                job["total_batches"] = total_batches
+
+            fraction = min(1.0, processed_count / max(1, total_records))
+            calc_pct = 40.0 + (fraction * 50.0)
+
+            stage_label = "Feature extraction..." if fraction < 0.45 else "AI classification..."
+            job["status_message"] = (
+                f"{stage_label} {round(calc_pct, 1)}% — batch {batch_num}/{total_batches} "
+                f"({processed_count:,} / {total_records:,} records)"
+            )
+            job["progress_percent"] = round(calc_pct, 1)
+
+            # Stage 3: AI classification
+            try:
+                if not ml_service.is_available():
+                    raise MLServiceException("ML ensemble classifier not loaded.")
+                batch_preds = ml_service.predict_batch(chunk)
+            except Exception as batch_err:
+                logger.warning(
+                    "[SATRA JOB %s] Primary ML ensemble unavailable for batch %d (%s) — activating rule-based fallback.",
+                    job_id,
+                    batch_num,
+                    str(batch_err),
+                )
+                any_fallback = True
+                batch_preds = [FallbackRuleBasedClassifier.evaluate_observation(d) for d in chunk]
+
+            if first_obs_dict is None and chunk:
+                first_obs_dict = chunk[0]
+                first_pred_dict = batch_preds[0]
+
+            # Fast vector chunk aggregation (O(1) memory)
+            aggregator.add_chunk(chunk, batch_preds)
+
+            # Persist a safe, bounded representative sample to DB (first 1,000 records)
+            if len(persisted_detections) < 1000:
+                batch_detections_to_persist: List[Detection] = []
+                for obs, pred in zip(chunk, batch_preds):
+                    if len(persisted_detections) >= 1000:
+                        break
+                    alert_lvl = pred.get("alert_level", "LOW")
+                    pred_cls = pred.get("predicted_class", "Other")
+                    pred_conf = float(pred.get("confidence", 0.0))
+                    is_persistent = (
+                        pred_cls.lower() == "persistent thermal source"
+                        or pred.get("predicted_class_id") == 2
+                    )
+                    det = Detection(
+                        latitude=float(obs["latitude"]),
+                        longitude=float(obs["longitude"]),
+                        brightness=float(obs.get("brightness") or 300.0),
+                        confidence=str(obs.get("confidence") or "nominal"),
+                        acq_date=str(obs.get("acq_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                        acq_time=str(obs.get("acq_time") or "1200"),
+                        source=str(obs.get("satellite") or "VIIRS_SNPP_NRT"),
+                        instrument=str(obs.get("instrument") or "VIIRS"),
+                        frp=float(obs.get("frp")) if obs.get("frp") is not None else None,
+                        daynight=str(obs.get("daynight") or "D"),
+                        source_file=obs.get("source_file") or primary_filename,
+                        predicted_class=pred_cls,
+                        prediction_confidence=pred_conf,
+                        is_persistent=is_persistent,
+                        model_version=pred.get("model_version", "3.0.0-ensemble"),
+                        data_provenance=obs.get("data_provenance") or "USER_UPLOADED",
+                        alert_level=alert_lvl,
+                    )
+                    batch_detections_to_persist.append(det)
+                    persisted_detections.append(det)
+                    if primary_det_obj is None:
+                        primary_det_obj = det
+
+                if batch_detections_to_persist:
+                    db.add_all(batch_detections_to_persist)
+                    db.commit()
+
+            job["current_batch"] = batch_num
+            job["processed_records"] = processed_count
+            job["elapsed_seconds"] = round(time.time() - job["start_time"], 2)
+            await asyncio.sleep(0.001)
+
+        # Stage 4: Aggregation... 95%
+        job["status_message"] = (
+            f"Aggregation... 95% — generating dataset analytics & spatial clusters ({aggregator.total_records:,} observations)..."
+        )
+        job["progress_percent"] = 95.0
+        await asyncio.sleep(0.01)
+        job["progress_percent"] = 95.0
+        await asyncio.sleep(0.01)
+
+        files_info = [{
+            "filename": primary_filename,
+            "identified_file": preview_info.get("identified_file", primary_filename),
+            "record_count": aggregator.total_records,
+            "format_detected": preview_info.get("format_detected", "NASA FIRMS"),
+        }]
+        dataset_analysis = aggregator.build_summary(
+            files_info=files_info,
+            global_available_fields=set(preview_info.get("detected_fields", [])),
+            global_unavailable_fields=set(preview_info.get("missing_fields", [])),
+        )
+        standard_analysis = aggregator.build_standard_analysis(dataset_analysis, any_fallback=any_fallback)
+
+        if not primary_det_obj:
+            primary_det_obj = Detection(
+                latitude=first_obs_dict.get("latitude", 0.0) if first_obs_dict else 0.0,
+                longitude=first_obs_dict.get("longitude", 0.0) if first_obs_dict else 0.0,
+                brightness=first_obs_dict.get("brightness", 300.0) if first_obs_dict else 300.0,
+                confidence=first_obs_dict.get("confidence", "nominal") if first_obs_dict else "nominal",
+                acq_date=first_obs_dict.get("acq_date", "2026-09-14") if first_obs_dict else "2026-09-14",
+                acq_time=first_obs_dict.get("acq_time", "1200") if first_obs_dict else "1200",
+                source=first_obs_dict.get("satellite", "VIIRS") if first_obs_dict else "VIIRS",
+                instrument=first_obs_dict.get("instrument", "VIIRS") if first_obs_dict else "VIIRS",
+                frp=first_obs_dict.get("frp") if first_obs_dict else None,
+                daynight=first_obs_dict.get("daynight", "D") if first_obs_dict else "D",
+                source_file=primary_filename,
+                predicted_class=first_pred_dict.get("predicted_class", "Other") if first_pred_dict else "Other",
+                prediction_confidence=float(first_pred_dict.get("confidence", 0.0)) if first_pred_dict else 0.0,
+                is_persistent=False,
+                model_version="3.0.0-ensemble",
+                data_provenance="USER_UPLOADED",
+                alert_level=first_pred_dict.get("alert_level", "LOW") if first_pred_dict else "LOW",
+            )
+            db.add(primary_det_obj)
+            db.commit()
+            persisted_detections.insert(0, primary_det_obj)
+
+        capped_detections = [DetectionResponse.model_validate(d) for d in persisted_detections[:1000]]
+        primary_pred = first_pred_dict or {}
+
+        response_payload = UploadAndAnalyzeResponse(
+            success=True,
+            status="SUCCESS",
+            message=(
+                f"Batch processing complete: {aggregator.total_records:,} observations successfully analyzed "
+                f"by SATRA AI ensemble (RF + LightGBM + XGBoost)."
+                if not any_fallback
+                else f"Rule-based satellite analysis on {aggregator.total_records:,} observation(s)."
+            ),
+            is_fallback=any_fallback,
+            fallback_notice="Deterministic rule-based fallback was engaged." if any_fallback else None,
+            exact_location=ExactLocation(
+                latitude=primary_det_obj.latitude,
+                longitude=primary_det_obj.longitude,
+            ),
+            observation=ObservationMetadata(
+                acq_date=primary_det_obj.acq_date,
+                acq_time=primary_det_obj.acq_time,
+                satellite=primary_det_obj.source,
+                instrument=primary_det_obj.instrument,
+                daynight=primary_det_obj.daynight,
+            ),
+            thermal_data=ThermalDataInfo(
+                frp=primary_det_obj.frp,
+                brightness=primary_det_obj.brightness,
+                bright_t31=first_obs_dict.get("bright_t31") if first_obs_dict else None,
+            ),
+            prediction=PredictionSummary(
+                classification=primary_pred.get("classification", primary_det_obj.predicted_class),
+                predicted_class=primary_det_obj.predicted_class,
+                confidence=primary_det_obj.prediction_confidence,
+                status=primary_pred.get("status", "CLASSIFIED"),
+                model_type=primary_pred.get("model_type", "RF_LightGBM_XGBoost_SoftVoting" if not any_fallback else "Deterministic_Rule_Based"),
+                fusion_source=primary_pred.get("fusion_source", "TABULAR_ONLY"),
+                model_version=primary_det_obj.model_version,
+                alert_level=primary_det_obj.alert_level,
+                class_probabilities=primary_pred.get("class_probabilities", {}),
+            ),
+            risk=RiskInfo(
+                alert_level=primary_det_obj.alert_level,
+                verification_status=STATUS_REQUIRES_VERIFICATION,
+            ),
+            provenance=primary_det_obj.data_provenance,
+            detection=DetectionResponse.model_validate(primary_det_obj),
+            all_detections=capped_detections,
+            total_records=aggregator.total_records,
+            analysis_summary=dataset_analysis,
+            analysis=standard_analysis,
+            metadata={
+                "source_file": primary_filename,
+                "format": preview_info.get("format_detected", "NASA FIRMS"),
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "is_fallback": any_fallback,
+                "fallback_notice": "AI service unavailable — displaying rule-based satellite analysis." if any_fallback else None,
+            },
+        )
+
+        job["result"] = response_payload
+        job["status"] = "COMPLETED"
+        job["completed_time"] = time.time()
+        job["elapsed_seconds"] = round(job["completed_time"] - job["start_time"], 2)
+        job["progress_percent"] = 100.0
+        job["status_message"] = (
+            f"Complete 100% — {aggregator.total_records:,} observations analyzed in {job['elapsed_seconds']}s."
+        )
+        logger.info("[SATRA JOB %s] Streaming batch processing completed in %.2fs", job_id, job["elapsed_seconds"])
+
+    except Exception as exc:
+        logger.error("[SATRA JOB %s] Streaming batch processing failed: %s", job_id, str(exc), exc_info=True)
+        job["status"] = "FAILED"
+        job["error"] = str(exc)
+        job["status_message"] = f"AI analysis failed: {str(exc)}"
+    finally:
+        db.close()
+        streamer.cleanup()
+        shutil.rmtree(job_dir, ignore_errors=True)
 
 
 async def run_batch_inference_job(
@@ -283,9 +598,7 @@ async def run_batch_inference_job(
     global_unavailable_fields: Set[str],
 ):
     """
-    Executes real batch inference over all observations using model v2.0.0-scientific-prototype.
-    Batches of 1,000 records are analyzed, persisted to database, alerts evaluated,
-    and live status updated with zero mock data.
+    Legacy wrapper for run_batch_inference_job to preserve backward compatibility.
     """
     job = active_jobs.get(job_id)
     if not job:
@@ -300,14 +613,6 @@ async def run_batch_inference_job(
     all_predictions: List[Dict[str, Any]] = []
     any_fallback: bool = False
 
-    logger.info(
-        "[SATRA JOB %s] Starting batch execution: %d records across %d batches (batch_size=%d)",
-        job_id,
-        total_records,
-        total_batches,
-        batch_size,
-    )
-
     db: Session = SessionLocal()
     try:
         for batch_idx in range(total_batches):
@@ -318,35 +623,27 @@ async def run_batch_inference_job(
 
             batch_obs_dicts = [obs.to_input_dict() for obs in batch_obs]
 
-            # 1. AI inference for this batch
             try:
                 if not ml_service.is_available():
                     raise MLServiceException("ML service not loaded or available.")
                 batch_preds = ml_service.predict_batch(batch_obs_dicts)
             except Exception as batch_err:
-                logger.warning(
-                    "[SATRA JOB %s] Primary AI inference unavailable for batch %d (%s) — activating rule-based fallback.",
-                    job_id,
-                    batch_num,
-                    str(batch_err),
-                )
                 any_fallback = True
                 batch_preds = [FallbackRuleBasedClassifier.evaluate_observation(d) for d in batch_obs_dicts]
 
             all_predictions.extend(batch_preds)
 
-            # 2. Build and persist Detection records for this batch
             batch_created_detections: List[Detection] = []
             for obs, prediction_result in zip(batch_obs, batch_preds):
                 predicted_class_name = prediction_result.get("predicted_class", "Unknown")
                 predicted_conf = float(prediction_result.get("confidence", 0.0))
                 is_persistent = (
                     predicted_class_name.lower() == "persistent thermal source"
-                    or prediction_result.get("predicted_class_id") == 1
+                    or prediction_result.get("predicted_class_id") == 2
                 )
                 base_alert_level = prediction_result.get("alert_level", "LOW")
                 alert_level = "LOW_CONFIDENCE_REVIEW" if (predicted_conf < 0.60 and not any_fallback) else base_alert_level
-                model_ver = prediction_result.get("model_version", "2.0.0-scientific-prototype")
+                model_ver = prediction_result.get("model_version", "3.0.0-ensemble")
                 obs_provenance = obs.data_provenance or "USER_UPLOADED"
 
                 db_det = Detection(
@@ -373,53 +670,15 @@ async def run_batch_inference_job(
             db.add_all(batch_created_detections)
             db.commit()
 
-            # 3. Evaluate and persist alerts for this batch
-            batch_alerts: List[Alert] = []
-            for db_det in batch_created_detections:
-                alert_info = evaluate_detection_for_alert(db_det)
-                if alert_info:
-                    batch_alerts.append(
-                        Alert(
-                            detection_id=db_det.id,
-                            alert_level=alert_info["alert_level"],
-                            title=alert_info["title"],
-                            message=alert_info["message"],
-                            predicted_class=db_det.predicted_class,
-                            confidence=db_det.prediction_confidence,
-                            verification_status=STATUS_REQUIRES_VERIFICATION,
-                            latitude=db_det.latitude,
-                            longitude=db_det.longitude,
-                            frp=db_det.frp,
-                            brightness=db_det.brightness,
-                            acq_date=db_det.acq_date,
-                            acq_time=db_det.acq_time,
-                            data_provenance=db_det.data_provenance or "USER_UPLOADED",
-                            model_version=db_det.model_version or "2.0.0-scientific-prototype",
-                            disclaimer="AI detected thermal signature. Requires ground/field verification.",
-                        )
-                    )
-            if batch_alerts:
-                db.add_all(batch_alerts)
-                db.commit()
-
             created_detections.extend(batch_created_detections)
-
-            # 4. Live progress update
             processed_count = len(created_detections)
-            progress_pct = round((processed_count / total_records) * 100.0, 1)
             job["current_batch"] = batch_num
             job["processed_records"] = processed_count
-            job["progress_percent"] = progress_pct
-            job["status_message"] = (
-                f"Batch {batch_num} / {total_batches} — "
-                f"{processed_count:,} / {total_records:,} observations processed"
-            )
+            job["progress_percent"] = round((processed_count / total_records) * 100.0, 1)
+            job["status_message"] = f"Batch {batch_num} / {total_batches} — {processed_count:,} / {total_records:,} observations processed"
             job["elapsed_seconds"] = round(time.time() - job["start_time"], 2)
-
-            # Yield control to event loop for immediate HTTP status responsiveness
             await asyncio.sleep(0.005)
 
-        # 5. Compute full dataset analysis summary
         dataset_analysis = compute_dataset_analysis(
             validated_records=all_observations,
             detections=created_detections,
@@ -440,7 +699,7 @@ async def run_batch_inference_job(
             status="SUCCESS",
             message=(
                 f"Batch processing complete: {len(created_detections):,} observations successfully analyzed "
-                f"by SATRA AI model v2.0.0-scientific-prototype{source_summary_text}."
+                f"by SATRA AI ensemble (RF + LightGBM + XGBoost){source_summary_text}."
             ),
             is_fallback=any_fallback,
             fallback_notice="Deterministic rule-based fallback was engaged." if any_fallback else None,
@@ -461,8 +720,12 @@ async def run_batch_inference_job(
                 bright_t31=primary_obs.bright_t31,
             ),
             prediction=PredictionSummary(
+                classification=primary_pred.get("classification", primary_det.predicted_class),
                 predicted_class=primary_det.predicted_class,
                 confidence=primary_det.prediction_confidence,
+                status=primary_pred.get("status", "CLASSIFIED"),
+                model_type=primary_pred.get("model_type", "RF_LightGBM_XGBoost_SoftVoting" if not any_fallback else "Deterministic_Rule_Based"),
+                fusion_source=primary_pred.get("fusion_source", "TABULAR_ONLY"),
                 model_version=primary_det.model_version,
                 alert_level=primary_det.alert_level,
                 class_probabilities=primary_pred.get("class_probabilities", {}),
@@ -486,10 +749,7 @@ async def run_batch_inference_job(
         job["status_message"] = (
             f"AI analysis completed: {total_records:,} observations analyzed in {job['elapsed_seconds']}s."
         )
-        logger.info("[SATRA JOB %s] Batch processing successfully completed in %.2fs", job_id, job["elapsed_seconds"])
-
     except Exception as exc:
-        logger.error("[SATRA JOB %s] Failed: %s", job_id, str(exc), exc_info=True)
         job["status"] = "FAILED"
         job["error"] = str(exc)
         job["status_message"] = f"AI analysis failed: {str(exc)}"
@@ -502,19 +762,20 @@ async def run_batch_inference_job(
     response_model=StartJobResponse,
     status_code=status.HTTP_202_ACCEPTED,
     summary="Start Asynchronous Satellite Dataset AI Batch Analysis Job",
-    description="Accepts satellite observation files or ZIP archives, validates records, and launches background batch inference (1,000 records/batch).",
+    description="Accepts satellite observation files, Shapefiles, or ZIP archives, validates records, and launches streaming batch inference.",
 )
 async def start_satellite_job(
+    background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
+    chunk_size: Optional[int] = None,
 ) -> StartJobResponse:
     """
     Asynchronous Entrypoint for Large Satellite Dataset Analysis:
-    - Normalizes single or multi-file satellite datasets (CSV, JSON, ZIP)
-    - Validates columns, geographic bounds, and thermal indicators
-    - Splits observation records into manageable 1,000-record batches
-    - Dispatches non-blocking async batch execution worker
-    - Returns unique job_id and metadata for live frontend progress tracking
+    - Normalizes single or multi-file satellite datasets (CSV, JSON, Shapefiles, ZIP)
+    - Validates columns, geographic bounds, and thermal indicators via FIRMSDataStreamer
+    - Dispatches streaming async batch execution worker (O(1) memory footprint)
+    - Returns unique job_id and metadata for live frontend progress tracking immediately (< 0.5s)
     """
     target_files: List[UploadFile] = []
     if file is not None and file.filename:
@@ -530,56 +791,60 @@ async def start_satellite_job(
             detail="No satellite observation file provided. Please upload a valid CSV, JSON, or ZIP dataset.",
         )
 
-    all_observations: List[NormalizedObservation] = []
-    files_info: List[Dict[str, Any]] = []
-    global_available_fields: Set[str] = set()
-    global_unavailable_fields: Set[str] = set()
+    job_id = f"job_{uuid.uuid4().hex[:12]}"
+    job_dir = tempfile.mkdtemp(prefix=f"satra_job_{job_id}_")
 
-    for up_file in target_files:
-        try:
-            raw_bytes = await up_file.read()
-            if not raw_bytes or len(raw_bytes.strip()) == 0:
+    try:
+        for up_file in target_files:
+            dest = Path(job_dir) / os.path.basename(up_file.filename)
+            with open(dest, "wb") as f:
+                shutil.copyfileobj(up_file.file, f)
+            if dest.stat().st_size == 0:
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
                 )
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read uploaded file content for '{up_file.filename}': {str(e)}",
-            )
 
-        try:
-            obs_list, avail_f, unavail_f, detected_flavor, identified_filename = normalize_and_validate_file(
-                raw_bytes, up_file.filename
-            )
-            all_observations.extend(obs_list)
-            global_available_fields.update(avail_f)
-            global_unavailable_fields.update(unavail_f)
-            files_info.append({
-                "filename": up_file.filename,
-                "identified_file": identified_filename,
-                "record_count": len(obs_list),
-                "format_detected": detected_flavor,
-            })
-        except ValueError as val_err:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=str(val_err),
-            )
+        candidates = list(Path(job_dir).glob("*"))
+        if not candidates:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No files found in upload.")
 
-    if not all_observations:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Zero valid observation records found in uploaded file(s).",
-        )
+        shp_files = [p for p in candidates if p.suffix.lower() == ".shp"]
+        zip_files = [p for p in candidates if p.suffix.lower() == ".zip"]
+        json_files = [p for p in candidates if p.suffix.lower() in (".json", ".geojson")]
+        csv_files = [p for p in candidates if p.suffix.lower() in (".csv", ".tsv", ".txt")]
 
-    total_records = len(all_observations)
-    batch_size = 1000
-    total_batches = math.ceil(total_records / batch_size)
-    job_id = f"job_{uuid.uuid4().hex[:12]}"
+        if shp_files:
+            primary = shp_files[0]
+        elif zip_files:
+            primary = zip_files[0]
+        elif json_files:
+            primary = json_files[0]
+        elif csv_files:
+            primary = csv_files[0]
+        else:
+            primary = candidates[0]
+
+        streamer = FIRMSDataStreamer(primary, filename=primary.name, temp_dir=Path(job_dir))
+        preview = streamer.get_preview(max_records=10, quick=True)
+
+    except HTTPException:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise
+    except ValueError as val_err:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(val_err))
+    except Exception as exc:
+        shutil.rmtree(job_dir, ignore_errors=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Failed to initialize job: {str(exc)}")
+
+    total_records = preview["record_count"]
+    if chunk_size is not None and chunk_size > 0:
+        batch_size = min(50000, max(500, chunk_size))
+    else:
+        batch_size = 10000 if total_records >= 50000 else (5000 if total_records >= 20000 else 1000)
+
+    total_batches = max(1, math.ceil(total_records / batch_size))
 
     active_jobs[job_id] = {
         "job_id": job_id,
@@ -589,32 +854,32 @@ async def start_satellite_job(
         "batch_size": batch_size,
         "processed_records": 0,
         "total_records": total_records,
-        "progress_percent": 0.0,
-        "status_message": f"Starting batch analysis of {total_records:,} observations...",
+        "progress_percent": 25.0,
+        "status_message": f"Uploading... 25% — validated {total_records:,} satellite observations.",
         "error": None,
         "result": None,
         "start_time": time.time(),
         "completed_time": None,
         "elapsed_seconds": 0.0,
-        "model_version": "2.0.0-scientific-prototype",
+        "model_version": "3.0.0-ensemble",
     }
 
-    # Launch background batch worker
-    asyncio.create_task(
-        run_batch_inference_job(
-            job_id=job_id,
-            all_observations=all_observations,
-            files_info=files_info,
-            global_available_fields=global_available_fields,
-            global_unavailable_fields=global_unavailable_fields,
-        )
+    # Launch background streaming batch worker
+    background_tasks.add_task(
+        run_streaming_batch_inference_job,
+        job_id=job_id,
+        streamer=streamer,
+        job_dir=job_dir,
+        preview_info=preview,
+        primary_filename=primary.name,
     )
 
     logger.info(
-        "[SATRA API] Started batch analysis job '%s' for %d records (%d batches)",
+        "[SATRA API] Started streaming batch analysis job '%s' for %d records (%d batches, chunk_size=%d)",
         job_id,
         total_records,
         total_batches,
+        batch_size,
     )
 
     return StartJobResponse(
@@ -657,8 +922,19 @@ async def get_job_status(job_id: str) -> JobStatusResponse:
         error=job.get("error"),
         result=job.get("result"),
         elapsed_seconds=job.get("elapsed_seconds"),
-        model_version=job.get("model_version", "2.0.0-scientific-prototype"),
+        model_version=job.get("model_version", "3.0.0-ensemble"),
     )
+
+
+@router.get(
+    "/analysis-status/{job_id}",
+    response_model=JobStatusResponse,
+    summary="Get Status of Asynchronous Analysis Job (Alias)",
+    description="Poll progress, intermediate metrics, or final analysis payload of an asynchronous satellite dataset analysis job.",
+)
+async def get_analysis_status(job_id: str) -> JobStatusResponse:
+    """Alias for /job-status/{job_id} to support both endpoint naming conventions."""
+    return await get_job_status(job_id)
 
 
 @router.post(
@@ -714,43 +990,92 @@ async def upload_and_analyze(
     global_available_fields: Set[str] = set()
     global_unavailable_fields: Set[str] = set()
 
-    for up_file in target_files:
+    has_direct_shp = any(up.filename and up.filename.lower().endswith(".shp") for up in target_files)
+    if has_direct_shp:
+        temp_dir = tempfile.mkdtemp(prefix="satra_shp_")
+        streamer = None
         try:
-            raw_bytes = await up_file.read()
-            if not raw_bytes or len(raw_bytes.strip()) == 0:
-                logger.error("[SATRA ERROR] Uploaded file '%s' is empty", up_file.filename)
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
-                )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.error("[SATRA ERROR] Failed to read file %s: %s", up_file.filename, str(e))
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Failed to read uploaded file content for '{up_file.filename}': {str(e)}",
-            )
-
-        try:
-            obs_list, avail_f, unavail_f, detected_flavor, identified_filename = normalize_and_validate_file(
-                raw_bytes, up_file.filename
-            )
-            all_observations.extend(obs_list)
-            global_available_fields.update(avail_f)
-            global_unavailable_fields.update(unavail_f)
+            for up_file in target_files:
+                dest = Path(temp_dir) / os.path.basename(up_file.filename)
+                with open(dest, "wb") as f:
+                    shutil.copyfileobj(up_file.file, f)
+            shp_files = list(Path(temp_dir).glob("*.shp"))
+            if not shp_files:
+                raise ValueError("No valid .shp file found in uploaded Shapefile components.")
+            primary = shp_files[0]
+            streamer = FIRMSDataStreamer(primary, filename=primary.name, temp_dir=Path(temp_dir))
+            for chunk in streamer.iter_record_chunks(chunk_size=5000):
+                for r in chunk:
+                    obs = NormalizedObservation(
+                        latitude=float(r["latitude"]),
+                        longitude=float(r["longitude"]),
+                        brightness=float(r.get("brightness") or 300.0),
+                        bright_t31=float(r.get("bright_t31")) if r.get("bright_t31") else None,
+                        frp=float(r.get("frp")) if r.get("frp") is not None else None,
+                        confidence=str(r.get("confidence") or "nominal"),
+                        acq_date=str(r.get("acq_date") or datetime.now(timezone.utc).strftime("%Y-%m-%d")),
+                        acq_time=str(r.get("acq_time") or "1200"),
+                        satellite=str(r.get("satellite") or "VIIRS"),
+                        instrument=str(r.get("instrument") or "VIIRS"),
+                        scan=float(r.get("scan") or 0.375),
+                        track=float(r.get("track") or 0.375),
+                        daynight=str(r.get("daynight") or "D"),
+                        source_file=primary.name,
+                        data_provenance="USER_UPLOADED",
+                        raw_properties=r,
+                    )
+                    all_observations.append(obs)
+            global_available_fields.update(["latitude", "longitude", "brightness", "frp", "confidence", "acq_date", "acq_time", "satellite", "instrument", "daynight"])
             files_info.append({
-                "filename": up_file.filename,
-                "identified_file": identified_filename,
-                "record_count": len(obs_list),
-                "format_detected": detected_flavor,
+                "filename": primary.name,
+                "identified_file": streamer.identified_file,
+                "record_count": len(all_observations),
+                "format_detected": streamer.format_detected,
             })
         except ValueError as val_err:
-            logger.warning("[SATRA ERROR] Validation error on '%s': %s", up_file.filename, str(val_err))
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=str(val_err),
-            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(val_err))
+        finally:
+            if streamer:
+                streamer.cleanup()
+            shutil.rmtree(temp_dir, ignore_errors=True)
+    else:
+        for up_file in target_files:
+            try:
+                raw_bytes = await up_file.read()
+                if not raw_bytes or len(raw_bytes.strip()) == 0:
+                    logger.error("[SATRA ERROR] Uploaded file '%s' is empty", up_file.filename)
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"The uploaded satellite file '{up_file.filename}' is empty.",
+                    )
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error("[SATRA ERROR] Failed to read file %s: %s", up_file.filename, str(e))
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to read uploaded file content for '{up_file.filename}': {str(e)}",
+                )
+
+            try:
+                obs_list, avail_f, unavail_f, detected_flavor, identified_filename = normalize_and_validate_file(
+                    raw_bytes, up_file.filename
+                )
+                all_observations.extend(obs_list)
+                global_available_fields.update(avail_f)
+                global_unavailable_fields.update(unavail_f)
+                files_info.append({
+                    "filename": up_file.filename,
+                    "identified_file": identified_filename,
+                    "record_count": len(obs_list),
+                    "format_detected": detected_flavor,
+                })
+            except ValueError as val_err:
+                logger.warning("[SATRA ERROR] Validation error on '%s': %s", up_file.filename, str(val_err))
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=str(val_err),
+                )
 
     if not all_observations:
         logger.error("[SATRA ERROR] Zero valid observation records found in uploaded files")
@@ -788,12 +1113,12 @@ async def upload_and_analyze(
         predicted_conf = float(prediction_result.get("confidence", 0.0))
         is_persistent = (
             predicted_class_name.lower() == "persistent thermal source"
-            or prediction_result.get("predicted_class_id") == 1
+            or prediction_result.get("predicted_class_id") == 2
         )
 
         base_alert_level = prediction_result.get("alert_level", "LOW")
         alert_level = "LOW_CONFIDENCE_REVIEW" if (predicted_conf < 0.60 and not any_fallback) else base_alert_level
-        model_ver = prediction_result.get("model_version", "2.0.0-scientific-prototype")
+        model_ver = prediction_result.get("model_version", "3.0.0-ensemble")
         obs_provenance = obs.data_provenance or "USER_UPLOADED"
 
         db_detection = Detection(
@@ -851,14 +1176,20 @@ async def upload_and_analyze(
         db.add_all(new_alerts)
         db.commit()
 
+    primary_pred_dict = all_predictions[0] if all_predictions else {}
+    primary_conf = float(primary_pred_dict.get("confidence", 0.0))
     primary_prediction_details = MLPredictionDetails(
-        predicted_class=all_predictions[0].get("predicted_class", "Unknown"),
-        predicted_class_id=int(all_predictions[0].get("predicted_class_id", 0)),
-        confidence=float(all_predictions[0].get("confidence", 0.0)),
-        alert_level=all_predictions[0].get("alert_level", "LOW"),
-        class_probabilities=all_predictions[0].get("class_probabilities", {}),
-        model_version=all_predictions[0].get("model_version", "2.0.0-scientific-prototype"),
-        prediction_timestamp=all_predictions[0].get("prediction_timestamp", datetime.now(timezone.utc).isoformat()),
+        predicted_class=primary_pred_dict.get("predicted_class", "Unknown"),
+        predicted_class_id=int(primary_pred_dict.get("predicted_class_id", 0)),
+        confidence=primary_conf,
+        alert_level=primary_pred_dict.get("alert_level", "LOW"),
+        class_probabilities=primary_pred_dict.get("class_probabilities", {}),
+        model_version=primary_pred_dict.get("model_version", "3.0.0-ensemble" if not any_fallback else "rule-based-fallback-v1"),
+        prediction_timestamp=primary_pred_dict.get("prediction_timestamp", datetime.now(timezone.utc).isoformat()),
+        classification=primary_pred_dict.get("classification", primary_pred_dict.get("predicted_class", "Unknown")),
+        status=primary_pred_dict.get("status", "LOW_CONFIDENCE_REVIEW" if primary_conf < 0.60 else "CLASSIFIED"),
+        model_type=primary_pred_dict.get("model_type", "RF_LightGBM_XGBoost_SoftVoting" if not any_fallback else "Deterministic_Rule_Based"),
+        fusion_source=primary_pred_dict.get("fusion_source", "TABULAR_ONLY"),
     )
 
     logger.info("[SATRA API] AI service response processed successfully (fallback=%s)", any_fallback)
@@ -986,9 +1317,14 @@ async def upload_and_analyze(
             bright_t31=primary_obs.bright_t31,
         ),
         prediction=PredictionSummary(
+            classification=primary_prediction_details.classification if primary_prediction_details else primary_det.predicted_class,
             predicted_class=primary_det.predicted_class,
             confidence=primary_det.prediction_confidence,
+            status=primary_prediction_details.status if primary_prediction_details else "CLASSIFIED",
+            model_type=primary_prediction_details.model_type if primary_prediction_details else "RF_LightGBM_XGBoost_SoftVoting",
+            fusion_source=primary_prediction_details.fusion_source if primary_prediction_details else "TABULAR_ONLY",
             model_version=primary_det.model_version,
+            alert_level=primary_det.alert_level,
             class_probabilities=primary_prediction_details.class_probabilities if primary_prediction_details else {},
         ),
         risk=RiskInfo(
@@ -998,7 +1334,7 @@ async def upload_and_analyze(
         provenance=primary_det.data_provenance,
         detection=DetectionResponse.model_validate(primary_det),
         total_records=len(created_detections),
-        all_detections=[DetectionResponse.model_validate(d) for d in created_detections],
+        all_detections=[DetectionResponse.model_validate(d) for d in created_detections[:1000]],
         analysis_summary=dataset_analysis,
         analysis=standard_analysis,
         metadata=standard_metadata,

@@ -28,10 +28,19 @@ logger = logging.getLogger("thermal_detection_api")
 async def lifespan(app: FastAPI):
     """
     Application lifespan context manager:
-    Initializes database tables on startup.
+    Initializes database tables and preloads production ensemble model on startup.
     """
     logger.info("Application starting: initializing database tables...")
     init_db()
+
+    # Preload SATRA soft-voting ensemble model
+    try:
+        from backend.ml.model_loader import load_model
+        load_model()
+        logger.info("Production SATRA soft-voting ensemble preloaded successfully.")
+    except Exception as err:
+        logger.info("Ensemble model initialization note: %s", str(err))
+
     yield
     logger.info("Application shutting down.")
 

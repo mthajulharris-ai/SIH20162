@@ -24,10 +24,21 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger("backend.observation_normalizer")
 
-# Maximum allowed file size in bytes (250 MB for compressed archive / datasets)
-MAX_FILE_SIZE_BYTES = 250 * 1024 * 1024
-# Maximum total uncompressed size permitted for ZIP archives to prevent zip-bomb denial of service
-MAX_UNCOMPRESSED_ZIP_BYTES = 500 * 1024 * 1024
+import shutil
+
+# Resource-aware configurable file limits (defaults: 1 GB upload, 2 GB uncompressed ZIP archive)
+DEFAULT_MAX_FILE_SIZE_BYTES = 1024 * 1024 * 1024
+DEFAULT_MAX_UNCOMPRESSED_ZIP_BYTES = 2048 * 1024 * 1024
+
+try:
+    MAX_FILE_SIZE_BYTES = int(os.environ.get("SATRA_MAX_FILE_SIZE_BYTES", DEFAULT_MAX_FILE_SIZE_BYTES))
+except (ValueError, TypeError):
+    MAX_FILE_SIZE_BYTES = DEFAULT_MAX_FILE_SIZE_BYTES
+
+try:
+    MAX_UNCOMPRESSED_ZIP_BYTES = int(os.environ.get("SATRA_MAX_UNCOMPRESSED_ZIP_BYTES", DEFAULT_MAX_UNCOMPRESSED_ZIP_BYTES))
+except (ValueError, TypeError):
+    MAX_UNCOMPRESSED_ZIP_BYTES = DEFAULT_MAX_UNCOMPRESSED_ZIP_BYTES
 
 # Standard column mapping dictionary
 # Maps raw column names (lowercased, stripped, underscores normalized) to canonical keys
@@ -222,10 +233,38 @@ def clean_column_name(raw_name: Any) -> str:
 def parse_raw_records(content_bytes: bytes, filename: str) -> Tuple[List[Dict[str, Any]], str]:
     """
     Parses content bytes into list of raw row dictionaries and identifies format.
-    Handles UTF-8 and latin-1 encodings safely.
+    Handles CSV, JSON/GeoJSON, and ESRI Shapefiles safely.
     """
     if len(content_bytes) > MAX_FILE_SIZE_BYTES:
-        raise ValueError(f"File '{filename}' exceeds maximum allowed size of 50 MB.")
+        raise ValueError(f"File '{filename}' exceeds maximum allowed size of {MAX_FILE_SIZE_BYTES // (1024 * 1024)} MB.")
+
+    if not content_bytes or len(content_bytes.strip()) == 0:
+        raise ValueError(f"File '{filename}' is empty.")
+
+    # 1. Handle ESRI Shapefile (.shp) directly
+    if filename.lower().endswith(".shp") or content_bytes[:4] == b"\x00\x00\x27\x0a":
+        with tempfile.TemporaryDirectory() as td:
+            shp_path = os.path.join(td, filename if filename.lower().endswith(".shp") else "data.shp")
+            with open(shp_path, "wb") as f:
+                f.write(content_bytes)
+            try:
+                import shapefile
+                sf = shapefile.Reader(shp_path, encoding="utf-8", encodingErrors="replace")
+                raw_rows = []
+                for srec in sf.iterShapeRecords():
+                    rec_dict = srec.record.as_dict()
+                    has_lat = any(k.lower() in ("latitude", "lat", "y") for k in rec_dict.keys())
+                    has_lon = any(k.lower() in ("longitude", "lon", "long", "x") for k in rec_dict.keys())
+                    if not (has_lat and has_lon):
+                        pts = srec.shape.points
+                        if pts:
+                            rec_dict["longitude"] = pts[0][0]
+                            rec_dict["latitude"] = pts[0][1]
+                    raw_rows.append(rec_dict)
+                sf.close()
+                return raw_rows, "Shapefile"
+            except Exception as shp_err:
+                raise ValueError(f"Failed to read ESRI Shapefile '{filename}': {str(shp_err)}")
 
     try:
         content_str = content_bytes.decode("utf-8")
@@ -239,7 +278,7 @@ def parse_raw_records(content_bytes: bytes, filename: str) -> Tuple[List[Dict[st
     detected_format = "CSV"
     raw_rows: List[Dict[str, Any]] = []
 
-    # 1. Attempt JSON / GeoJSON parsing if content looks like JSON
+    # 2. Attempt JSON / GeoJSON parsing if content looks like JSON
     if content_trimmed.startswith(("{", "[")) or filename.lower().endswith((".json", ".geojson")):
         try:
             parsed = json.loads(content_trimmed)
@@ -419,7 +458,7 @@ def parse_zip_archive(
                         continue
 
                     # Supported data formats
-                    if p_name_lower.endswith((".json", ".geojson", ".csv", ".tsv", ".txt")):
+                    if p_name_lower.endswith((".shp", ".json", ".geojson", ".csv", ".tsv", ".txt")):
                         candidate_files.append(p)
 
                 if not candidate_files:
@@ -429,10 +468,28 @@ def parse_zip_archive(
                 compatible_candidates = []
                 for cand in candidate_files:
                     try:
-                        cand_bytes = cand.read_bytes()
-                        if not cand_bytes or len(cand_bytes.strip()) == 0:
-                            continue
-                        rows, file_type = parse_raw_records(cand_bytes, cand.name)
+                        if cand.name.lower().endswith(".shp"):
+                            import shapefile
+                            sf = shapefile.Reader(str(cand), encoding="utf-8", encodingErrors="replace")
+                            rows = []
+                            for srec in sf.iterShapeRecords():
+                                rec_dict = srec.record.as_dict()
+                                has_lat = any(k.lower() in ("latitude", "lat", "y") for k in rec_dict.keys())
+                                has_lon = any(k.lower() in ("longitude", "lon", "long", "x") for k in rec_dict.keys())
+                                if not (has_lat and has_lon):
+                                    pts = srec.shape.points
+                                    if pts:
+                                        rec_dict["longitude"] = pts[0][0]
+                                        rec_dict["latitude"] = pts[0][1]
+                                rows.append(rec_dict)
+                            sf.close()
+                            file_type = "Shapefile"
+                        else:
+                            cand_bytes = cand.read_bytes()
+                            if not cand_bytes or len(cand_bytes.strip()) == 0:
+                                continue
+                            rows, file_type = parse_raw_records(cand_bytes, cand.name)
+
                         is_compat, mapped_keys, flavor = check_record_compatibility(rows)
                         if is_compat:
                             rel_name = str(cand.relative_to(temp_path)).replace("\\", "/")
@@ -540,9 +597,9 @@ def normalize_and_validate_file(
             f"{UNSUPPORTED_FORMAT_ERROR} (Missing required fields: {missing_desc})"
         )
 
+    is_viirs = "bright_ti4" in [clean_column_name(k) for k in all_raw_keys]
+    is_modis = "bright_t31" in [clean_column_name(k) for k in all_raw_keys] and not is_viirs
     if detected_flavor is None:
-        is_viirs = "bright_ti4" in [clean_column_name(k) for k in all_raw_keys]
-        is_modis = "bright_t31" in [clean_column_name(k) for k in all_raw_keys] and not is_viirs
         if is_viirs:
             detected_flavor = f"{file_type} (NASA FIRMS VIIRS)"
         elif is_modis:

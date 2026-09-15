@@ -86,8 +86,8 @@ def test_upload_and_analyze_zip_executes_ai_inference():
     data = response.json()
     assert data["success"] is True
     assert data["total_records"] == 1
-    assert data["prediction"]["model_version"] == "2.0.0-scientific-prototype"
-    assert data["prediction"]["predicted_class"] in ["Industrial Fire", "Persistent Thermal Source", "Other"]
+    assert data["prediction"]["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble"]
+    assert data["prediction"]["predicted_class"] in ["Industrial Fire", "Forest Fire", "Persistent Thermal Source", "Other"]
     assert data["prediction"]["confidence"] > 0.0
     assert data["exact_location"]["latitude"] == pytest.approx(22.4707, rel=1e-3)
     assert data["exact_location"]["longitude"] == pytest.approx(70.0577, rel=1e-3)

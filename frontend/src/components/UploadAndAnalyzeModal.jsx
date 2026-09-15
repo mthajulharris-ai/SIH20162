@@ -190,8 +190,43 @@ export function UploadAndAnalyzeModal({
     const newSelectedFiles = [];
     const newPreviews = [];
     let hadZipFile = false;
+    let hadShapefile = false;
 
-    for (const file of filesArray) {
+    // Check if user uploaded Shapefile components (.shp, .shx, .dbf, .prj)
+    const shpFiles = filesArray.filter((f) => f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
+    const nonShpFiles = filesArray.filter((f) => !f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
+
+    if (shpFiles.length > 0) {
+      hadShapefile = true;
+      setValidationNotice('ESRI Shapefile dataset detected — validating components and attributes...');
+      try {
+        const valRes = await validateSatelliteDataset(shpFiles);
+        shpFiles.forEach((f) => newSelectedFiles.push(f));
+        const totalSize = shpFiles.reduce((sum, f) => sum + f.size, 0);
+        const primaryShp = shpFiles.find((f) => f.name.toLowerCase().endsWith('.shp')) || shpFiles[0];
+        newPreviews.push({
+          name: primaryShp.name,
+          identifiedFile: valRes.identified_file,
+          sizeKb: Math.round(totalSize / 1024) || 1,
+          recordCount: valRes.record_count,
+          format: valRes.format_detected || 'ESRI Shapefile',
+          previewLat: valRes.sample_preview?.latitude,
+          previewLon: valRes.sample_preview?.longitude,
+          previewBright: valRes.sample_preview?.brightness,
+          previewFrp: valRes.sample_preview?.frp,
+          isShapefile: true,
+        });
+      } catch (shpErr) {
+        setUiState('ERROR');
+        setValidationNotice(null);
+        setErrorMsg(shpErr.message || 'Failed to validate uploaded ESRI Shapefile components.');
+        setSelectedFiles([]);
+        setFilePreviews([]);
+        return;
+      }
+    }
+
+    for (const file of nonShpFiles) {
       const isZip = file.name.toLowerCase().endsWith('.zip');
       if (isZip) {
         hadZipFile = true;
@@ -216,6 +251,35 @@ export function UploadAndAnalyzeModal({
           setUiState('ERROR');
           setValidationNotice(null);
           setErrorMsg(zipErr.message || 'No compatible NASA FIRMS / VIIRS / MODIS observation file found inside ZIP.');
+          setSelectedFiles([]);
+          setFilePreviews([]);
+          return;
+        }
+      }
+
+      // If file is large (> 2MB), validate directly on backend instead of reading full text into browser RAM
+      if (file.size > 2 * 1024 * 1024) {
+        setValidationNotice(`Validating large dataset '${file.name}' with server...`);
+        try {
+          const valRes = await validateSatelliteDataset(file);
+          newSelectedFiles.push(file);
+          newPreviews.push({
+            name: file.name,
+            identifiedFile: valRes.identified_file,
+            sizeKb: Math.round(file.size / 1024) || 1,
+            recordCount: valRes.record_count,
+            format: valRes.format_detected,
+            previewLat: valRes.sample_preview?.latitude,
+            previewLon: valRes.sample_preview?.longitude,
+            previewBright: valRes.sample_preview?.brightness,
+            previewFrp: valRes.sample_preview?.frp,
+            isLarge: true,
+          });
+          continue;
+        } catch (valErr) {
+          setUiState('ERROR');
+          setValidationNotice(null);
+          setErrorMsg(valErr.message || `Failed to validate '${file.name}'.`);
           setSelectedFiles([]);
           setFilePreviews([]);
           return;
@@ -375,7 +439,7 @@ export function UploadAndAnalyzeModal({
     setFilePreviews(newPreviews);
     setUiState('READY');
     setErrorMsg(null);
-    if (hadZipFile) {
+    if (hadZipFile || hadShapefile) {
       setValidationNotice('Satellite observation data found — ready for AI analysis.');
     }
   };
@@ -530,10 +594,11 @@ export function UploadAndAnalyzeModal({
         let isDone = false;
         let finalResult = null;
         let pollCount = 0;
-        const maxPolls = 600; // 150 seconds safety timeout
+        const maxPolls = 3600; // 30 minutes safety timeout for 1M+ observation datasets
+        const pollIntervalMs = 500;
 
         while (!isDone && pollCount < maxPolls) {
-          await new Promise((resolve) => setTimeout(resolve, 250));
+          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
           pollCount++;
 
           const jobStatus = await getSatelliteAnalysisJobStatus(jobId);
@@ -814,7 +879,7 @@ export function UploadAndAnalyzeModal({
                   ref={fileInputRef}
                   style={{ display: 'none' }}
                   multiple
-                  accept=".csv,.txt,.json,.geojson,.zip"
+                  accept=".csv,.txt,.json,.geojson,.zip,.shp,.shx,.dbf,.prj"
                   onChange={handleFileChange}
                   onCancel={() => {
                     if (selectedFiles.length === 0) {
@@ -844,7 +909,7 @@ export function UploadAndAnalyzeModal({
                   Upload Satellite Observation Data
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
-                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, or ZIP dataset.
+                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, Shapefile, or ZIP dataset.
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                   Filename does not matter &mdash; SATRA AI automatically scans archives, validates headers, and extracts observation data.
@@ -855,7 +920,7 @@ export function UploadAndAnalyzeModal({
                   <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                     Supported formats:
                   </span>
-                  {['CSV', 'JSON', 'ZIP DATASETS', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
+                  {['CSV', 'JSON', 'ZIP DATASETS', 'ESRI SHAPEFILE (.SHP)', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
                     <span
                       key={fmt}
                       style={{
@@ -1582,10 +1647,15 @@ export function UploadAndAnalyzeModal({
                         <span>AI CLASSIFICATION</span>
                       </div>
                       <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF' }}>
-                        {analysisResult.prediction.predicted_class}
+                        {analysisResult.prediction.classification || analysisResult.prediction.predicted_class}
                       </div>
                       <div style={{ fontSize: '11px', color: 'var(--ice-blue)', marginTop: '2px' }}>
                         Confidence: <strong>{(analysisResult.prediction.confidence * 100).toFixed(1)}%</strong>
+                      </div>
+                      <div style={{ fontSize: '11px', marginTop: '4px' }}>
+                        Status: <strong style={{ color: (analysisResult.prediction.status === 'LOW_CONFIDENCE_REVIEW' || analysisResult.prediction.confidence < 0.6) ? '#F59E0B' : '#10B981' }}>
+                          {(analysisResult.prediction.status === 'LOW_CONFIDENCE_REVIEW' || analysisResult.prediction.confidence < 0.6) ? 'LOW CONFIDENCE REVIEW' : 'CLASSIFIED'}
+                        </strong>
                       </div>
                     </div>
 
