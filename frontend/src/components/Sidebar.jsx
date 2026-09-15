@@ -12,7 +12,13 @@ import {
   Radio,
 } from 'lucide-react';
 
-export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true }) {
+export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true, connectionStatus }) {
+  const status = connectionStatus || (isBackendHealthy ? 'online' : isBackendHealthy === false ? 'offline' : 'checking');
+  const isOnline = status === 'online';
+  const isChecking = status === 'checking';
+  const statusColor = isOnline ? 'var(--success)' : isChecking ? '#F59E0B' : 'var(--critical-red)';
+  const statusText = isOnline ? 'CONNECTED' : isChecking ? 'CHECKING...' : 'DISCONNECTED';
+
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
     { id: 'earth-intel', num: '02', label: 'Earth Intelligence', icon: Globe },
@@ -93,14 +99,14 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
         <div className="telemetry-card">
           <div className="telemetry-row">
             <span className="telemetry-label">
-              <Radio size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle', color: isBackendHealthy ? 'var(--success)' : 'var(--critical-red)' }} />
+              <Radio size={12} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle', color: statusColor }} />
               FastAPI Core
             </span>
             <span
               className="telemetry-val"
-              style={{ color: isBackendHealthy ? 'var(--success)' : 'var(--critical-red)' }}
+              style={{ color: statusColor }}
             >
-              {isBackendHealthy ? 'ONLINE' : 'DISCONNECTED'}
+              {statusText}
             </span>
           </div>
 

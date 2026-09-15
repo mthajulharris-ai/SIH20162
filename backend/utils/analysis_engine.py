@@ -13,7 +13,7 @@ Computes multi-dimensional analytics:
 
 from collections import Counter
 from statistics import mean, median
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from backend.schemas.observation import (
     BrightnessAnalysisSummary,

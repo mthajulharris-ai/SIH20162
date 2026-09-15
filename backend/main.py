@@ -132,7 +132,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # Routers Mounting
 # =====================================================================
 
-# Direct /api/health route convenience endpoint
+# Direct /health and /api/health route convenience endpoints
+app.include_router(health_router, tags=["Health"])
 app.include_router(health_router, prefix="/api", tags=["Health"])
 
 # Versioned API Router (/api/v1/...)
@@ -148,6 +149,6 @@ def root_info():
         "message": "SIH 2026 Thermal Detection & Classification Platform API",
         "version": settings.VERSION,
         "docs": "/docs",
-        "health": "/api/health",
+        "health": "/health",
         "status": "running",
     }

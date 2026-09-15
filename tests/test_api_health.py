@@ -16,12 +16,21 @@ def test_root_endpoint():
     assert "/docs" in data["docs"]
 
 
+def test_root_health_endpoint():
+    """Test canonical GET /health endpoint returns online and service name."""
+    response = client.get("/health")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "online"
+    assert data["service"] == "SATRA FastAPI"
+
+
 def test_api_health_endpoint():
     """Test direct /api/health endpoint returns healthy status."""
     response = client.get("/api/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    assert data["status"] in ("healthy", "online")
     assert "app" in data
     assert "version" in data
     assert "timestamp" in data
@@ -32,7 +41,7 @@ def test_api_v1_health_endpoint():
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "healthy"
+    assert data["status"] in ("healthy", "online")
 
 
 def test_docs_available():

@@ -4,9 +4,12 @@
  * PS 26162: AI-Based Detection & Classification of Industrial Fires & Persistent Thermal Sources.
  */
 
-const API_BASE = '/api';
-const API_V1 = '/api/v1';
-const DIRECT_BACKEND_URL = 'http://127.0.0.1:8000';
+// Prefer VITE_API_URL when set (e.g. http://localhost:8000); otherwise use Vite proxy paths.
+const ENV_API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+const DIRECT_BACKEND_URL = ENV_API_URL || 'http://127.0.0.1:8000';
+const API_BASE = ENV_API_URL ? `${ENV_API_URL}/api` : '/api';
+const API_V1 = ENV_API_URL ? `${ENV_API_URL}/api/v1` : '/api/v1';
+
 
 /**
  * Resilient fetch wrapper with automatic direct-backend fallback
@@ -59,10 +62,60 @@ async function request(url, options = {}) {
   }
 }
 
-// 1. Health & Status
-export async function getHealth() {
-  return request(`${API_BASE}/health`);
+/**
+ * Probe a single health URL with a 4s timeout. Returns parsed JSON on success; throws on failure.
+ */
+async function probeHealthUrl(url, timeoutMs = 4000) {
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const res = await fetchWithFallback(url, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      signal: controller ? controller.signal : undefined,
+    });
+    if (!res.ok) {
+      throw new Error(`Health check failed with HTTP ${res.status}`);
+    }
+    return await res.json();
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
+
+// 1. Health & Status — shared real-time backend probe (GET /health)
+// Tries canonical GET /health first, then legacy /api/health.
+export async function getHealth() {
+  const candidates = ENV_API_URL
+    ? [`${ENV_API_URL}/health`, `${ENV_API_URL}/api/health`]
+    : [
+        'http://localhost:8000/health',
+        '/health',
+        `${DIRECT_BACKEND_URL}/health`,
+        '/api/health',
+        'http://localhost:8000/api/health',
+        `${DIRECT_BACKEND_URL}/api/health`,
+      ];
+
+  let lastError;
+  const tried = new Set();
+  for (const url of candidates) {
+    if (tried.has(url)) continue;
+    tried.add(url);
+    try {
+      const data = await probeHealthUrl(url);
+      const status = String(data?.status || '').toLowerCase();
+      if (status === 'online' || status === 'healthy' || status === 'ok' || status === 'running') {
+        return data;
+      }
+      return data;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('AI service unavailable. Please check that the SATRA backend server is running.');
+}
+
 
 export async function getModelStatus() {
   return request(`${API_V1}/inference/model-status`);

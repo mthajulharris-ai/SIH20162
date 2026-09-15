@@ -162,89 +162,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     handleProcessFile([file]);
   };
 
-  // Helper to compute real temporal evidence for a location
-  const getTemporalEvidence = (lat, lon) => {
-    if (!lat || !lon || !detections || detections.length === 0) {
-      return { hasHistory: false, message: 'Insufficient historical observations for persistence analysis.' };
-    }
-    const targetLat = parseFloat(lat);
-    const targetLon = parseFloat(lon);
-    if (isNaN(targetLat) || isNaN(targetLon)) {
-      return { hasHistory: false, message: 'Insufficient historical observations for persistence analysis.' };
-    }
-
-    // Spatial clustering threshold ~0.05 deg (~5 km)
-    const nearby = detections.filter((d) => {
-      const dLat = parseFloat(d.latitude);
-      const dLon = parseFloat(d.longitude);
-      if (isNaN(dLat) || isNaN(dLon)) return false;
-      const dist = Math.hypot(dLat - targetLat, dLon - targetLon);
-      return dist <= 0.05;
-    });
-
-    if (nearby.length <= 1) {
-      return {
-        hasHistory: false,
-        count: nearby.length,
-        message: 'Insufficient historical observations for persistence analysis.',
-      };
-    }
-
-    const dates = nearby
-      .map((d) => d.acq_date || d.created_at || d.timestamp)
-      .filter(Boolean)
-      .sort();
-
-    const firstDate = dates[0] || 'Unknown';
-    const latestDate = dates[dates.length - 1] || 'Recent';
-
-    return {
-      hasHistory: true,
-      count: nearby.length,
-      firstDate: typeof firstDate === 'string' && firstDate.length > 10 ? firstDate.slice(0, 10) : firstDate,
-      latestDate: typeof latestDate === 'string' && latestDate.length > 10 ? latestDate.slice(0, 10) : latestDate,
-      status: 'Repeated thermal observations detected at/near this location',
-    };
-  };
-
-  // Helper to get real GIS context description
-  const getGisContext = (det) => {
-    if (!det) return 'Evidence unavailable — requires verification.';
-    const pClass = (det.predicted_class || '').toLowerCase();
-    const locName = (det.location_name || '').toLowerCase();
-    if (
-      pClass.includes('industrial') ||
-      locName.includes('industrial') ||
-      locName.includes('refinery') ||
-      locName.includes('complex') ||
-      locName.includes('steel')
-    ) {
-      return 'Industrial / built-up area detected near the location.';
-    }
-    if (pClass.includes('forest') || pClass.includes('wildfire') || pClass.includes('vegetation')) {
-      return 'Forest / dense vegetation canopy detected near the location.';
-    }
-    if (det.land_cover_class) {
-      return `${det.land_cover_class} detected near the location.`;
-    }
-    return 'Evidence unavailable — requires verification.';
-  };
-
-  // Helper for verification badge styling
-  const getVerificationBadge = (status) => {
-    switch ((status || '').toUpperCase()) {
-      case 'VERIFIED':
-        return { label: '🟢 VERIFIED', color: '#10B981', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(16, 185, 129, 0.35)' };
-      case 'UNDER_REVIEW':
-        return { label: '🔵 UNDER REVIEW', color: '#38BDF8', bg: 'rgba(56, 189, 248, 0.14)', border: 'rgba(56, 189, 248, 0.35)' };
-      case 'DISMISSED':
-        return { label: '⚪ DISMISSED', color: '#94A3B8', bg: 'rgba(148, 163, 184, 0.14)', border: 'rgba(148, 163, 184, 0.35)' };
-      case 'REQUIRES_VERIFICATION':
-      default:
-        return { label: '🟡 REQUIRES VERIFICATION', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.14)', border: 'rgba(245, 158, 11, 0.35)' };
-    }
-  };
-
   // Helper for alert colors
   const getAlertStyle = (level) => {
     switch (level?.toUpperCase()) {
@@ -259,118 +176,11 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     }
   };
 
-  // Active target for detection result card
-  const activeInspection = analysisResult?.detection || selectedDetection;
-  const activeLat = activeInspection?.latitude || analysisResult?.exact_location?.latitude;
-  const activeLon = activeInspection?.longitude || analysisResult?.exact_location?.longitude;
-  const tempEvidence = getTemporalEvidence(activeLat, activeLon);
-  const gisContext = getGisContext(activeInspection);
-  const verBadge = getVerificationBadge(activeInspection?.verification_status || 'REQUIRES_VERIFICATION');
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* 
         ============================================================
-        SECTION 1: SATRA INVESTIGATION — CORE 5-STEP WORKFLOW
-        ============================================================
-      */}
-      <div
-        style={{
-          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(56, 189, 248, 0.28)',
-          borderRadius: '12px',
-          padding: '16px 20px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Compass size={18} style={{ color: '#38BDF8' }} />
-              <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
-                SATRA INVESTIGATION
-              </span>
-              <span style={{ fontSize: '10.5px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-                From Satellite Detection to Verified Thermal Risk
-              </span>
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--ice-blue)', fontWeight: 600, marginTop: '4px' }}>
-              "From satellite detection to verified thermal risk"
-            </div>
-            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '880px', lineHeight: 1.5 }}>
-              SATRA analyzes satellite thermal observations, identifies the exact location, predicts the likely thermal source using AI, supports the prediction with geographic and temporal evidence, and provides a risk assessment for human verification.
-            </div>
-          </div>
-        </div>
-
-        {/* 5-Step Visual Workflow */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-            gap: '10px',
-            background: 'rgba(3, 7, 18, 0.55)',
-            padding: '10px 14px',
-            borderRadius: '8px',
-            border: '1px solid rgba(56, 189, 248, 0.15)',
-          }}
-        >
-          {[
-            { step: '1. UPLOAD', label: 'Upload satellite observation', icon: UploadCloud, color: '#38BDF8' },
-            { step: '2. LOCATE', label: 'Identify exact coordinates', icon: MapPin, color: '#0EA5E9' },
-            { step: '3. ANALYZE', label: 'AI predicts thermal source', icon: Cpu, color: '#A855F7' },
-            { step: '4. VERIFY', label: 'GIS + temporal evidence', icon: Layers, color: '#F59E0B' },
-            { step: '5. DECIDE', label: 'Risk + human verification', icon: ShieldCheck, color: '#10B981' },
-          ].map((item, idx) => {
-            const ItemIcon = item.icon;
-            return (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '6px 8px',
-                  borderRadius: '6px',
-                  background: 'rgba(255, 255, 255, 0.02)',
-                  borderLeft: `3px solid ${item.color}`,
-                }}
-              >
-                <div
-                  style={{
-                    width: 26,
-                    height: 26,
-                    borderRadius: '6px',
-                    background: `${item.color}1A`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                  }}
-                >
-                  <ItemIcon size={14} style={{ color: item.color }} />
-                </div>
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '11px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
-                    {item.step}
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {item.label}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 
-        ============================================================
-        SECTION 2: FOUR LARGE KPI CARDS — TOP ROW (REFERENCE MATCH)
+        SECTION: FOUR LARGE KPI CARDS — TOP ROW
         ============================================================
       */}
       <div
@@ -778,7 +588,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               </div>
             </div>
             {/* SATRA Automated Steps Explanation */}
-            {!isAnalyzing && !activeInspection && (
+            {!isAnalyzing && (
               <div
                 style={{
                   marginTop: '12px',
@@ -850,22 +660,30 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                           border: isCurrent ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid transparent',
                         }}
                       >
-                        {isDone ? (
-                          <CheckCircle2 size={13} style={{ color: '#10B981', flexShrink: 0 }} />
-                        ) : isCurrent ? (
-                          <Loader2 size={13} className="spin" style={{ color: '#38BDF8', flexShrink: 0 }} />
-                        ) : (
-                          <div style={{ width: 13, height: 13, borderRadius: '50%', border: '1.5px solid rgba(148, 163, 184, 0.3)', flexShrink: 0 }} />
-                        )}
-                        <div style={{ flex: 1 }}>
-                          <span style={{ fontSize: '11px', fontWeight: isCurrent ? 700 : 500, color: isCurrent ? '#FFFFFF' : isDone ? '#10B981' : 'var(--text-muted)' }}>
+                        <div
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: '50%',
+                            background: isDone ? '#10B981' : isCurrent ? '#38BDF8' : 'rgba(255,255,255,0.06)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '9.5px',
+                            fontWeight: 800,
+                            color: '#FFFFFF',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isDone ? '✓' : s.step + 1}
+                        </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: '11px', fontWeight: 700, color: isCurrent ? '#38BDF8' : '#FFFFFF' }}>
                             {s.label}
-                          </span>
-                          {isCurrent && (
-                            <div style={{ fontSize: '9.5px', color: 'var(--ice-blue)', marginTop: '1px' }}>
-                              {s.desc}
-                            </div>
-                          )}
+                          </div>
+                          <div style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
+                            {s.desc}
+                          </div>
                         </div>
                       </div>
                     );
@@ -907,7 +725,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                       alignItems: 'center',
                       gap: '4px',
                       background: '#0284C7',
-                      flexShrink: 0,
                     }}
                   >
                     <RotateCcw size={10} />
@@ -917,14 +734,35 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               </div>
             )}
 
-            {/* Primary Action Button */}
-            {!activeInspection && !isAnalyzing && (
+            {/* Action Buttons: Clear/New File */}
+            {selectedFile && !isAnalyzing && (
+              <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setLastFiles(null);
+                    setAnalysisError(null);
+                    setAnalysisResult(null);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  className="btn-secondary"
+                  style={{
+                    flex: 1,
+                    fontSize: '11px',
+                    padding: '6px 10px',
+                    justifyContent: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  <RotateCcw size={12} />
+                  <span>Clear &amp; Upload New</span>
+                </button>
+              </div>
+            )}
+
+            {onOpenUploadModal && (
               <button
-                onClick={() => {
-                  if (onOpenUploadModal) onOpenUploadModal();
-                  else fileInputRef.current?.click();
-                }}
-                disabled={isAnalyzing}
+                onClick={onOpenUploadModal}
                 className="btn-primary"
                 style={{
                   width: '100%',
@@ -943,207 +781,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               </button>
             )}
           </div>
-
-          {/* ======================================================== */}
-          {/* POST-ANALYSIS / SELECTION: PROMINENT DETECTION RESULT     */}
-          {/* ======================================================== */}
-          {activeInspection && (
-            <div
-              className="card-panel"
-              style={{
-                marginBottom: 0,
-                background: 'rgba(11, 23, 38, 0.92)',
-                backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                borderLeft: '4px solid #38BDF8',
-                borderRadius: '12px',
-                padding: '16px 18px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
-              }}
-            >
-              {/* Result Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <Flame size={16} style={{ color: '#EF4444' }} />
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em' }}>
-                    DETECTION RESULT
-                  </span>
-                  <span style={{ fontSize: '10px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '1px 6px', borderRadius: '4px', fontWeight: 700 }}>
-                    THERMAL EVENT DETECTED
-                  </span>
-                </div>
-                {analysisResult && (
-                  <button
-                    onClick={() => setAnalysisResult(null)}
-                    style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: 0 }}
-                    title="Dismiss result"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {/* Exact Location & AI Decision Matrix */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                  gap: '10px',
-                  background: 'rgba(3, 7, 18, 0.55)',
-                  padding: '12px',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(56, 189, 248, 0.15)',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Exact Location</div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                    {parseFloat(activeLat).toFixed(4)}° N, {parseFloat(activeLon).toFixed(4)}° E
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI Prediction</div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 800, color: '#EF4444', marginTop: '2px' }}>
-                    {activeInspection.predicted_class || activeInspection.classification || 'Unclassified'}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>AI Confidence</div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '2px' }}>
-                    {(activeInspection.prediction_confidence != null || activeInspection.confidence != null)
-                      ? `${(parseFloat(activeInspection.prediction_confidence ?? activeInspection.confidence) * 100).toFixed(1)}%`
-                      : 'N/A'}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Status</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, marginTop: '2px', color: (activeInspection.status === 'LOW_CONFIDENCE_REVIEW' || (activeInspection.prediction_confidence ?? activeInspection.confidence) < 0.6) ? '#F59E0B' : '#10B981' }}>
-                    {(activeInspection.status === 'LOW_CONFIDENCE_REVIEW' || (activeInspection.prediction_confidence ?? activeInspection.confidence) < 0.6) ? 'LOW CONFIDENCE REVIEW' : 'CLASSIFIED'}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>FRP &bull; Risk</div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#F97316', marginTop: '2px' }}>
-                    {activeInspection.frp != null
-                      ? `${parseFloat(activeInspection.frp).toFixed(1)} MW`
-                      : 'N/A'}{' '}
-                    &bull; {(activeInspection.alert_level || 'MONITORED').toUpperCase()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Verification Status Banner */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', background: 'rgba(15, 32, 50, 0.4)', padding: '6px 10px', borderRadius: '6px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Verification Status:</span>
-                  <span
-                    style={{
-                      fontSize: '10.5px',
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      background: verBadge.bg,
-                      color: verBadge.color,
-                      border: `1px solid ${verBadge.border}`,
-                    }}
-                  >
-                    {verBadge.label}
-                  </span>
-                </div>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  AI prediction is a decision-support result &bull; requires human verification
-                </span>
-              </div>
-
-              {/* WHY THIS CLASSIFICATION? */}
-              <div
-                style={{
-                  background: 'rgba(15, 32, 50, 0.65)',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  border: '1px solid rgba(56, 189, 248, 0.18)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                }}
-              >
-                <div style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.05em' }}>
-                  WHY THIS CLASSIFICATION?
-                </div>
-
-                {/* AI Evidence */}
-                <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
-                  <strong style={{ color: '#FFFFFF', minWidth: '105px' }}>AI Evidence:</strong>
-                  <span style={{ color: 'var(--text-secondary)' }}>
-                    Thermal characteristics match the predicted {activeInspection.predicted_class || 'thermal hotspot'} class ({activeInspection.frp !== null && activeInspection.frp !== undefined ? `${parseFloat(activeInspection.frp).toFixed(1)} MW FRP` : 'FRP N/A'}, {activeInspection.brightness ? `${parseFloat(activeInspection.brightness).toFixed(1)} K` : 'Brightness N/A'}).
-                  </span>
-                </div>
-
-                {/* GIS Context */}
-                <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
-                  <strong style={{ color: '#FFFFFF', minWidth: '105px' }}>GIS Context:</strong>
-                  <span style={{ color: gisContext.includes('unavailable') ? '#F59E0B' : 'var(--text-secondary)' }}>
-                    {gisContext}
-                  </span>
-                </div>
-
-                {/* Temporal Evidence */}
-                <div style={{ fontSize: '11px', display: 'flex', gap: '8px' }}>
-                  <strong style={{ color: '#FFFFFF', minWidth: '105px' }}>Temporal Evidence:</strong>
-                  <span style={{ color: tempEvidence.hasHistory ? '#38BDF8' : 'var(--text-muted)' }}>
-                    {tempEvidence.hasHistory
-                      ? `${tempEvidence.status} (${tempEvidence.count} observations between ${tempEvidence.firstDate} and ${tempEvidence.latestDate}).`
-                      : tempEvidence.message}
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons: Investigate Location & Focus Earth */}
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => handleInvestigateLocation(activeInspection)}
-                  className="btn-primary"
-                  style={{
-                    flex: 1,
-                    padding: '8px 12px',
-                    fontSize: '11.5px',
-                    fontWeight: 700,
-                    justifyContent: 'center',
-                    gap: '6px',
-                    background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.75) 0%, rgba(14, 165, 233, 0.95) 100%)',
-                    boxShadow: '0 0 16px rgba(56, 189, 248, 0.3)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <MapPin size={13} />
-                  <span>Investigate this location in GIS &rarr;</span>
-                </button>
-
-                <button
-                  onClick={() => handleSelectHotspot(activeInspection)}
-                  className="btn-secondary"
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '11px',
-                    gap: '5px',
-                    justifyContent: 'center',
-                    background: 'rgba(15, 32, 50, 0.8)',
-                  }}
-                  title="Focus 3D Earth on this event"
-                >
-                  <Target size={13} />
-                  <span>Focus Globe</span>
-                </button>
-              </div>
-            </div>
-          )}
 
           {/* PANEL 2: RECENT DETECTIONS */}
           <div
@@ -1298,144 +935,56 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
       {/* 
         ============================================================
-        SECTION 13: BOTTOM STATUS ROW — THREE EQUAL CARDS (REFERENCE MATCH)
+        BOTTOM STATUS: SATELLITE DATA STATUS
         ============================================================
       */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-          gap: '16px',
+          background: 'rgba(11, 23, 38, 0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(56, 189, 248, 0.2)',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
         }}
       >
-        {/* CARD 1: SATELLITE DATA STATUS */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Satellite size={16} style={{ color: '#38BDF8' }} />
-              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                Satellite Data Status
-              </span>
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 700 }}>
-              &bull; Live NRT
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Satellite size={16} style={{ color: '#38BDF8' }} />
+            <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Satellite Data Status
             </span>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11.5px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>NASA FIRMS:</span>
-              <strong style={{ color: '#10B981' }}>Connected</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
-              <strong style={{ color: '#FFFFFF' }}>VIIRS (375m) &bull; MODIS (1km)</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Last Sync:</span>
-              <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
-                {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC
-              </strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-              <strong style={{ color: '#10B981' }}>Receiving Data</strong>
-            </div>
-          </div>
+          <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 700 }}>
+            &bull; Live NRT
+          </span>
         </div>
 
-        {/* CARD 2: AI MODEL STATUS */}
         <div
           style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: '12px',
+            fontSize: '11.5px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Cpu size={16} style={{ color: '#A855F7' }} />
-              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                AI Model Status
-              </span>
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#A855F7', fontWeight: 700 }}>
-              &bull; Active
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>NASA FIRMS:</span>
+            <strong style={{ color: '#10B981' }}>Connected</strong>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11.5px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Model:</span>
-              <strong style={{ color: '#FFFFFF' }}>Fire Classification</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Version:</span>
-              <strong style={{ color: '#A855F7', fontFamily: 'monospace' }}>v2.0.0-scientific</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Holdout Score:</span>
-              <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>Multiclass F1: 0.80</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-              <strong style={{ color: '#10B981' }}>Operational</strong>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
+            <strong style={{ color: '#FFFFFF' }}>VIIRS (375m) &bull; MODIS (1km)</strong>
           </div>
-        </div>
-
-        {/* CARD 3: SYSTEM HEALTH */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.2)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Activity size={16} style={{ color: '#10B981' }} />
-              <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                System Health
-              </span>
-            </div>
-            <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 700 }}>
-              &bull; Operational
-            </span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Last Sync:</span>
+            <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
+              {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC
+            </strong>
           </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '11.5px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-              <strong style={{ color: '#10B981' }}>All Systems Operational</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>API Gateway:</span>
-              <strong style={{ color: '#FFFFFF' }}>Online (FastAPI)</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Database:</span>
-              <strong style={{ color: '#FFFFFF' }}>SQLite Synchronized</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Availability:</span>
-              <strong style={{ color: '#10B981', fontFamily: 'monospace' }}>Ready</strong>
-            </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+            <strong style={{ color: '#10B981' }}>Receiving Data</strong>
           </div>
         </div>
       </div>

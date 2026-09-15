@@ -10,10 +10,11 @@ router = APIRouter()
 
 
 class HealthResponse(BaseModel):
-    status: str
-    app: str
-    version: str
-    timestamp: str
+    status: str = "online"
+    service: str = "SATRA FastAPI"
+    app: str = settings.PROJECT_NAME
+    version: str = settings.VERSION
+    timestamp: str = ""
 
 
 @router.get(
@@ -24,7 +25,8 @@ class HealthResponse(BaseModel):
 )
 def get_health() -> HealthResponse:
     return HealthResponse(
-        status="healthy",
+        status="online",
+        service="SATRA FastAPI",
         app=settings.PROJECT_NAME,
         version=settings.VERSION,
         timestamp=datetime.now(timezone.utc).isoformat(),

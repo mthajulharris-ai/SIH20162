@@ -58,10 +58,15 @@ export function App() {
     window.location.hash = tabId;
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
-  const [isBackendHealthy, setIsBackendHealthy] = useState(false);
+  // ONE shared real-time backend connection state used by Header + Sidebar.
+  // 'checking' | 'online' | 'offline'
+  const [connectionStatus, setConnectionStatus] = useState('checking');
+  const isBackendHealthy = connectionStatus === 'online';
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const isFetchingRef = useRef(false);
+  const isHealthCheckingRef = useRef(false);
+
 
   // Core Data States
   const [analytics, setAnalytics] = useState(null);
@@ -75,19 +80,39 @@ export function App() {
     handleTabChange('earth-intel');
   };
 
-  // Fetch all backend data
+  // Lightweight real-time health probe — drives ONE shared connectionStatus
+  const checkBackendHealth = useCallback(async ({ showChecking = false } = {}) => {
+    if (isHealthCheckingRef.current) return;
+    isHealthCheckingRef.current = true;
+    if (showChecking) {
+      setConnectionStatus((prev) => (prev === 'online' || prev === 'offline' ? prev : 'checking'));
+      // On first load always show checking
+      setConnectionStatus((prev) => (prev === 'checking' ? 'checking' : prev));
+    }
+    try {
+      if (showChecking) setConnectionStatus('checking');
+      await getHealth();
+      setConnectionStatus('online');
+    } catch {
+      setConnectionStatus('offline');
+    } finally {
+      isHealthCheckingRef.current = false;
+    }
+  }, []);
+
+  // Fetch all backend data (does not own connection status alone — health poll does)
   const loadDashboardData = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
       setLoading(true);
 
-      // 1. Health check
+      // 1. Health check (updates shared connectionStatus)
       try {
         await getHealth();
-        setIsBackendHealthy(true);
+        setConnectionStatus('online');
       } catch {
-        setIsBackendHealthy(false);
+        setConnectionStatus('offline');
       }
 
       // 2. Fetch Analytics
@@ -128,11 +153,19 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Initial full data load
     loadDashboardData();
-    // Heartbeat poll every 30 seconds
-    const interval = setInterval(loadDashboardData, 30000);
-    return () => clearInterval(interval);
-  }, [loadDashboardData]);
+    // Dedicated health heartbeat every 15s so Header + Sidebar stay in sync
+    const healthInterval = setInterval(() => {
+      checkBackendHealth({ showChecking: false });
+    }, 15000);
+    // Full dashboard refresh every 30s
+    const dataInterval = setInterval(loadDashboardData, 30000);
+    return () => {
+      clearInterval(healthInterval);
+      clearInterval(dataInterval);
+    };
+  }, [loadDashboardData, checkBackendHealth]);
 
 
 
@@ -183,6 +216,7 @@ export function App() {
         setCurrentTab={handleTabChange}
         alertCount={unverifiedAlertsCount}
         isBackendHealthy={isBackendHealthy}
+        connectionStatus={connectionStatus}
       />
 
       {/* Main Content Area */}
@@ -190,6 +224,7 @@ export function App() {
         <Header
           pageTitle={getPageTitle()}
           isBackendHealthy={isBackendHealthy}
+          connectionStatus={connectionStatus}
           onRefresh={loadDashboardData}
           detections={detections}
           alerts={alerts}
