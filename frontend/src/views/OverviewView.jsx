@@ -394,98 +394,163 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       {/* 
         ============================================================
         SECTION 3: MAIN TWO-COLUMN CONTENT
-        LEFT: GLOBAL VIEW (LARGE EARTH)
+        LEFT: GLOBAL VIEW (LARGE EARTH) + SATELLITE DATA STATUS
         RIGHT: UPLOAD & ANALYZE + RECENT DETECTIONS
         ============================================================
       */}
       <div
+        className="overview-two-col-grid"
         style={{
           display: 'grid',
           gridTemplateColumns: 'minmax(0, 1.42fr) minmax(0, 1.08fr)',
-          gap: '20px',
+          gap: '16px',
           alignItems: 'stretch',
         }}
       >
-        {/* ==================== LEFT COLUMN: GLOBAL VIEW ==================== */}
+        {/* ==================== LEFT COLUMN: GLOBAL VIEW + SATELLITE DATA STATUS ==================== */}
         <div
           style={{
-            background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: '12px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
-            overflow: 'hidden',
-            position: 'relative',
-            height: '670px',
             display: 'flex',
             flexDirection: 'column',
+            gap: '16px',
+            height: '100%',
           }}
         >
-          {/* Global View Top Header Strip */}
+          {/* CARD 1: GLOBAL VIEW (LARGER) */}
           <div
             style={{
-              padding: '12px 18px',
-              borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
+              background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '12px',
+              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
+              overflow: 'hidden',
+              position: 'relative',
+              flex: 1,
+              minHeight: '620px',
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'rgba(11, 23, 38, 0.6)',
-              backdropFilter: 'blur(8px)',
-              zIndex: 10,
+              flexDirection: 'column',
             }}
           >
-            <div>
+            {/* Global View Top Header Strip */}
+            <div
+              style={{
+                padding: '12px 18px',
+                borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(11, 23, 38, 0.6)',
+                backdropFilter: 'blur(8px)',
+                zIndex: 10,
+              }}
+            >
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Globe size={15} style={{ color: '#38BDF8' }} />
+                  <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.06em', color: '#FFFFFF' }}>
+                    GLOBAL VIEW
+                  </span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Live Satellite Thermal Activity
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  background: 'rgba(16, 185, 129, 0.12)',
+                  border: '1px solid rgba(16, 185, 129, 0.3)',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '11px',
+                  color: '#10B981',
+                  fontWeight: 600,
+                }}
+              >
+                <span
+                  style={{
+                    width: 6,
+                    height: 6,
+                    borderRadius: '50%',
+                    background: '#10B981',
+                    boxShadow: '0 0 6px #10B981',
+                  }}
+                />
+                <span>Live &bull; VIIRS + MODIS</span>
+              </div>
+            </div>
+
+            {/* Large 3D Earth Centerpiece */}
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+              <EarthGlobe3D
+                detections={detections}
+                selectedDetection={selectedDetection}
+                onSelectDetection={handleSelectHotspot}
+                hideSidePanel={true}
+                isOverview={true}
+              />
+            </div>
+          </div>
+
+          {/* CARD 2: SATELLITE DATA STATUS (DIRECTLY BELOW GLOBAL VIEW) */}
+          <div
+            style={{
+              background: 'rgba(11, 23, 38, 0.85)',
+              backdropFilter: 'blur(12px)',
+              border: '1px solid rgba(56, 189, 248, 0.2)',
+              borderRadius: '12px',
+              padding: '14px 18px',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Globe size={15} style={{ color: '#38BDF8' }} />
-                <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.06em', color: '#FFFFFF' }}>
-                  GLOBAL VIEW
+                <Satellite size={16} style={{ color: '#38BDF8' }} />
+                <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                  Satellite Data Status
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Live Satellite Thermal Activity
-              </div>
+              <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 700 }}>
+                &bull; Live NRT
+              </span>
             </div>
 
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '4px 10px',
-                borderRadius: '20px',
-                fontSize: '11px',
-                color: '#10B981',
-                fontWeight: 600,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                gap: '10px',
+                fontSize: '11.5px',
               }}
             >
-              <span
-                style={{
-                  width: 6,
-                  height: 6,
-                  borderRadius: '50%',
-                  background: '#10B981',
-                  boxShadow: '0 0 6px #10B981',
-                }}
-              />
-              <span>Live &bull; VIIRS + MODIS</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>NASA FIRMS:</span>
+                <strong style={{ color: '#10B981' }}>Connected</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
+                <strong style={{ color: '#FFFFFF' }}>VIIRS &bull; MODIS</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Last Sync:</span>
+                <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
+                  {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC
+                </strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+                <strong style={{ color: '#10B981' }}>Receiving Data</strong>
+              </div>
             </div>
-          </div>
-
-          {/* Large 3D Earth Centerpiece */}
-          <div style={{ flex: 1, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-            <EarthGlobe3D
-              detections={detections}
-              selectedDetection={selectedDetection}
-              onSelectDetection={handleSelectHotspot}
-              hideSidePanel={true}
-              isOverview={true}
-            />
           </div>
         </div>
 
         {/* ==================== RIGHT COLUMN: UPLOAD + RECENT DETECTIONS ==================== */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
           {/* PANEL 1: UPLOAD & ANALYZE SATELLITE DATA */}
           <div
             className="card-panel"
@@ -496,6 +561,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               border: '1px solid rgba(56, 189, 248, 0.22)',
               borderRadius: '12px',
               padding: '16px 20px',
+              flexShrink: 0,
             }}
           >
             <div className="panel-header" style={{ marginBottom: '12px', borderBottom: 'none', paddingBottom: 0 }}>
@@ -795,6 +861,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               padding: '16px 20px',
               display: 'flex',
               flexDirection: 'column',
+              minHeight: 0,
             }}
           >
             <div className="panel-header" style={{ marginBottom: '10px', borderBottom: 'none', paddingBottom: 0 }}>
@@ -826,7 +893,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             </div>
 
             {/* Detections Table matching reference image columns */}
-            <div className="table-container" style={{ flex: 1, maxHeight: '250px', overflowY: 'auto' }}>
+            <div className="table-container" style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
               <table className="data-table" style={{ width: '100%', fontSize: '11.5px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid rgba(56, 189, 248, 0.15)' }}>
@@ -929,62 +996,6 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 </tbody>
               </table>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 
-        ============================================================
-        BOTTOM STATUS: SATELLITE DATA STATUS
-        ============================================================
-      */}
-      <div
-        style={{
-          background: 'rgba(11, 23, 38, 0.85)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(56, 189, 248, 0.2)',
-          borderRadius: '12px',
-          padding: '16px 20px',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Satellite size={16} style={{ color: '#38BDF8' }} />
-            <span style={{ fontSize: '11.5px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              Satellite Data Status
-            </span>
-          </div>
-          <span style={{ fontSize: '10.5px', color: '#10B981', fontWeight: 700 }}>
-            &bull; Live NRT
-          </span>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '12px',
-            fontSize: '11.5px',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>NASA FIRMS:</span>
-            <strong style={{ color: '#10B981' }}>Connected</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
-            <strong style={{ color: '#FFFFFF' }}>VIIRS (375m) &bull; MODIS (1km)</strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Last Sync:</span>
-            <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
-              {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })} UTC
-            </strong>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-            <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-            <strong style={{ color: '#10B981' }}>Receiving Data</strong>
           </div>
         </div>
       </div>

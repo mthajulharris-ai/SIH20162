@@ -970,5 +970,21 @@ body {
   pointer-events: none;
 }
 
+/* Overview Dashboard Two-Column Grid */
+.overview-two-col-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.42fr) minmax(0, 1.08fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+@media (max-width: 1080px) {
+  .overview-two-col-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+
 
 
