@@ -26,11 +26,8 @@ import {
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
-<<<<<<< HEAD
-=======
 import { uploadAndAnalyzeSatelliteFile, getSatelliteStatus } from '../services/api';
 import { AiClassificationSection } from '../components/AiClassificationSection';
->>>>>>> c080c5c (LIVE CONNECTION)
 
 export function OverviewView({
   analytics,
@@ -64,8 +61,6 @@ export function OverviewView({
         ).toFixed(1)
       : null;
 
-<<<<<<< HEAD
-=======
   // NASA FIRMS Live Telemetry State (Section 10 Requirements)
   const [satelliteStatus, setSatelliteStatus] = useState(null);
 
@@ -97,7 +92,6 @@ export function OverviewView({
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
 
->>>>>>> c080c5c (LIVE CONNECTION)
   const handleSelectHotspot = (det) => {
     if (onSelectDetection) onSelectDetection(det);
     if (onFocusDetection) onFocusDetection(det);
@@ -408,21 +402,12 @@ export function OverviewView({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-<<<<<<< HEAD
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  border: '1px solid rgba(16, 185, 129, 0.3)',
-                  padding: '5px 12px',
-                  borderRadius: '20px',
-                  fontSize: '11.5px',
-                  color: '#10B981',
-=======
                   background: satelliteStatus?.status === 'LIVE' ? 'rgba(16, 185, 129, 0.12)' : satelliteStatus?.status === 'DEGRADED' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)',
                   border: satelliteStatus?.status === 'LIVE' ? '1px solid rgba(16, 185, 129, 0.3)' : satelliteStatus?.status === 'DEGRADED' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
                   padding: '4px 10px',
                   borderRadius: '20px',
                   fontSize: '11px',
                   color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444',
->>>>>>> c080c5c (LIVE CONNECTION)
                   fontWeight: 600,
                 }}
               >
@@ -431,13 +416,8 @@ export function OverviewView({
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-<<<<<<< HEAD
-                    background: '#10B981',
-                    boxShadow: '0 0 8px #10B981',
-=======
                     background: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444',
                     boxShadow: satelliteStatus?.status === 'LIVE' ? '0 0 6px #10B981' : 'none',
->>>>>>> c080c5c (LIVE CONNECTION)
                   }}
                 />
                 <span>{satelliteStatus?.status === 'LIVE' ? '● LIVE SATELLITE DATA' : satelliteStatus?.status === 'DEGRADED' ? '● DATA CONNECTION DEGRADED' : '● SATELLITE DATA OFFLINE'}</span>
@@ -475,13 +455,8 @@ export function OverviewView({
                   Satellite Data Status
                 </span>
               </div>
-<<<<<<< HEAD
-              <span style={{ fontSize: '11.5px', color: '#10B981', fontWeight: 700 }}>
-                &bull; Live NRT
-=======
               <span style={{ fontSize: '10.5px', color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444', fontWeight: 700 }}>
                 &bull; {satelliteStatus?.status === 'LIVE' ? 'Live NRT' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded' : 'Offline'}
->>>>>>> c080c5c (LIVE CONNECTION)
               </span>
             </div>
 
@@ -493,34 +468,20 @@ export function OverviewView({
                 fontSize: '12.5px',
               }}
             >
-<<<<<<< HEAD
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>NASA FIRMS:</span>
-                <strong style={{ color: '#10B981' }}>Connected</strong>
-=======
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Source:</span>
                 <strong style={{ color: '#10B981' }}>{satelliteStatus?.source || 'NASA FIRMS'}</strong>
->>>>>>> c080c5c (LIVE CONNECTION)
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
                 <strong style={{ color: '#FFFFFF' }}>VIIRS &bull; MODIS</strong>
               </div>
-<<<<<<< HEAD
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-                <span style={{ color: 'var(--text-muted)' }}>Last Sync:</span>
-=======
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Last Update:</span>
->>>>>>> c080c5c (LIVE CONNECTION)
                 <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
                   {satelliteStatus?.last_updated ? new Date(satelliteStatus.last_updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' UTC' : 'Live Sync'}
                 </strong>
               </div>
-<<<<<<< HEAD
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
-=======
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Data Age:</span>
                 <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
@@ -534,7 +495,6 @@ export function OverviewView({
                 <strong style={{ color: '#FFFFFF' }}>{(satelliteStatus?.detections ?? activeHotspots).toLocaleString()}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
->>>>>>> c080c5c (LIVE CONNECTION)
                 <span style={{ color: 'var(--text-muted)' }}>Status:</span>
                 <strong style={{ color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444' }}>
                   {satelliteStatus?.status === 'LIVE' ? 'Receiving Data' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded Cache' : 'Offline'}

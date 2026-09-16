@@ -15,12 +15,9 @@ import { AiAssistantView } from './views/AiAssistantView';
 import { SettingsView } from './views/SettingsView';
 import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
-<<<<<<< HEAD
 import { AiAssistantModal } from './components/AiAssistantModal';
-=======
 import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
 import { Sparkles } from 'lucide-react';
->>>>>>> c080c5c (LIVE CONNECTION)
 
 import {
   getHealth,
@@ -101,6 +98,7 @@ export function App() {
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
   // ONE shared real-time backend connection state used by Header + Sidebar.
   // 'online' | 'offline'
   const [connectionStatus, setConnectionStatus] = useState('offline');
@@ -251,8 +249,6 @@ export function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -277,11 +273,8 @@ export function App() {
           onFocusDetection={handleFocusDetection}
           onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
-<<<<<<< HEAD
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
-=======
           onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
->>>>>>> c080c5c (LIVE CONNECTION)
         />
 
         <div className="content-body">
@@ -408,13 +401,12 @@ export function App() {
           }}
         />
 
-<<<<<<< HEAD
         {/* Global AI Assistant Expandable Workspace / Slide-Over Modal */}
         <AiAssistantModal
           isOpen={isAiAssistantModalOpen}
           onClose={() => setIsAiAssistantModalOpen(false)}
         />
-=======
+
         {/* SATRA AI Satellite Copilot Chatbot Modal (Section 14) */}
         <SatraAiChatbotModal
           isOpen={isChatbotOpen}
@@ -451,7 +443,6 @@ export function App() {
             <span>SATRA AI Copilot</span>
           </button>
         )}
->>>>>>> c080c5c (LIVE CONNECTION)
       </main>
     </div>
   );

@@ -134,7 +134,6 @@ export function SatelliteDataView({
     }
   };
 
-<<<<<<< HEAD
   // Real NASA FIRMS Presets for 1-click test
   const REAL_FIRMS_PRESETS = [
     {
@@ -226,10 +225,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     handleProcessFile([file]);
   };
 
-  // Determine Connection Status Display
-=======
   // Determine Connection Status Display (Section 15 Specification: LIVE / DEGRADED / OFFLINE)
->>>>>>> c080c5c (LIVE CONNECTION)
   const getConnectionStatusInfo = () => {
     if (!isBackendHealthy) {
       return {
