@@ -11,11 +11,11 @@ import { AlertsView } from './views/AlertsView';
 import { AnalyticsView } from './views/AnalyticsView';
 import { GisInvestigationView } from './views/GisInvestigationView';
 import { SatelliteDataView } from './views/SatelliteDataView';
-import { AiIntelligenceView } from './views/AiIntelligenceView';
-import { SpaceExplorerView } from './views/SpaceExplorerView';
+import { AiAssistantView } from './views/AiAssistantView';
 import { SettingsView } from './views/SettingsView';
 import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
+import { AiAssistantModal } from './components/AiAssistantModal';
 
 import {
   getHealth,
@@ -41,7 +41,7 @@ export function App() {
   const validTabs = [
     'overview', 'earth-intel', 'thermal-intel', 'detection-explorer',
     'alerts', 'analytics', 'gis-investigation', 'satellite-data',
-    'ai-intelligence', 'space-explorer', 'settings', 'dashboard'
+    'settings', 'ai-assistant', 'dashboard'
   ];
 
   const getInitialTab = () => {
@@ -95,6 +95,7 @@ export function App() {
     window.location.hash = 'login';
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
+  const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
   // ONE shared real-time backend connection state used by Header + Sidebar.
   // 'checking' | 'online' | 'offline'
   const [connectionStatus, setConnectionStatus] = useState('checking');
@@ -230,10 +231,8 @@ export function App() {
         return 'GIS Investigation Deck';
       case 'satellite-data':
         return 'Satellite Constellation Data';
-      case 'ai-intelligence':
-        return 'AI Model Intelligence';
-      case 'space-explorer':
-        return 'Educational Space Explorer';
+      case 'ai-assistant':
+        return 'SATRA AI Assistant';
       case 'settings':
         return 'Flight Deck Settings';
       default:
@@ -275,6 +274,7 @@ export function App() {
           onFocusDetection={handleFocusDetection}
           onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
+          onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
         />
 
         <div className="content-body">
@@ -365,19 +365,14 @@ export function App() {
             />
           )}
 
-          {/* 09 AI Intelligence */}
-          {currentTab === 'ai-intelligence' && (
-            <AiIntelligenceView />
-          )}
-
-          {/* 10 Space Explorer */}
-          {currentTab === 'space-explorer' && (
-            <SpaceExplorerView />
-          )}
-
-          {/* 11 Settings */}
+          {/* 09 Settings */}
           {currentTab === 'settings' && (
             <SettingsView detections={detections} />
+          )}
+
+          {/* AI Assistant Dedicated Workspace (if launched via view) */}
+          {currentTab === 'ai-assistant' && (
+            <AiAssistantView detections={detections} />
           )}
         </div>
 
@@ -394,6 +389,12 @@ export function App() {
           onViewExactLocation={(detection) => {
             handleFocusDetection(detection);
           }}
+        />
+
+        {/* Global AI Assistant Expandable Workspace / Slide-Over Modal */}
+        <AiAssistantModal
+          isOpen={isAiAssistantModalOpen}
+          onClose={() => setIsAiAssistantModalOpen(false)}
         />
       </main>
     </div>
