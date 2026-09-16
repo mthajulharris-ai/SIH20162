@@ -6,6 +6,7 @@ PS 26162: AI-Based Detection and Classification of Industrial Fires and Persiste
 """
 
 import logging
+import numpy as np
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np

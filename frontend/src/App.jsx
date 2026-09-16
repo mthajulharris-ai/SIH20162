@@ -102,8 +102,8 @@ export function App() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
   // ONE shared real-time backend connection state used by Header + Sidebar.
-  // 'checking' | 'online' | 'offline'
-  const [connectionStatus, setConnectionStatus] = useState('checking');
+  // 'online' | 'offline'
+  const [connectionStatus, setConnectionStatus] = useState('offline');
   const isBackendHealthy = connectionStatus === 'online';
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -124,16 +124,10 @@ export function App() {
   };
 
   // Lightweight real-time health probe — drives ONE shared connectionStatus
-  const checkBackendHealth = useCallback(async ({ showChecking = false } = {}) => {
+  const checkBackendHealth = useCallback(async () => {
     if (isHealthCheckingRef.current) return;
     isHealthCheckingRef.current = true;
-    if (showChecking) {
-      setConnectionStatus((prev) => (prev === 'online' || prev === 'offline' ? prev : 'checking'));
-      // On first load always show checking
-      setConnectionStatus((prev) => (prev === 'checking' ? 'checking' : prev));
-    }
     try {
-      if (showChecking) setConnectionStatus('checking');
       await getHealth();
       setConnectionStatus('online');
     } catch {
@@ -196,12 +190,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    // Initial health check immediately on mount
+    checkBackendHealth();
     // Initial full data load
     loadDashboardData();
-    // Dedicated health heartbeat every 15s so Header + Sidebar stay in sync
+    // Dedicated health heartbeat every 10s so Header + Sidebar stay in sync
     const healthInterval = setInterval(() => {
-      checkBackendHealth({ showChecking: false });
-    }, 15000);
+      checkBackendHealth();
+    }, 10000);
     // Full dashboard refresh every 30s
     const dataInterval = setInterval(loadDashboardData, 30000);
     return () => {

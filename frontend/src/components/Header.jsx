@@ -171,14 +171,12 @@ export function Header({
 
         {/* Real-Time Shared Backend Health Status Pill */}
         {(() => {
-          const status = connectionStatus || (isBackendHealthy ? 'online' : isBackendHealthy === false ? 'offline' : 'checking');
-          const isOnline = status === 'online';
-          const isChecking = status === 'checking';
-          const statusColor = isOnline ? '#10B981' : isChecking ? '#F59E0B' : '#EF4444';
-          const statusBg = isOnline ? 'rgba(16, 185, 129, 0.12)' : isChecking ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)';
-          const statusBorder = isOnline ? '1px solid rgba(16, 185, 129, 0.35)' : isChecking ? '1px solid rgba(245, 158, 11, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)';
-          const headerTitle = isOnline ? 'SYSTEM ONLINE' : isChecking ? 'CHECKING SYSTEM' : 'SYSTEM OFFLINE';
-          const headerSub = isOnline ? 'FastAPI Connected' : isChecking ? 'Connecting to FastAPI...' : 'FastAPI Disconnected';
+          const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
+          const statusColor = isOnline ? '#10B981' : '#EF4444';
+          const statusBg = isOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+          const statusBorder = isOnline ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)';
+          const headerTitle = isOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE';
+          const headerSub = isOnline ? 'FastAPI Connected' : 'FastAPI Disconnected';
 
           return (
             <div
@@ -190,7 +188,7 @@ export function Header({
                 border: statusBorder,
                 borderRadius: '20px',
                 padding: '5px 12px',
-                boxShadow: isOnline ? '0 0 12px rgba(16, 185, 129, 0.2)' : isChecking ? '0 0 12px rgba(245, 158, 11, 0.2)' : 'none',
+                boxShadow: isOnline ? '0 0 12px rgba(16, 185, 129, 0.2)' : '0 0 12px rgba(239, 68, 68, 0.2)',
               }}
             >
               <span
@@ -206,7 +204,7 @@ export function Header({
                 <span style={{ fontSize: '11px', fontWeight: 700, color: statusColor }}>
                   {headerTitle}
                 </span>
-                <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+                <span style={{ fontSize: '9px', color: isOnline ? 'var(--text-muted)' : '#F87171' }}>
                   {headerSub}
                 </span>
               </div>

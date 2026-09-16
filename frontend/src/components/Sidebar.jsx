@@ -15,12 +15,10 @@ import {
   LogOut,
 } from 'lucide-react';
 
-export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true, connectionStatus, onLogout }) {
-  const status = connectionStatus || (isBackendHealthy ? 'online' : isBackendHealthy === false ? 'offline' : 'checking');
-  const isOnline = status === 'online';
-  const isChecking = status === 'checking';
-  const statusColor = isOnline ? 'var(--success)' : isChecking ? '#F59E0B' : 'var(--critical-red)';
-  const statusText = isOnline ? 'CONNECTED' : isChecking ? 'CHECKING...' : 'DISCONNECTED';
+export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {
+  const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
+  const statusColor = isOnline ? 'var(--success)' : 'var(--critical-red)';
+  const statusText = isOnline ? 'CONNECTED' : 'DISCONNECTED';
 
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
@@ -31,9 +29,8 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
     { id: 'analytics', num: '06', label: 'Analytics', icon: BarChart3 },
     { id: 'gis-investigation', num: '07', label: 'GIS Investigation', icon: Map },
     { id: 'satellite-data', num: '08', label: 'Satellite Data', icon: Satellite },
-    { id: 'ai-intelligence', num: '09', label: 'AI Intelligence', icon: Cpu },
-    { id: 'space-explorer', num: '10', label: 'Space Explorer', icon: Sparkles },
-    { id: 'settings', num: '11', label: 'Settings', icon: Settings },
+    { id: 'ai-assistant', num: '09', label: 'AI Assistant', icon: Sparkles },
+    { id: 'settings', num: '10', label: 'Settings', icon: Settings },
   ];
 
   return (

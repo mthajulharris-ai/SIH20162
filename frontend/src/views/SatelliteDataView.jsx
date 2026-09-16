@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import {
   Satellite,
   Radio,
@@ -48,6 +48,8 @@ export function SatelliteDataView({
 
   // Upload workspace state
   const fileInputRef = useRef(null);
+  const uploadCardRef = useRef(null);
+  const [uploadCardHeight, setUploadCardHeight] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
   const [lastFiles, setLastFiles] = useState(null);
@@ -55,6 +57,23 @@ export function SatelliteDataView({
   const [analysisStep, setAnalysisStep] = useState(0); // 0: Read -> 1: Locate -> 2: AI -> 3: Evidence -> 4: Risk
   const [analysisError, setAnalysisError] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
+
+  // Measure natural content height of the left card and apply to the right workflow card
+  useLayoutEffect(() => {
+    if (!uploadCardRef.current) return;
+    const measure = () => {
+      if (uploadCardRef.current) {
+        const rect = uploadCardRef.current.getBoundingClientRect();
+        if (rect.height > 100) {
+          setUploadCardHeight(Math.round(rect.height));
+        }
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(uploadCardRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   // Filter actual detection records by sensor
   const noaa20Count = detections.filter((d) => {
@@ -574,17 +593,11 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
         SECTION 3: FULL DEDICATED UPLOAD & AI ANALYSIS WORKSPACE (SPACIOUS)
         ======================================================================
       */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.25fr) minmax(0, 0.95fr)',
-          gap: '20px',
-          alignItems: 'start',
-        }}
-      >
+      <div className="satellite-top-workspace">
         {/* LEFT COLUMN: DRAG & DROP ZONE, PRESETS, PROGRESS, AND RESULTS */}
         <div
-          className="card-panel"
+          ref={uploadCardRef}
+          className="card-panel satellite-upload-card"
           style={{
             marginBottom: 0,
             background: 'rgba(11, 23, 38, 0.9)',
@@ -593,6 +606,10 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             borderRadius: '14px',
             padding: '24px 28px',
             boxShadow: '0 10px 32px rgba(0, 0, 0, 0.45)',
+            display: 'flex',
+            flexDirection: 'column',
+            height: 'auto',
+            alignSelf: 'start',
           }}
         >
           <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0 }}>
@@ -944,7 +961,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
         {/* RIGHT COLUMN: SATRA AUTOMATED PIPELINE WORKFLOW EXPLANATION */}
         <div
-          className="card-panel"
+          className="card-panel satellite-workflow-card"
           style={{
             marginBottom: 0,
             background: 'rgba(11, 23, 38, 0.9)',
@@ -953,9 +970,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             borderRadius: '14px',
             padding: '24px 28px',
             boxShadow: '0 10px 32px rgba(0, 0, 0, 0.45)',
+            height: uploadCardHeight ? `${uploadCardHeight}px` : 'auto',
+            maxHeight: uploadCardHeight ? `${uploadCardHeight}px` : 'none',
+            boxSizing: 'border-box',
+            alignSelf: 'start',
           }}
         >
-          <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0 }}>
+          <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0, flexShrink: 0 }}>
             <div>
               <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
                 <Cpu size={20} style={{ color: '#38BDF8' }} />
@@ -967,7 +988,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="satellite-workflow-scroll">
             {[
               {
                 num: '01',
@@ -1075,7 +1096,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
         SECTION 4: SATELLITE CONSTELLATIONS SPECIFICATIONS & STATUS
         ======================================================================
       */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '10px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <Globe size={18} style={{ color: '#38BDF8' }} />
           <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
