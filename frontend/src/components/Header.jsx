@@ -28,6 +28,7 @@ export function Header({
   onNavigate,
   onOpenUploadModal,
   onToggleChatbot,
+  onOpenAiAssistant,
 }) {
   const { dateStr, timeStr } = useLiveClock();
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,14 +72,47 @@ export function Header({
 
   return (
     <header className="top-header">
-      {/* Left: Page Title & Global View Identity */}
-      <div className="header-left">
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <h1 className="page-heading" style={{ fontSize: '18px', fontWeight: 700, margin: 0, color: '#FFFFFF' }}>
-            {pageTitle}
-          </h1>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            Global view of thermal risks on Earth
+      {/* Left: SATRA Identity */}
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '9px',
+            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(2, 132, 199, 0.4) 100%)',
+            border: '1px solid rgba(56, 189, 248, 0.45)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#38BDF8',
+            boxShadow: '0 0 14px rgba(56, 189, 248, 0.25)',
+            flexShrink: 0,
+          }}
+        >
+          <Globe size={20} />
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
+              SATRA
+            </span>
+            <span
+              style={{
+                fontSize: '10px',
+                fontWeight: 700,
+                color: 'var(--primary-cyan)',
+                letterSpacing: '0.08em',
+                background: 'rgba(56, 189, 248, 0.12)',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+              }}
+            >
+              THERMAL RISK ANALYSIS
+            </span>
+          </div>
+          <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            AI Satellite Intelligence
           </div>
         </div>
       </div>
@@ -324,29 +358,7 @@ export function Header({
           </button>
         )}
 
-        {/* Operator Profile Badge (SK - Reference Match) */}
-        <div
-          style={{
-            width: 34,
-            height: 34,
-            borderRadius: '8px',
-            background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#FFFFFF',
-            fontSize: '13px',
-            fontWeight: 700,
-            letterSpacing: '0.04em',
-            boxShadow: '0 0 12px rgba(2, 132, 199, 0.4)',
-            cursor: 'pointer',
-            marginLeft: '4px',
-          }}
-          title="Operator: SK"
-        >
-          SK
-        </div>
+
       </div>
     </header>
   );

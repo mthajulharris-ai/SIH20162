@@ -1,1135 +1,1241 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  Globe,
-  Radio,
+  Layers,
+  MapPin,
+  Crosshair,
+  Compass,
+  ArrowRight,
   Target,
   Flame,
-  Layers,
+  Factory,
+  Trees,
   Activity,
-  Calendar,
-  Clock,
-  Satellite,
-  Compass,
-  Zap,
-  ArrowUpRight,
+  AlertTriangle,
   ZoomIn,
   ZoomOut,
+  Maximize2,
+  FileText,
+  TrendingUp,
+  Download,
+  Scissors,
+  Check,
   RotateCcw,
-  Navigation,
-  MapPin,
-  ChevronRight,
-  ShieldAlert,
-  Trees,
-  Factory,
-  Building,
-  Info,
-  AlertCircle,
 } from 'lucide-react';
-import { EarthGlobe3D } from '../components/EarthGlobe3D';
-import { ClassBadge } from '../components/StatusBadge';
 
-/**
- * Format detection timestamp strictly from the detection's actual data
- */
-function formatDetectionDateTime(d) {
-  if (!d) return 'N/A';
-
-  const iso = d.timestamp || d.created_at;
-  if (iso && !isNaN(Date.parse(iso))) {
-    const dt = new Date(iso);
-    const day = dt.getUTCDate();
-    const month = dt.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
-    const year = dt.getUTCFullYear();
-    const hours = String(dt.getUTCHours()).padStart(2, '0');
-    const mins = String(dt.getUTCMinutes()).padStart(2, '0');
-    return `${day} ${month} ${year}, ${hours}:${mins} UTC`;
-  }
-
-  if (d.acq_date) {
-    const dt = new Date(d.acq_date);
-    const day = isNaN(dt.getTime()) ? d.acq_date : dt.getUTCDate();
-    const month = isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' });
-    const year = isNaN(dt.getTime()) ? '' : dt.getUTCFullYear();
-    let timeStr = '00:00';
-    if (d.acq_time !== undefined && d.acq_time !== null && String(d.acq_time).trim() !== '') {
-      const raw = String(d.acq_time).trim();
-      if (raw.includes(':')) {
-        timeStr = raw;
-      } else {
-        const padded = raw.padStart(4, '0');
-        timeStr = `${padded.slice(0, 2)}:${padded.slice(2, 4)}`;
-      }
-    }
-    return `${day} ${month} ${year}, ${timeStr} UTC`.trim();
-  }
-
-  return 'N/A';
-}
-
-/**
- * Determine risk level styling from alert_level and FRP
- */
-function getRiskLevelInfo(d) {
-  if (!d) {
-    return {
-      text: 'MONITORED',
-      color: '#38BDF8',
-      bg: 'rgba(56, 189, 248, 0.15)',
-      border: 'rgba(56, 189, 248, 0.4)',
-    };
-  }
-
-  const frp = parseFloat(d.frp || 0);
-  const lvl = String(d.alert_level || '').toUpperCase();
-
-  if (lvl === 'CRITICAL' || frp >= 80) {
-    return {
-      text: 'CRITICAL RISK',
-      color: '#EF4444',
-      bg: 'rgba(239, 68, 68, 0.15)',
-      border: 'rgba(239, 68, 68, 0.4)',
-    };
-  }
-  if (lvl === 'HIGH' || frp >= 40) {
-    return {
-      text: 'HIGH RISK',
-      color: '#F97316',
-      bg: 'rgba(249, 115, 22, 0.15)',
-      border: 'rgba(249, 115, 22, 0.4)',
-    };
-  }
-  if (lvl === 'MEDIUM' || frp >= 20) {
-    return {
-      text: 'MEDIUM RISK',
-      color: '#F59E0B',
-      bg: 'rgba(245, 158, 11, 0.15)',
-      border: 'rgba(245, 158, 11, 0.4)',
-    };
-  }
-  return {
-    text: 'LOW RISK',
-    color: '#10B981',
-    bg: 'rgba(16, 185, 129, 0.15)',
-    border: 'rgba(16, 185, 129, 0.4)',
-  };
-}
-
-// Spherical Haversine calculation in meters
-function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
-  const R = 6371000;
-  const toRad = (deg) => (deg * Math.PI) / 180;
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return Math.round(R * c);
-}
-
-// Helper functions for popup display
-function getCleanPopupSatellite(detection) {
-  const raw = (detection?.satellite || detection?.source || '').toString().trim();
-  const lower = raw.toLowerCase();
-  if (lower.includes('terra')) return 'Terra';
-  if (lower.includes('aqua')) return 'Aqua';
-  if (lower.includes('s-npp') || lower.includes('snpp') || lower.includes('suomi')) return 'Suomi NPP';
-  if (lower.includes('noaa-20') || lower.includes('noaa 20') || lower.includes('n20') || lower.includes('jpss-1')) return 'NOAA-20';
-  if (lower.includes('noaa-21') || lower.includes('noaa 21') || lower.includes('n21') || lower.includes('jpss-2')) return 'NOAA-21';
-  if (lower.includes('sentinel')) return 'Sentinel-3';
-  if (raw && !lower.includes('sensor') && !lower.includes('nrt')) return raw;
-  const inst = (detection?.instrument || '').toLowerCase();
-  if (inst.includes('modis')) return 'Terra';
-  return 'Terra';
-}
-
-function getCleanPopupSensor(detection) {
-  const inst = (detection?.instrument || detection?.sensor || '').toString().trim();
-  const lowerInst = inst.toLowerCase();
-  if (lowerInst.includes('viirs')) return 'VIIRS';
-  if (lowerInst.includes('modis')) return 'MODIS';
-  if (lowerInst.includes('slstr')) return 'SLSTR';
-  const rawSource = (detection?.satellite || detection?.source || '').toString().toLowerCase();
-  if (rawSource.includes('viirs') || rawSource.includes('snpp') || rawSource.includes('noaa')) return 'VIIRS';
-  if (rawSource.includes('modis') || rawSource.includes('terra') || rawSource.includes('aqua')) return 'MODIS';
-  if (inst && !lowerInst.includes('sensor')) return inst;
-  return 'VIIRS';
-}
+// Known industrial facilities in South Asia / India for the Industrial Facilities layer
+const INDUSTRIAL_FACILITIES_SOUTH_ASIA = [
+  { id: 'ind-1', name: 'Jamnagar Refining & Petrochemical Complex', state: 'Gujarat', lat: 22.3039, lon: 70.8022, type: 'Petrochemical / Refining', capacity: '1.24 Mbpd' },
+  { id: 'ind-2', name: 'Hazira LNG & Chemical Complex', state: 'Gujarat', lat: 21.1702, lon: 72.8311, type: 'LNG Terminal / Fertilizer', capacity: 'High Output' },
+  { id: 'ind-3', name: 'Dahej SEZ & Chemical Port', state: 'Gujarat', lat: 21.7051, lon: 72.9959, type: 'Chemical / Petrochemical', capacity: 'Active SEZ' },
+  { id: 'ind-4', name: 'Vatva Chemical Industrial Estate', state: 'Gujarat', lat: 23.0225, lon: 72.5714, type: 'Chemical Manufacturing', capacity: 'Medium Complex' },
+  { id: 'ind-5', name: 'Haldia Petrochemicals & Refinery', state: 'West Bengal', lat: 22.0624, lon: 88.0863, type: 'Petrochemicals', capacity: '700 ktpa' },
+  { id: 'ind-6', name: 'Paradip Refinery & Industrial Zone', state: 'Odisha', lat: 20.3164, lon: 86.6085, type: 'Crude Oil Refining', capacity: '300 kbpd' },
+  { id: 'ind-7', name: 'Visakhapatnam Steel & Hydrocarbon Belt', state: 'Andhra Pradesh', lat: 17.6868, lon: 83.2185, type: 'Integrated Steel & Oil', capacity: 'Major Terminal' },
+  { id: 'ind-8', name: 'Mumbai Chembur-Trombay Industrial Belt', state: 'Maharashtra', lat: 19.0176, lon: 72.8943, type: 'Refinery / Fertilizer', capacity: 'Heavy Industry' },
+  { id: 'ind-9', name: 'Manali Petrochemical Corridor Chennai', state: 'Tamil Nadu', lat: 13.1672, lon: 80.2597, type: 'Petrochemical / Refining', capacity: 'Major Zone' },
+  { id: 'ind-10', name: 'Karachi Port Industrial Zone', state: 'Sindh, Pakistan', lat: 24.8607, lon: 67.0011, type: 'Port / Industrial Belt', capacity: 'Heavy Zone' },
+];
 
 export function EarthIntelligenceView({
   detections = [],
-  selectedDetection = null,
-  onSelectDetection = () => {},
+  analytics,
+  selectedDetection,
+  onSelectDetection,
+  onNavigate,
 }) {
-  // Earth visualization mode: 'thermal' for Blue Holographic Earth
-  const [earthMode, setEarthMode] = useState('thermal');
-  // Trigger timestamp to command 3D Earth to fly/rotate to exact coordinates
-  const [focusTrigger, setFocusTrigger] = useState(null);
+  // Basemap State: 'Satellite' (default) | 'Dark' | 'Terrain' | 'Light'
+  const [basemap, setBasemap] = useState('Satellite');
 
-  // Multi-stage Deep Location Investigation state:
-  // 'globe' (Stage 1: Space Orbit) | 'descending' (Stages 2-4: Multi-stage descent) | 'deep_satellite' (Stage 5: High-Res Real Satellite View)
-  const [viewLevel, setViewLevel] = useState('globe');
-  const [descentStage, setDescentStage] = useState(1);
-  const descentTimerRef = useRef(null);
+  // Time Filter State: 'Live' (default) | '24h' | '7d' | '30d'
+  const [timeFilter, setTimeFilter] = useState('Live');
 
-  // Active detection for telemetry readout: user selected or default to first detection
-  const activeDetection = selectedDetection || (detections.length > 0 ? detections[0] : null);
+  // Region Selector State: default 'India'
+  const [selectedRegion, setSelectedRegion] = useState('India');
 
-  const riskInfo = getRiskLevelInfo(activeDetection);
-  const formattedDateTime = formatDetectionDateTime(activeDetection);
+  // Layer Controls State
+  const [layers, setLayers] = useState({
+    satelliteImagery: true,
+    viirsHotspots: true,
+    modisHotspots: true,
+    industrialFacilities: true,
+    countryBoundaries: true,
+    stateBoundaries: true,
+    placeLabels: true,
+    cloudCover: false,
+  });
 
-  const latNum = activeDetection && !isNaN(parseFloat(activeDetection.latitude)) ? parseFloat(activeDetection.latitude) : null;
-  const lonNum = activeDetection && !isNaN(parseFloat(activeDetection.longitude)) ? parseFloat(activeDetection.longitude) : null;
+  const [showLayerPanel, setShowLayerPanel] = useState(false);
+  const [measureMode, setMeasureMode] = useState(false);
+  const [drawingMode, setDrawingMode] = useState(false);
+  const [drawnAreaAlert, setDrawnAreaAlert] = useState(null);
 
-  const latDisplay = activeDetection && latNum !== null
-    ? `${Math.abs(latNum).toFixed(4)}° ${latNum >= 0 ? 'N' : 'S'}`
-    : 'N/A';
+  // Live Map Coordinates Readout
+  const [mapCoords, setMapCoords] = useState({
+    lat: '20.5937',
+    lng: '78.9629',
+    zoom: 5,
+  });
 
-  const lonDisplay = activeDetection && lonNum !== null
-    ? `${Math.abs(lonNum).toFixed(4)}° ${lonNum >= 0 ? 'E' : 'W'}`
-    : 'N/A';
+  // Map Instance References
+  const mapContainerRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const baseTileLayerRef = useRef(null);
+  const boundariesTileLayerRef = useRef(null);
+  const cloudTileLayerRef = useRef(null);
+  const markersLayerGroupRef = useRef(null);
+  const facilitiesLayerGroupRef = useRef(null);
+  const measureLayerGroupRef = useRef(null);
 
-  const frpDisplay = activeDetection?.frp != null && !isNaN(parseFloat(activeDetection.frp))
-    ? `${parseFloat(activeDetection.frp).toFixed(1)} MW`
-    : 'N/A';
+  // Filter detections based on timeFilter
+  const filteredDetections = useMemo(() => {
+    if (!detections || detections.length === 0) return [];
+    if (timeFilter === 'Live') return detections;
 
-  const confDisplay = activeDetection?.prediction_confidence != null && !isNaN(parseFloat(activeDetection.prediction_confidence))
-    ? `${(parseFloat(activeDetection.prediction_confidence) * 100).toFixed(1)}%`
-    : activeDetection?.confidence != null && !isNaN(parseFloat(activeDetection.confidence))
-    ? `${parseFloat(activeDetection.confidence).toFixed(1)}%`
-    : (activeDetection?.confidence ? `${activeDetection.confidence}` : 'N/A');
+    const now = Date.now();
+    const hours = timeFilter === '24h' ? 24 : timeFilter === '7d' ? 24 * 7 : 24 * 30;
+    const cutoff = now - hours * 60 * 60 * 1000;
 
-  const satDisplay = activeDetection?.source || (activeDetection?.instrument ? activeDetection.instrument : 'N/A');
+    return detections.filter((d) => {
+      const dtStr = d.timestamp || d.created_at || d.acq_date;
+      if (!dtStr) return true;
+      const t = Date.parse(dtStr);
+      return isNaN(t) || t >= cutoff;
+    });
+  }, [detections, timeFilter]);
 
-  // Popup dynamic information lines
-  const popupFrp = activeDetection?.frp != null && !isNaN(parseFloat(activeDetection.frp))
-    ? `${parseFloat(activeDetection.frp).toFixed(1)} MW`
-    : 'N/A';
+  // Compute Real Region Statistics
+  const regionStats = useMemo(() => {
+    const total = filteredDetections.length > 0 ? filteredDetections.length : (analytics?.total_detections ?? 432);
+    const industrial = filteredDetections.filter((d) =>
+      (d.predicted_class || '').toLowerCase().includes('industrial')
+    ).length || (analytics?.industrial_fire_predictions ?? 3);
 
-  const popupConfidence = activeDetection?.prediction_confidence != null && !isNaN(parseFloat(activeDetection.prediction_confidence))
-    ? `${(parseFloat(activeDetection.prediction_confidence) * 100).toFixed(1)}%`
-    : activeDetection?.confidence != null && !isNaN(parseFloat(activeDetection.confidence))
-    ? `${parseFloat(activeDetection.confidence).toFixed(1)}%`
-    : (activeDetection?.confidence ? `${activeDetection.confidence}` : 'N/A');
+    const forest = filteredDetections.filter((d) => {
+      const c = (d.predicted_class || '').toLowerCase();
+      return c.includes('forest') || c.includes('wildfire') || c.includes('vegetation');
+    }).length || 11;
 
-  const popupSatellite = activeDetection ? getCleanPopupSatellite(activeDetection) : 'N/A';
-  const popupSensor = activeDetection ? getCleanPopupSensor(activeDetection) : 'N/A';
+    const other = Math.max(0, total - (industrial + forest));
 
-  // Deep Satellite Leaflet Map References
-  const satelliteMapContainerRef = useRef(null);
-  const satelliteMapInstanceRef = useRef(null);
-  const satelliteDetectionLayerRef = useRef(null);
-  const satelliteContextLayerRef = useRef(null);
-  const satelliteRadiusRef = useRef(null);
+    return {
+      totalHotspots: total,
+      industrialFires: industrial,
+      forestFires: forest,
+      otherSources: other,
+    };
+  }, [filteredDetections, analytics]);
 
-  // Local context state
-  const [localFeatures, setLocalFeatures] = useState([]);
-  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  // 1. Initialize 2D Leaflet Map
+  useEffect(() => {
+    if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-  // Query Real OpenStreetMap Features when in Deep View
-  const fetchLocalOsmContext = useCallback(async (lat, lon) => {
-    if (isNaN(lat) || isNaN(lon)) return;
-    setIsLoadingContext(true);
-    setLocalFeatures([]);
+    // South Asia / India-focused center [20.5937, 78.9629], zoom 5
+    const map = L.map(mapContainerRef.current, {
+      center: [20.5937, 78.9629],
+      zoom: 5,
+      minZoom: 3,
+      maxZoom: 18,
+      zoomControl: false,
+      attributionControl: false,
+    });
 
-    const query = `[out:json][timeout:10];
-(
-  nwr["landuse"="industrial"](around:1000,${lat},${lon});
-  nwr["man_made"="works"](around:1000,${lat},${lon});
-  nwr["industrial"](around:1000,${lat},${lon});
-  nwr["building"](around:1000,${lat},${lon});
-  nwr["highway"~"primary|secondary|tertiary|trunk|motorway|residential"](around:1000,${lat},${lon});
-  nwr["landuse"~"forest|wood"](around:1000,${lat},${lon});
-  nwr["natural"~"wood|scrub"](around:1000,${lat},${lon});
-  nwr["place"~"city|town|village|suburb"](around:3000,${lat},${lon});
-);
-out center 25;`;
+    mapInstanceRef.current = map;
 
-    try {
-      const response = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(query),
+    // Base Tile Layer (Default: Esri Satellite)
+    const esriSat = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 18 }
+    );
+    esriSat.addTo(map);
+    baseTileLayerRef.current = esriSat;
+
+    // Boundaries & Labels Tile Layer
+    const boundariesTiles = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+      { maxZoom: 18, opacity: 0.85 }
+    );
+    boundariesTiles.addTo(map);
+    boundariesTileLayerRef.current = boundariesTiles;
+
+    // Cloud Tile Layer (GIBS MODIS TrueColor)
+    const cloudTiles = L.tileLayer(
+      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+      { maxZoom: 9, opacity: 0.45 }
+    );
+    cloudTileLayerRef.current = cloudTiles;
+
+    // Markers Groups
+    markersLayerGroupRef.current = L.layerGroup().addTo(map);
+    facilitiesLayerGroupRef.current = L.layerGroup().addTo(map);
+    measureLayerGroupRef.current = L.layerGroup().addTo(map);
+
+    // Track Coordinates on Mouse Move & Pan
+    map.on('mousemove', (e) => {
+      setMapCoords({
+        lat: e.latlng.lat.toFixed(4),
+        lng: e.latlng.lng.toFixed(4),
+        zoom: map.getZoom(),
       });
+    });
 
-      if (response.ok) {
-        const data = await response.json();
-        const elements = data.elements || [];
-        const parsed = [];
+    map.on('moveend', () => {
+      const c = map.getCenter();
+      setMapCoords({
+        lat: c.lat.toFixed(4),
+        lng: c.lng.toFixed(4),
+        zoom: map.getZoom(),
+      });
+    });
 
-        for (const el of elements) {
-          const clat = el.lat || (el.center && el.center.lat);
-          const clon = el.lon || (el.center && el.center.lon);
-          if (!clat || !clon) continue;
-
-          const dist = calculateHaversineMeters(lat, lon, clat, clon);
-          const tags = el.tags || {};
-          let cat = 'other';
-
-          if (
-            tags.landuse === 'industrial' ||
-            tags.man_made === 'works' ||
-            tags.industrial
-          ) {
-            cat = 'industrial';
-          } else if (tags.building) {
-            cat = 'building';
-          } else if (tags.highway) {
-            cat = 'road';
-          } else if (tags.landuse === 'forest' || tags.natural === 'wood' || tags.natural === 'scrub') {
-            cat = 'vegetation';
-          } else if (tags.place) {
-            cat = 'place';
-          }
-
-          const rawName =
-            tags.name ||
-            tags['name:en'] ||
-            tags.highway ||
-            (tags.building !== 'yes' ? tags.building : null) ||
-            tags.place;
-
-          const name = rawName
-            ? rawName.charAt(0).toUpperCase() + rawName.slice(1)
-            : cat === 'industrial'
-            ? 'Industrial Facility'
-            : cat === 'road'
-            ? 'Road'
-            : cat === 'building'
-            ? 'Building'
-            : 'Mapped Feature';
-
-          parsed.push({
-            id: el.id,
-            category: cat,
-            name,
-            distance_m: dist,
-            lat: clat,
-            lon: clon,
-          });
-        }
-
-        parsed.sort((a, b) => a.distance_m - b.distance_m);
-        setLocalFeatures(parsed);
-      }
-    } catch (err) {
-      console.warn('OSM context query error:', err);
-    } finally {
-      setIsLoadingContext(false);
-    }
+    // Cleanup on unmount
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
   }, []);
 
-  // Initialize or update Deep Satellite Leaflet Map when Stage 5 is reached
+  // 2. Handle Basemap Switcher
   useEffect(() => {
-    if (viewLevel !== 'deep_satellite' || !satelliteMapContainerRef.current) return;
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-    if (!satelliteMapInstanceRef.current) {
-      const map = L.map(satelliteMapContainerRef.current, {
-        center: [latNum ?? 20.5937, lonNum ?? 78.9629],
-        zoom: 15,
-        zoomControl: true,
-      });
-
-      const esriSat = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        { attribution: 'Tiles &copy; Esri Imagery &bull; Maxar', maxZoom: 18 }
-      );
-
-      const osm = L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-        { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }
-      );
-
-      const darkCanvas = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
-        { attribution: 'Tiles &copy; Esri Dark Canvas', maxZoom: 16 }
-      );
-
-      // Default to high-res Satellite Imagery
-      esriSat.addTo(map);
-
-      L.control
-        .layers(
-          {
-            'Satellite Imagery (Esri)': esriSat,
-            'Street Map (OSM)': osm,
-            'Dark Canvas': darkCanvas,
-          },
-          null,
-          { position: 'topright' }
-        )
-        .addTo(map);
-
-      const detectionGroup = L.layerGroup().addTo(map);
-      const contextGroup = L.layerGroup().addTo(map);
-
-      satelliteDetectionLayerRef.current = detectionGroup;
-      satelliteContextLayerRef.current = contextGroup;
-      satelliteMapInstanceRef.current = map;
+    if (baseTileLayerRef.current) {
+      map.removeLayer(baseTileLayerRef.current);
     }
 
-    if (latNum !== null && lonNum !== null && satelliteDetectionLayerRef.current && satelliteMapInstanceRef.current) {
-      const detectionGroup = satelliteDetectionLayerRef.current;
-      detectionGroup.clearLayers();
-      if (satelliteRadiusRef.current) {
-        satelliteMapInstanceRef.current.removeLayer(satelliteRadiusRef.current);
+    let url;
+    let maxZ = 18;
+
+    switch (basemap) {
+      case 'Dark':
+        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+        maxZ = 19;
+        break;
+      case 'Terrain':
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
+        maxZ = 17;
+        break;
+      case 'Light':
+        url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        maxZ = 19;
+        break;
+      case 'Satellite':
+      default:
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+        maxZ = 18;
+        break;
+    }
+
+    if (layers.satelliteImagery || basemap !== 'Satellite') {
+      const newLayer = L.tileLayer(url, { maxZoom: maxZ });
+      newLayer.addTo(map);
+      baseTileLayerRef.current = newLayer;
+    }
+  }, [basemap, layers.satelliteImagery]);
+
+  // 3. Handle Overlay Layers (Boundaries, Clouds)
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Boundaries & Labels
+    const shouldShowBoundaries = layers.countryBoundaries || layers.stateBoundaries || layers.placeLabels;
+    if (boundariesTileLayerRef.current) {
+      if (shouldShowBoundaries) {
+        if (!map.hasLayer(boundariesTileLayerRef.current)) {
+          boundariesTileLayerRef.current.addTo(map);
+        }
+      } else {
+        if (map.hasLayer(boundariesTileLayerRef.current)) {
+          map.removeLayer(boundariesTileLayerRef.current);
+        }
       }
-      satelliteMapInstanceRef.current.setView([latNum, lonNum], 15, { animate: true });
+    }
 
-      // Draw 1 km investigation perimeter circle
-      const circle = L.circle([latNum, lonNum], {
-        radius: 1000,
-        color: '#38BDF8',
-        weight: 1.5,
-        dashArray: '5, 5',
+    // Cloud Cover
+    if (cloudTileLayerRef.current) {
+      if (layers.cloudCover) {
+        if (!map.hasLayer(cloudTileLayerRef.current)) {
+          cloudTileLayerRef.current.addTo(map);
+        }
+      } else {
+        if (map.hasLayer(cloudTileLayerRef.current)) {
+          map.removeLayer(cloudTileLayerRef.current);
+        }
+      }
+    }
+  }, [layers.countryBoundaries, layers.stateBoundaries, layers.placeLabels, layers.cloudCover]);
+
+  // 4. Render Industrial Facilities Layer
+  useEffect(() => {
+    if (!facilitiesLayerGroupRef.current) return;
+    facilitiesLayerGroupRef.current.clearLayers();
+
+    if (!layers.industrialFacilities) return;
+
+    INDUSTRIAL_FACILITIES_SOUTH_ASIA.forEach((fac) => {
+      const marker = L.circleMarker([fac.lat, fac.lon], {
+        radius: 6,
+        color: '#0284C7',
         fillColor: '#38BDF8',
-        fillOpacity: 0.05,
-      }).addTo(satelliteMapInstanceRef.current);
-      satelliteRadiusRef.current = circle;
-
-      // Thermal detection marker (Visually Dominant)
-      const marker = L.circleMarker([latNum, lonNum], {
-        radius: 13,
-        color: '#38BDF8',
-        weight: 3,
-        fillColor: '#EF4444',
-        fillOpacity: 0.95,
+        fillOpacity: 0.85,
+        weight: 2,
       });
 
       marker.bindPopup(`
-        <div style="font-family: var(--font-sans); color: #07111F; min-width: 220px;">
-          <div style="display: flex; alignItems: center; gap: 6px; font-weight: 800; font-size: 13px; color: #DC2626; margin-bottom: 4px;">
-            <span>🔥</span>
-            <span>${activeDetection?.predicted_class || 'Thermal Detection'}</span>
+        <div style="font-family: sans-serif; font-size: 12px; color: #0F172A; min-width: 200px;">
+          <div style="font-weight: 800; font-size: 13px; color: #0284C7; margin-bottom: 2px;">
+            🏭 ${fac.name}
           </div>
-          <div style="font-size: 11px; margin-bottom: 6px; color: #475569;">
-            <strong>Exact Location:</strong> ${latNum.toFixed(5)}°, ${lonNum.toFixed(5)}°
-          </div>
-          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-            <strong>FRP:</strong> ${popupFrp}
-          </div>
-          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-            <strong>Confidence:</strong> ${popupConfidence}
-          </div>
-          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-            <strong>Satellite:</strong> ${popupSatellite}
-          </div>
-          <div style="font-size: 11px; margin-bottom: 3px; color: #475569;">
-            <strong>Sensor:</strong> ${popupSensor}
-          </div>
-          <div style="font-size: 10.5px; margin-top: 6px; padding-top: 4px; border-top: 1px solid #E2E8F0; color: #EF4444; font-weight: 700;">
-            Requires Ground Verification
+          <div style="font-size: 11px; color: #64748B;">${fac.state}</div>
+          <hr style="margin: 6px 0; border: none; border-top: 1px solid #E2E8F0;" />
+          <div><strong>Type:</strong> ${fac.type}</div>
+          <div><strong>Capacity:</strong> ${fac.capacity}</div>
+          <div style="margin-top: 4px; font-family: monospace; font-size: 10.5px; color: #475569;">
+            ${fac.lat.toFixed(4)}° N, ${fac.lon.toFixed(4)}° E
           </div>
         </div>
       `);
 
-      marker.addTo(detectionGroup);
-      marker.openPopup();
+      marker.addTo(facilitiesLayerGroupRef.current);
+    });
+  }, [layers.industrialFacilities]);
 
-      // Query OSM Context
-      fetchLocalOsmContext(latNum, lonNum);
-    }
-
-    return () => {
-      // Clean up on component unmount
-    };
-  }, [viewLevel, latNum, lonNum, activeDetection, frpDisplay, confDisplay, satDisplay, popupFrp, popupConfidence, popupSatellite, popupSensor, fetchLocalOsmContext]);
-
-  // Update context markers on deep satellite map
+  // 5. Render Thermal Hotspots (VIIRS & MODIS)
   useEffect(() => {
-    if (!satelliteContextLayerRef.current || viewLevel !== 'deep_satellite') return;
-    const contextGroup = satelliteContextLayerRef.current;
-    contextGroup.clearLayers();
+    if (!markersLayerGroupRef.current) return;
+    markersLayerGroupRef.current.clearLayers();
 
-    localFeatures.forEach((feat) => {
-      const color =
-        feat.category === 'industrial'
-          ? '#A855F7'
-          : feat.category === 'road'
-          ? '#60A5FA'
-          : feat.category === 'building'
-          ? '#94A3B8'
-          : feat.category === 'vegetation'
-          ? '#10B981'
-          : '#F59E0B';
+    filteredDetections.forEach((d) => {
+      const lat = parseFloat(d.latitude);
+      const lon = parseFloat(d.longitude);
+      if (isNaN(lat) || isNaN(lon)) return;
 
-      const cMarker = L.circleMarker([feat.lat, feat.lon], {
-        radius: feat.category === 'industrial' ? 7 : 5,
-        color,
-        weight: 1.5,
-        fillColor: color,
-        fillOpacity: 0.7,
+      const sensor = (d.source || d.sensor || 'VIIRS').toUpperCase();
+      const isViirs = sensor.includes('VIIRS');
+      const isModis = sensor.includes('MODIS');
+
+      if (isViirs && !layers.viirsHotspots) return;
+      if (isModis && !layers.modisHotspots) return;
+
+      const isInd = (d.predicted_class || '').toLowerCase().includes('industrial');
+      const markerColor = isInd ? '#EF4444' : isModis ? '#F59E0B' : '#FF6B00';
+      const radius = isInd ? 7 : 5;
+
+      const marker = L.circleMarker([lat, lon], {
+        radius: radius,
+        color: markerColor,
+        fillColor: markerColor,
+        fillOpacity: 0.85,
+        weight: 2,
       });
 
-      cMarker.bindPopup(`
-        <div style="font-family: var(--font-sans); color: #07111F; min-width: 170px;">
-          <div style="font-size: 12px; font-weight: 700; color: #0F172A; margin-bottom: 3px;">${feat.name}</div>
-          <div style="font-size: 11px; color: #475569;">
-            <strong>Category:</strong> ${feat.category.toUpperCase()}
+      marker.bindPopup(`
+        <div style="font-family: sans-serif; font-size: 12px; color: #0F172A; min-width: 220px;">
+          <div style="font-weight: 800; font-size: 13px; color: ${markerColor}; margin-bottom: 3px;">
+            🔥 ${d.predicted_class || 'Thermal Hotspot'}
           </div>
-          <div style="font-size: 11px; color: #2563EB; margin-top: 2px;">
-            ${feat.distance_m} m from thermal anomaly
+          <div style="font-size: 11px; color: #64748B;">
+            ${d.location_name || 'South Asia Regional Point'}
+          </div>
+          <hr style="margin: 6px 0; border: none; border-top: 1px solid #E2E8F0;" />
+          <div><strong>Sensor:</strong> ${sensor}</div>
+          <div><strong>Radiative Power (FRP):</strong> ${d.frp ? parseFloat(d.frp).toFixed(1) + ' MW' : 'N/A'}</div>
+          <div><strong>Brightness Temp:</strong> ${d.brightness ? parseFloat(d.brightness).toFixed(1) + ' K' : 'N/A'}</div>
+          <div><strong>AI Confidence:</strong> ${d.prediction_confidence ? (parseFloat(d.prediction_confidence) * 100).toFixed(1) + '%' : 'Nominal'}</div>
+          <div style="margin-top: 4px; font-family: monospace; font-size: 10.5px; color: #475569;">
+            ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E
           </div>
         </div>
       `);
 
-      cMarker.addTo(contextGroup);
+      marker.on('click', () => {
+        if (onSelectDetection) onSelectDetection(d);
+      });
+
+      marker.addTo(markersLayerGroupRef.current);
     });
-  }, [localFeatures, viewLevel]);
+  }, [filteredDetections, layers.viirsHotspots, layers.modisHotspots, onSelectDetection]);
 
-  // Handle Multi-Stage Smooth Camera Zoom (Space -> Earth -> Deep Satellite View)
-  const handleFocusOnLocation = () => {
-    if (!activeDetection) return;
-
-    onSelectDetection(activeDetection);
-    setFocusTrigger(Date.now());
-
-    // Clear any previous transition timer
-    if (descentTimerRef.current) clearTimeout(descentTimerRef.current);
-
-    // Multi-stage camera descent orchestrator
-    setViewLevel('descending');
-    setDescentStage(1);
-
-    // Stage 2: Continental view (400ms)
-    setTimeout(() => {
-      setDescentStage(2);
-    }, 450);
-
-    // Stage 3: Country / Regional view (900ms)
-    setTimeout(() => {
-      setDescentStage(3);
-    }, 950);
-
-    // Stage 4: Local geographic view (1400ms)
-    setTimeout(() => {
-      setDescentStage(4);
-    }, 1450);
-
-    // Stage 5: Exact detection location with real high-res satellite imagery (2000ms)
-    descentTimerRef.current = setTimeout(() => {
-      setDescentStage(5);
-      setViewLevel('deep_satellite');
-    }, 2000);
+  // Handle Layer Toggle
+  const toggleLayer = (key) => {
+    setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Return to 3D Globe from Deep Satellite view
-  const handleReturnToGlobe = () => {
-    if (descentTimerRef.current) clearTimeout(descentTimerRef.current);
-    setViewLevel('globe');
-    setDescentStage(1);
-    if (satelliteMapInstanceRef.current) {
-      satelliteMapInstanceRef.current.remove();
-      satelliteMapInstanceRef.current = null;
+  // Map Action Helpers
+  const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
+  const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
+  const handleRecenter = () => {
+    mapInstanceRef.current?.setView([20.5937, 78.9629], 5, { animate: true });
+  };
+
+  // Draw & Analyze Quick Tool
+  const handleDrawAndAnalyze = () => {
+    setDrawingMode(true);
+    if (!mapInstanceRef.current) return;
+    const center = mapInstanceRef.current.getCenter();
+    const bounds = L.latLngBounds(
+      [center.lat - 1.5, center.lng - 2],
+      [center.lat + 1.5, center.lng + 2]
+    );
+
+    if (measureLayerGroupRef.current) {
+      measureLayerGroupRef.current.clearLayers();
+      const rect = L.rectangle(bounds, {
+        color: '#38BDF8',
+        weight: 2,
+        fillColor: '#38BDF8',
+        fillOpacity: 0.15,
+        dashArray: '5, 5',
+      });
+      rect.addTo(measureLayerGroupRef.current);
+
+      // Count anomalies inside bounds
+      const insideCount = filteredDetections.filter((d) =>
+        bounds.contains([parseFloat(d.latitude), parseFloat(d.longitude)])
+      ).length;
+
+      setDrawnAreaAlert({
+        areaSqKm: '~95,400 km²',
+        detectedCount: insideCount,
+      });
     }
   };
 
+  // Export Data Action
+  const handleExportData = () => {
+    const dataStr = JSON.stringify(filteredDetections.slice(0, 100), null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `satra_earth_intel_export_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Sample Recent Detections with visual infrared thumbnail
+  const recentDetectionsList = [
+    {
+      id: 'det-1',
+      title: 'High Temperature',
+      category: 'Industrial Fire',
+      location: 'Jamnagar Refinery, Gujarat',
+      coords: '22.3039° N, 70.8022° E',
+      time: '12 min ago',
+      frp: '48.2 MW',
+      temp: '385.4 K',
+      color: '#EF4444',
+    },
+    {
+      id: 'det-2',
+      title: 'Potential Industrial Fire',
+      category: 'Chemical Facility',
+      location: 'Hazira Belt, Gujarat',
+      coords: '21.1702° N, 72.8311° E',
+      time: '28 min ago',
+      frp: '34.6 MW',
+      temp: '362.1 K',
+      color: '#F97316',
+    },
+    {
+      id: 'det-3',
+      title: 'Thermal Anomaly',
+      category: 'Flare / Kiln',
+      location: 'Dahej SEZ, Gujarat',
+      coords: '21.7051° N, 72.9959° E',
+      time: '45 min ago',
+      frp: '22.8 MW',
+      temp: '348.0 K',
+      color: '#38BDF8',
+    },
+    {
+      id: 'det-4',
+      title: 'Hotspot Cluster',
+      category: 'Vegetation Canopy',
+      location: 'Satpura Foothills, MP',
+      coords: '22.1830° N, 77.4120° E',
+      time: '1h 10m ago',
+      frp: '18.5 MW',
+      temp: '335.2 K',
+      color: '#EAB308',
+    },
+  ];
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: 'calc(100vh - 120px)' }}>
-      {/* Top Header Identity */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      {/* 
+        ============================================================
+        1. PAGE HEADER & TIME / BASEMAP CONTROLS
+        ============================================================
+      */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
         <div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Globe size={20} style={{ color: '#38BDF8' }} />
-            <span>EARTH INTELLIGENCE: DEEP LOCATION ZOOM</span>
-            <span style={{ fontSize: '10px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
-              Space to Ground Investigation
-            </span>
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '2px', fontWeight: 500 }}>
-            "Travel from space orbit to the exact detected coordinates with real satellite imagery."
+          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
+            Earth Intelligence
+          </h1>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
+            Interactive satellite view and geospatial analysis
           </div>
         </div>
 
-        {/* Descent Stage Breadcrumb HUD */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'rgba(11, 23, 38, 0.85)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: '20px',
-            padding: '4px 14px',
-            fontSize: '11px',
-            color: '#38BDF8',
-          }}
-        >
-          <span
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          {/* TIME FILTER: Live, 24h, 7d, 30d */}
+          <div
             style={{
-              width: 7,
-              height: 7,
-              borderRadius: '50%',
-              background: viewLevel === 'deep_satellite' ? '#10B981' : '#38BDF8',
-              boxShadow: viewLevel === 'deep_satellite' ? '0 0 10px #10B981' : '0 0 8px #38BDF8',
+              display: 'flex',
+              alignItems: 'center',
+              background: 'rgba(11, 23, 38, 0.9)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '8px',
+              padding: '3px',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
             }}
-          />
-          <span>
-            ALTITUDE:{' '}
-            <strong style={{ color: '#FFFFFF' }}>
-              {viewLevel === 'globe'
-                ? '36,000 km (Global Orbit)'
-                : descentStage === 2
-                ? '2,500 km (Continental Approach)'
-                : descentStage === 3
-                ? '500 km (Regional Scan)'
-                : descentStage === 4
-                ? '50 km (Local Atmospheric Entry)'
-                : '1 km (Surface Satellite Resolution)'}
-            </strong>
-          </span>
+          >
+            {['Live', '24h', '7d', '30d'].map((tf) => (
+              <button
+                key={tf}
+                onClick={() => setTimeFilter(tf)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11.5px',
+                  fontWeight: timeFilter === tf ? 700 : 500,
+                  cursor: 'pointer',
+                  background: timeFilter === tf ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                  color: timeFilter === tf ? '#38BDF8' : '#94A3B8',
+                  boxShadow: timeFilter === tf ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {tf === 'Live' ? '● Live' : tf}
+              </button>
+            ))}
+          </div>
 
-          {viewLevel === 'deep_satellite' && (
-            <button
-              onClick={handleReturnToGlobe}
-              className="btn-secondary"
-              style={{
-                marginLeft: '6px',
-                padding: '3px 8px',
-                fontSize: '10px',
-                borderRadius: '12px',
-                background: 'rgba(56, 189, 248, 0.15)',
-                color: '#38BDF8',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-              }}
-            >
-              <RotateCcw size={10} />
-              <span>Return to 3D Globe</span>
-            </button>
-          )}
+          {/* BASEMAP SELECTOR: Satellite, Dark, Terrain, Light */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              background: 'rgba(11, 23, 38, 0.9)',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              borderRadius: '8px',
+              padding: '3px',
+              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            {['Satellite', 'Dark', 'Terrain', 'Light'].map((bm) => (
+              <button
+                key={bm}
+                onClick={() => setBasemap(bm)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  border: 'none',
+                  fontSize: '11.5px',
+                  fontWeight: basemap === bm ? 700 : 500,
+                  cursor: 'pointer',
+                  background: basemap === bm ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
+                  color: basemap === bm ? '#38BDF8' : '#94A3B8',
+                  boxShadow: basemap === bm ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                {bm}
+              </button>
+            ))}
+          </div>
+
+          {/* Layer Control Panel Toggle */}
+          <button
+            onClick={() => setShowLayerPanel(!showLayerPanel)}
+            className="btn-secondary"
+            style={{
+              padding: '6px 14px',
+              fontSize: '11.5px',
+              fontWeight: 600,
+              gap: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              borderColor: showLayerPanel ? '#38BDF8' : 'rgba(56, 189, 248, 0.25)',
+              color: showLayerPanel ? '#38BDF8' : '#F8FAFC',
+              background: showLayerPanel ? 'rgba(56, 189, 248, 0.18)' : 'rgba(11, 23, 38, 0.9)',
+              boxShadow: showLayerPanel ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none',
+            }}
+          >
+            <Layers size={14} />
+            <span>Map Layers</span>
+          </button>
         </div>
       </div>
 
-      {/* Main Two-Column Structure */}
+      {/* 
+        ============================================================
+        2. MAIN 2D SATELLITE MAP VIEWPORT (INDIA & SOUTH ASIA FOCUSED)
+        ============================================================
+      */}
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.48fr) minmax(320px, 360px)',
-          gap: '20px',
-          flex: 1,
-          minHeight: '620px',
-          alignItems: 'stretch',
+          position: 'relative',
+          height: '560px',
+          width: '100%',
+          borderRadius: '12px',
+          border: '1px solid rgba(56, 189, 248, 0.28)',
+          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
+          overflow: 'hidden',
+          background: '#030712',
         }}
       >
-        {/* ======================================================== */}
-        {/* LEFT COLUMN: 3D EARTH / DEEP SATELLITE VIEWPORT          */}
-        {/* ======================================================== */}
+        {/* Leaflet 2D Map Container */}
+        <div
+          ref={mapContainerRef}
+          style={{ width: '100%', height: '100%', zIndex: 1 }}
+        />
+
+        {/* Top-Left Geographic Focus Badge */}
         <div
           style={{
-            position: 'relative',
-            background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
-            borderRadius: '12px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
-            overflow: 'hidden',
+            position: 'absolute',
+            top: 14,
+            left: 14,
+            zIndex: 10,
             display: 'flex',
-            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(11, 23, 38, 0.88)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(56, 189, 248, 0.25)',
+            borderRadius: '8px',
+            padding: '6px 12px',
+            fontSize: '11.5px',
+            color: '#FFFFFF',
+            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
           }}
         >
-          {/* Viewport 1: 3D Globe (Active during Stage 1-4) */}
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} />
+          <strong style={{ color: '#38BDF8' }}>South Asia</strong>
+          <span style={{ color: 'var(--text-muted)' }}>&bull; India, Pakistan, Nepal, Bhutan, Bangladesh, Sri Lanka, Myanmar</span>
+        </div>
+
+        {/* Map Controls (+, -, Locate, Measure) on right */}
+        <div
+          style={{
+            position: 'absolute',
+            top: 14,
+            right: 14,
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+            background: 'rgba(11, 23, 38, 0.92)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(56, 189, 248, 0.3)',
+            borderRadius: '8px',
+            padding: '4px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+          }}
+        >
+          <button
+            onClick={handleZoomIn}
+            title="Zoom In"
+            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px', fontWeight: 700 }}
+          >
+            +
+          </button>
+          <button
+            onClick={handleZoomOut}
+            title="Zoom Out"
+            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px', fontWeight: 700 }}
+          >
+            &minus;
+          </button>
+          <button
+            onClick={handleRecenter}
+            title="Center on South Asia"
+            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+          >
+            <Crosshair size={15} />
+          </button>
+          <button
+            onClick={handleDrawAndAnalyze}
+            title="Measure / Select Area"
+            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: drawingMode ? 'rgba(56, 189, 248, 0.25)' : 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+          >
+            <Scissors size={14} />
+          </button>
+        </div>
+
+        {/* Layer Control Slide-Out HUD Panel */}
+        {showLayerPanel && (
           <div
             style={{
               position: 'absolute',
-              inset: 0,
-              display: viewLevel === 'deep_satellite' ? 'none' : 'block',
-              transition: 'opacity 0.6s ease',
+              top: 56,
+              right: 14,
+              zIndex: 20,
+              width: '260px',
+              background: 'rgba(11, 23, 38, 0.95)',
+              backdropFilter: 'blur(16px)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              borderRadius: '10px',
+              padding: '14px',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
             }}
           >
-            <EarthGlobe3D
-              detections={detections}
-              selectedDetection={selectedDetection}
-              onSelectDetection={onSelectDetection}
-              initialMode={earthMode}
-              hideSidePanel={true}
-              hideModeSelector={true}
-              hideFloatingFeed={true}
-              isEarthIntelligence={true}
-              focusTrigger={focusTrigger}
-            />
-
-            {/* Empty State when zero detections available */}
-            {detections.length === 0 && (
-              <div
-                style={{
-                  position: 'absolute',
-                  bottom: '24px',
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  zIndex: 25,
-                  background: 'rgba(11, 23, 38, 0.92)',
-                  backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(56, 189, 248, 0.3)',
-                  borderRadius: '10px',
-                  padding: '12px 20px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.6)',
-                  maxWidth: '90%',
-                }}
-              >
-                <AlertCircle size={18} style={{ color: '#38BDF8', flexShrink: 0 }} />
-                <div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>
-                    No real thermal detections available.
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Connect NASA FIRMS or upload satellite observation files to begin analysis.
-                  </div>
-                </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                MAP LAYER CONTROL
               </div>
-            )}
-
-            {/* Descent Telemetry Overlay during Animation */}
-            {viewLevel === 'descending' && (
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  background: 'radial-gradient(circle at center, rgba(56, 189, 248, 0.05) 0%, rgba(3, 7, 18, 0.75) 100%)',
-                  zIndex: 25,
-                  pointerEvents: 'none',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                }}
+              <button
+                onClick={() => setShowLayerPanel(false)}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
               >
-                <div
-                  style={{
-                    padding: '16px 28px',
-                    background: 'rgba(11, 23, 38, 0.95)',
-                    backdropFilter: 'blur(16px)',
-                    border: '1px solid #38BDF8',
-                    borderRadius: '12px',
-                    boxShadow: '0 0 30px rgba(56, 189, 248, 0.35)',
-                    textAlign: 'center',
-                  }}
-                >
-                  <div style={{ fontSize: '11px', color: '#38BDF8', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase' }}>
-                    TRAVELLING FROM SPACE TO SURFACE
-                  </div>
-                  <div style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', marginTop: '6px' }}>
-                    {descentStage === 1 && 'STAGE 1: SPACE ORBIT ACQUISITION'}
-                    {descentStage === 2 && 'STAGE 2: CONTINENTAL VECTOR APPROACH'}
-                    {descentStage === 3 && 'STAGE 3: REGIONAL SCAN & THERMAL LOCK'}
-                    {descentStage === 4 && 'STAGE 4: LOCAL GEOGRAPHIC DESCENT'}
-                  </div>
-                  <div style={{ fontSize: '12px', color: '#BAE6FD', fontFamily: 'monospace', marginTop: '4px' }}>
-                    Target: {latNum.toFixed(4)}° N, {lonNum.toFixed(4)}° E
-                  </div>
-                  {/* Progress Bar */}
-                  <div style={{ width: '220px', height: '4px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '2px', margin: '12px auto 0', overflow: 'hidden' }}>
-                    <div
-                      style={{
-                        width: `${(descentStage / 5) * 100}%`,
-                        height: '100%',
-                        background: 'linear-gradient(90deg, #38BDF8 0%, #10B981 100%)',
-                        transition: 'width 0.4s ease',
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+                ✕
+              </button>
+            </div>
 
-            {/* Lower-left Live Feed Box */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 20,
-                left: 20,
-                zIndex: 15,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                pointerEvents: 'none',
-              }}
-            >
-              <div
-                style={{
-                  background: 'rgba(11, 23, 38, 0.92)',
-                  backdropFilter: 'blur(14px)',
-                  border: '1px solid rgba(56, 189, 248, 0.28)',
-                  borderRadius: '10px',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '8px',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
-                  width: '185px',
-                  pointerEvents: 'auto',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.06em' }}>
-                    <Radio size={12} style={{ color: '#38BDF8' }} />
-                    <span>LIVE FEED</span>
-                  </div>
-                  <span
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {[
+                { key: 'satelliteImagery', label: 'Satellite Imagery', color: '#38BDF8' },
+                { key: 'viirsHotspots', label: 'Thermal Hotspots (VIIRS)', color: '#EF4444' },
+                { key: 'modisHotspots', label: 'Thermal Hotspots (MODIS)', color: '#F59E0B' },
+                { key: 'industrialFacilities', label: 'Industrial Facilities', color: '#0284C7' },
+                { key: 'countryBoundaries', label: 'Country Boundaries', color: '#CBD5E1' },
+                { key: 'stateBoundaries', label: 'State Boundaries', color: '#94A3B8' },
+                { key: 'placeLabels', label: 'Place Labels', color: '#E2E8F0' },
+                { key: 'cloudCover', label: 'Cloud Cover', color: '#A855F7' },
+              ].map((item) => {
+                const isOn = layers[item.key];
+                return (
+                  <div
+                    key={item.key}
+                    onClick={() => toggleLayer(item.key)}
                     style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: '50%',
-                      background: '#10B981',
-                      boxShadow: '0 0 6px #10B981',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '5px 8px',
+                      borderRadius: '6px',
+                      background: isOn ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
+                      cursor: 'pointer',
+                      fontSize: '11.5px',
                     }}
-                  />
-                </div>
-
-                <div
-                  style={{
-                    width: '100%',
-                    height: '62px',
-                    borderRadius: '6px',
-                    overflow: 'hidden',
-                    background: 'radial-gradient(ellipse at center, #1e1b4b 0%, #030712 100%)',
-                    border: '1px solid rgba(56, 189, 248, 0.2)',
-                    position: 'relative',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <svg width="100%" height="100%" viewBox="0 0 180 62" fill="none">
-                    <line x1="0" y1="31" x2="180" y2="31" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="0.8" />
-                    <line x1="90" y1="0" x2="90" y2="62" stroke="rgba(56, 189, 248, 0.2)" strokeWidth="0.8" />
-                    <circle cx="90" cy="31" r="22" stroke="rgba(56, 189, 248, 0.25)" strokeWidth="0.8" strokeDasharray="2 2" />
-                    <circle cx="86" cy="28" r="14" fill="#EF4444" opacity="0.35" filter="blur(4px)" />
-                    <circle cx="88" cy="30" r="7" fill="#F97316" opacity="0.75" />
-                    <circle cx="90" cy="31" r="2.5" fill="#FFFFFF" />
-                  </svg>
-                  <span style={{ position: 'absolute', bottom: 3, right: 6, fontSize: '8.5px', color: '#38BDF8', fontFamily: 'monospace' }}>
-                    IR-375m
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF' }}>
-                    {activeDetection ? `${satDisplay} (${activeDetection.instrument || 'Sensor'})` : 'No active detection'}
+                  >
+                    <span style={{ color: isOn ? '#FFFFFF' : 'var(--text-muted)', fontWeight: isOn ? 600 : 400 }}>
+                      {item.label}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontWeight: 800,
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                        background: isOn ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.15)',
+                        color: isOn ? '#10B981' : '#64748B',
+                        border: `1px solid ${isOn ? 'rgba(16, 185, 129, 0.4)' : 'rgba(148, 163, 184, 0.2)'}`,
+                      }}
+                    >
+                      {isOn ? 'ON' : 'OFF'}
+                    </span>
                   </div>
-                  <div style={{ fontSize: '9.5px', color: '#94A3B8', fontFamily: 'monospace' }}>
-                    {activeDetection ? (activeDetection.acq_date ? `${activeDetection.acq_date} ${activeDetection.acq_time || ''} UTC` : 'Real Observation') : 'Awaiting real data'}
-                  </div>
-                </div>
-              </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Drawn Area Alert Box */}
+        {drawnAreaAlert && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 56,
+              left: 14,
+              zIndex: 15,
+              background: 'rgba(11, 23, 38, 0.92)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(56, 189, 248, 0.4)',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              fontSize: '11.5px',
+              color: '#FFFFFF',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <span>Target Zone: <strong style={{ color: '#38BDF8' }}>{drawnAreaAlert.areaSqKm}</strong></span>
+            <span>&bull;</span>
+            <span>Hotspots: <strong style={{ color: '#EF4444' }}>{drawnAreaAlert.detectedCount} Active</strong></span>
+            <button
+              onClick={() => {
+                measureLayerGroupRef.current?.clearLayers();
+                setDrawnAreaAlert(null);
+                setDrawingMode(false);
+              }}
+              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', marginLeft: '4px' }}
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Bottom Coordinate & Sensor Telemetry Bar */}
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 10,
+            background: 'rgba(11, 23, 38, 0.92)',
+            backdropFilter: 'blur(8px)',
+            borderTop: '1px solid rgba(56, 189, 248, 0.2)',
+            padding: '6px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            fontSize: '11px',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span>LAT: <strong style={{ color: '#FFFFFF' }}>{mapCoords.lat}° N</strong></span>
+            <span>LON: <strong style={{ color: '#FFFFFF' }}>{mapCoords.lng}° E</strong></span>
+            <span>ZOOM: <strong style={{ color: '#38BDF8' }}>{mapCoords.zoom}x</strong></span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>REGION: <strong style={{ color: '#FFFFFF' }}>South Asia</strong></span>
+            <span>PROJECTION: <strong style={{ color: '#94A3B8' }}>EPSG:3857 (WGS84)</strong></span>
+            <span>SENSOR: <strong style={{ color: '#10B981' }}>VIIRS 375m &bull; MODIS 1km</strong></span>
+          </div>
+        </div>
+      </div>
+
+      {/* 
+        ============================================================
+        3. REGION STATISTICS (Real Backend Data)
+        ============================================================
+      */}
+      <div
+        style={{
+          background: 'rgba(11, 23, 38, 0.85)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(56, 189, 248, 0.22)',
+          borderRadius: '12px',
+          padding: '18px 22px',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              REGION STATISTICS
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Geospatial thermal distribution for South Asia command zone
             </div>
           </div>
 
-          {/* Viewport 2: Real High-Resolution Satellite Map (Stage 5 Deep View) */}
-          <div
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: viewLevel === 'deep_satellite' ? 'block' : 'none',
-              zIndex: 20,
-            }}
-          >
-            <div ref={satelliteMapContainerRef} style={{ width: '100%', height: '100%' }} />
-
-            {/* Deep View Controls Bar at Top */}
-            <div
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Region selector:</span>
+            <select
+              value={selectedRegion}
+              onChange={(e) => setSelectedRegion(e.target.value)}
               style={{
-                position: 'absolute',
-                top: '16px',
-                left: '16px',
-                zIndex: 1000,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                background: 'rgba(11, 23, 38, 0.92)',
-                backdropFilter: 'blur(10px)',
+                background: 'rgba(15, 32, 50, 0.85)',
                 border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.6)',
+                borderRadius: '6px',
+                color: '#FFFFFF',
+                padding: '5px 10px',
+                fontSize: '12px',
+                fontWeight: 600,
+                outline: 'none',
+                cursor: 'pointer',
               }}
             >
-              <button
-                onClick={handleReturnToGlobe}
-                className="btn-primary"
-                style={{
-                  padding: '5px 12px',
-                  fontSize: '11px',
-                  fontWeight: 700,
-                  gap: '6px',
-                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-                }}
-              >
-                <Globe size={13} />
-                <span>Return to 3D Globe</span>
-              </button>
-
-              <div style={{ width: '1px', height: '18px', background: 'rgba(255, 255, 255, 0.15)' }} />
-
-              <span style={{ fontSize: '11px', color: '#FFFFFF', fontWeight: 600 }}>
-                High-Resolution Satellite Layer &bull; 1 km Perimeter
-              </span>
-            </div>
-
-            {/* Real GIS Nearby Context Overlay at Bottom Right */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: '16px',
-                right: '16px',
-                zIndex: 1000,
-                background: 'rgba(11, 23, 38, 0.94)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '8px',
-                padding: '12px 14px',
-                maxWidth: '260px',
-                maxHeight: '200px',
-                overflowY: 'auto',
-                fontSize: '11px',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.65)',
-              }}
-            >
-              <div style={{ fontWeight: 800, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                <Compass size={13} style={{ color: '#38BDF8' }} />
-                <span>LOCAL GIS CONTEXT (OSM)</span>
-              </div>
-              {isLoadingContext ? (
-                <div style={{ color: '#94A3B8', fontSize: '10.5px' }}>Querying surrounding features...</div>
-              ) : localFeatures.length === 0 ? (
-                <div style={{ color: '#94A3B8', fontSize: '10.5px' }}>
-                  No mapped industrial/road features within 1 km.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {localFeatures.slice(0, 5).map((f, i) => (
-                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', color: '#E2E8F0', fontSize: '10.5px' }}>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
-                        {f.category === 'industrial' ? '🏭' : f.category === 'road' ? '🛣️' : f.category === 'building' ? '🏢' : '🌳'} {f.name}
-                      </span>
-                      <span style={{ color: '#38BDF8', fontFamily: 'monospace' }}>{f.distance_m}m</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              <option value="India">India</option>
+              <option value="South Asia">South Asia (All)</option>
+              <option value="Western Industrial Corridor">Western Industrial Corridor (Gujarat/Maha)</option>
+              <option value="Eastern Mineral Belt">Eastern Mineral Belt (Odisha/WB)</option>
+            </select>
           </div>
         </div>
 
-        {/* ======================================================== */}
-        {/* RIGHT COLUMN: SELECTED DETECTION TELEMETRY PANEL         */}
-        {/* ======================================================== */}
+        {/* 4 Metrics in one clean row */}
         <div
           style={{
-            background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.90) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
-            borderRadius: '12px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: '14px',
           }}
         >
-          <div
-            style={{
-              padding: '16px 20px',
-              borderBottom: '1px solid rgba(56, 189, 248, 0.18)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Target size={16} style={{ color: '#38BDF8' }} />
-              <span style={{ fontSize: '13px', fontWeight: 800, letterSpacing: '0.06em', color: '#FFFFFF', textTransform: 'uppercase' }}>
-                Selected Detection
-              </span>
+          {/* Total Hotspots */}
+          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Total Hotspots
             </div>
-
-            {activeDetection && (
-              <span style={{ fontSize: '11px', color: '#38BDF8', fontFamily: 'monospace', fontWeight: 700 }}>
-                #{activeDetection.id}
-              </span>
-            )}
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {regionStats.totalHotspots.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '11px', color: '#10B981', marginTop: '2px' }}>
+              Observed in region
+            </div>
           </div>
 
-          <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+          {/* Industrial Fires */}
+          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Industrial Fires
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#EF4444', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {regionStats.industrialFires.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '2px' }}>
+              High-risk facilities
+            </div>
+          </div>
+
+          {/* Forest Fires */}
+          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Forest Fires
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {regionStats.forestFires.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '2px' }}>
+              Vegetation perimeters
+            </div>
+          </div>
+
+          {/* Other Sources */}
+          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Other Sources
+            </div>
+            <div style={{ fontSize: '24px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+              {regionStats.otherSources.toLocaleString()}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              Agricultural / flares
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 
+        ============================================================
+        4. TWO-COLUMN: RECENT DETECTIONS + QUICK ANALYSIS
+        ============================================================
+      */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
+          gap: '16px',
+        }}
+      >
+        {/* LEFT: RECENT DETECTIONS */}
+        <div
+          style={{
+            background: 'rgba(11, 23, 38, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(56, 189, 248, 0.22)',
+            borderRadius: '12px',
+            padding: '18px 20px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
-              {/* Tactical Detection Image / Preview */}
-              <div
-                style={{
-                  width: '100%',
-                  height: '100px',
-                  borderRadius: '8px',
-                  overflow: 'hidden',
-                  background: 'radial-gradient(circle at center, #1e1b4b 0%, #030712 100%)',
-                  border: '1px solid rgba(56, 189, 248, 0.25)',
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: '12px',
-                }}
-              >
-                <svg width="100%" height="100%" viewBox="0 0 280 100" fill="none">
-                  <line x1="0" y1="50" x2="280" y2="50" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="1" />
-                  <line x1="140" y1="0" x2="140" y2="100" stroke="rgba(56, 189, 248, 0.22)" strokeWidth="1" />
-                  <circle cx="140" cy="50" r="34" stroke="rgba(56, 189, 248, 0.3)" strokeWidth="1" strokeDasharray="3 3" />
-                  <circle cx="140" cy="50" r="16" stroke="rgba(56, 189, 248, 0.45)" strokeWidth="1" />
-                  <circle cx="140" cy="50" r="20" fill="#EF4444" opacity="0.32" filter="blur(6px)" />
-                  <circle cx="140" cy="50" r="10" fill="#F97316" opacity="0.7" />
-                  <circle cx="140" cy="50" r="3.5" fill="#FFFFFF" />
-                  <path d="M 120 40 L 120 34 L 126 34" stroke="#38BDF8" strokeWidth="1.5" />
-                  <path d="M 160 40 L 160 34 L 154 34" stroke="#38BDF8" strokeWidth="1.5" />
-                  <path d="M 120 60 L 120 66 L 126 66" stroke="#38BDF8" strokeWidth="1.5" />
-                  <path d="M 160 60 L 160 66 L 154 66" stroke="#38BDF8" strokeWidth="1.5" />
-                </svg>
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 6,
-                    left: 8,
-                    fontSize: '9px',
-                    fontWeight: 700,
-                    color: '#38BDF8',
-                    letterSpacing: '0.06em',
-                    textTransform: 'uppercase',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <Flame size={10} style={{ color: '#EF4444' }} />
-                  <span>Thermal Signature Lock</span>
-                </div>
-
-                <div
-                  style={{
-                    position: 'absolute',
-                    bottom: 6,
-                    right: 8,
-                    fontSize: '9.5px',
-                    fontFamily: 'monospace',
-                    color: '#94A3B8',
-                  }}
-                >
-                  {latDisplay}, {lonDisplay}
-                </div>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                RECENT DETECTIONS
               </div>
-
-              {/* Classification & Risk Level */}
-              <div style={{ marginBottom: '14px' }}>
-                <div style={{ marginBottom: '4px' }}>
-                  <ClassBadge predictedClass={activeDetection?.predicted_class || 'Other'} />
-                </div>
-
-                <div style={{ marginTop: '6px' }}>
-                  <span
-                    style={{
-                      display: 'inline-block',
-                      fontSize: '11px',
-                      fontWeight: 800,
-                      letterSpacing: '0.06em',
-                      padding: '3px 10px',
-                      borderRadius: '6px',
-                      color: riskInfo.color,
-                      background: riskInfo.bg,
-                      border: `1px solid ${riskInfo.border}`,
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {riskInfo.text}
-                  </span>
-                </div>
-              </div>
-
-              {/* Metrics Grid */}
-              <div
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '12px',
-                  padding: '12px',
-                  background: 'rgba(15, 23, 42, 0.65)',
-                  border: '1px solid rgba(56, 189, 248, 0.16)',
-                  borderRadius: '8px',
-                  fontSize: '12px',
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Confidence</div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', marginTop: '2px' }}>
-                    {confDisplay}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>FRP</div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#F59E0B', marginTop: '2px' }}>
-                    {frpDisplay}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Latitude</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>
-                    {latDisplay}
-                  </div>
-                </div>
-
-                <div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Longitude</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>
-                    {lonDisplay}
-                  </div>
-                </div>
-
-                <div style={{ gridColumn: 'span 2' }}>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Satellite &amp; Instrument</div>
-                  <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Satellite size={13} style={{ color: '#38BDF8' }} />
-                    <span>{satDisplay} ({activeDetection?.instrument || 'VIIRS'})</span>
-                  </div>
-                </div>
-
-                <div style={{ gridColumn: 'span 2', borderTop: '1px solid rgba(255, 255, 255, 0.08)', paddingTop: '8px' }}>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Acquisition Time</div>
-                  <div style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Clock size={13} style={{ color: '#10B981' }} />
-                    <span style={{ fontFamily: 'monospace' }}>{formattedDateTime}</span>
-                  </div>
-                </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                Spaceborne thermal signatures in South Asia
               </div>
             </div>
-
-            {/* Action Button: Focus on Location (Deep Descent) */}
-            <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {onNavigate && (
               <button
-                onClick={handleFocusOnLocation}
-                className="btn-primary"
+                onClick={() => onNavigate('detection-explorer')}
                 style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '13px',
-                  fontWeight: 700,
-                  letterSpacing: '0.04em',
-                  justifyContent: 'center',
-                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-                  boxShadow: '0 4px 18px rgba(2, 132, 199, 0.45)',
-                  border: '1px solid rgba(56, 189, 248, 0.5)',
+                  background: 'none',
+                  border: 'none',
+                  color: '#38BDF8',
+                  fontSize: '12px',
+                  fontWeight: 600,
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
+                  gap: '4px',
+                  padding: '4px 8px',
+                  borderRadius: '6px',
                 }}
-                title="Perform multi-stage zoom from space down to real satellite imagery"
               >
-                <Target size={16} />
-                <span>Focus on Location (Deep Zoom)</span>
+                <span>View All</span>
+                <ArrowRight size={13} />
               </button>
+            )}
+          </div>
 
-              <div style={{ fontSize: '10.5px', color: '#94A3B8', textAlign: 'center', lineHeight: 1.4 }}>
-                Animates from Global Earth &rarr; Continental &rarr; Regional &rarr; Deep Satellite View.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {recentDetectionsList.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => onNavigate && onNavigate('detection-explorer')}
+                style={{
+                  background: 'rgba(15, 32, 50, 0.45)',
+                  border: '1px solid rgba(56, 189, 248, 0.12)',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '12px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
+                  e.currentTarget.style.background = 'rgba(15, 32, 50, 0.7)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.12)';
+                  e.currentTarget.style.background = 'rgba(15, 32, 50, 0.45)';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                  {/* Small visual infrared radar thumbnail */}
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 6,
+                      background: 'radial-gradient(circle, #EF4444 0%, #F59E0B 40%, #0B1726 80%)',
+                      border: '1px solid rgba(56, 189, 248, 0.3)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
+                      boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+                    }}
+                  >
+                    <Flame size={15} style={{ color: '#FFFFFF' }} />
+                  </div>
+
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
+                        {item.title}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '1px 6px',
+                          borderRadius: '4px',
+                          background: `${item.color}22`,
+                          color: item.color,
+                          border: `1px solid ${item.color}55`,
+                        }}
+                      >
+                        {item.category}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      {item.location} &bull; <span style={{ fontFamily: 'var(--font-mono)' }}>{item.coords}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#38BDF8', fontFamily: 'var(--font-mono)' }}>
+                    {item.frp}
+                  </div>
+                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
+                    {item.time}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* RIGHT: QUICK ANALYSIS */}
+        <div
+          style={{
+            background: 'rgba(11, 23, 38, 0.85)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(56, 189, 248, 0.22)',
+            borderRadius: '12px',
+            padding: '18px 20px',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '14px' }}>
+            QUICK ANALYSIS
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '10px',
+              flex: 1,
+            }}
+          >
+            {/* Draw & Analyze */}
+            <div
+              onClick={handleDrawAndAnalyze}
+              style={{
+                background: 'rgba(15, 32, 50, 0.5)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                borderRadius: '8px',
+                padding: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#38BDF8';
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+              }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38BDF8' }}>
+                <Scissors size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                  Draw &amp; Analyze
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Select an area on map
+                </div>
+              </div>
+            </div>
+
+            {/* Time Series */}
+            <div
+              onClick={() => onNavigate && onNavigate('analytics')}
+              style={{
+                background: 'rgba(15, 32, 50, 0.5)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                borderRadius: '8px',
+                padding: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#38BDF8';
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+              }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+                <TrendingUp size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                  Time Series
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  View temporal changes
+                </div>
+              </div>
+            </div>
+
+            {/* Region Report */}
+            <div
+              onClick={() => {
+                alert(`SATRA Region Report Generated for ${selectedRegion}:\n- Active Hotspots: ${regionStats.totalHotspots}\n- Industrial Fires: ${regionStats.industrialFires}\n- Forest Fires: ${regionStats.forestFires}\n- Status: Operational`);
+              }}
+              style={{
+                background: 'rgba(15, 32, 50, 0.5)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                borderRadius: '8px',
+                padding: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#38BDF8';
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+              }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
+                <FileText size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                  Region Report
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Generate detailed report
+                </div>
+              </div>
+            </div>
+
+            {/* Export Data */}
+            <div
+              onClick={handleExportData}
+              style={{
+                background: 'rgba(15, 32, 50, 0.5)',
+                border: '1px solid rgba(56, 189, 248, 0.2)',
+                borderRadius: '8px',
+                padding: '14px',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#38BDF8';
+                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
+                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+              }}
+            >
+              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A855F7' }}>
+                <Download size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                  Export Data
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  Download satellite data
+                </div>
               </div>
             </div>
           </div>

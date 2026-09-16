@@ -939,17 +939,6 @@ body {
   overflow: hidden;
 }
 
-/* Space Explorer Visual Elements */
-.space-explorer-viewport {
-  width: 100%;
-  height: 600px;
-  border-radius: 12px;
-  overflow: hidden;
-  position: relative;
-  background: radial-gradient(circle at center, #0B1726 0%, #050B14 100%);
-  border: 1px solid var(--border-color);
-}
-
 /* ==========================================================================
    Thermal Intelligence — Aerospace Global Monitor & Control Deck
    ========================================================================== */
@@ -1050,6 +1039,24 @@ body {
     grid-template-columns: 1fr;
     gap: 16px;
   }
+}
+
+/* ==========================================================================
+   SATRA Floating "Ask SATRA" Button & Right-Side AI Assistant Panel
+   ========================================================================== */
+@keyframes satra-slide-in-right {
+  from {
+    transform: translateX(28px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.satra-ai-panel {
+  animation: satra-slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ==========================================================================

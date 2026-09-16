@@ -18,6 +18,7 @@ import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 import { AiAssistantModal } from './components/AiAssistantModal';
 import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
 import { Sparkles } from 'lucide-react';
+import { FloatingAiButton } from './components/FloatingAiButton';
 
 import {
   getHealth,
@@ -290,6 +291,7 @@ export function App() {
               selectedDetection={selectedDetection}
               onSelectDetection={setSelectedDetection}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
+              onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
             />
           )}
 
@@ -297,8 +299,10 @@ export function App() {
           {currentTab === 'earth-intel' && (
             <EarthIntelligenceView
               detections={detections}
+              analytics={analytics}
               selectedDetection={selectedDetection}
               onSelectDetection={setSelectedDetection}
+              onNavigate={handleTabChange}
             />
           )}
 
@@ -401,7 +405,7 @@ export function App() {
           }}
         />
 
-        {/* Global AI Assistant Expandable Workspace / Slide-Over Modal */}
+        {/* Global AI Assistant Expandable Workspace / Slide-Over Panel */}
         <AiAssistantModal
           isOpen={isAiAssistantModalOpen}
           onClose={() => setIsAiAssistantModalOpen(false)}
@@ -444,6 +448,11 @@ export function App() {
           </button>
         )}
       </main>
+
+      {/* Single persistent floating "Ask SATRA" access point — fixed to the
+          viewport (bottom: 24px / right: 24px) on every page. The ONLY
+          floating AI Assistant entry; no duplicate chatbot cards. */}
+      <FloatingAiButton onClick={() => setIsAiAssistantModalOpen(true)} />
     </div>
   );
 }

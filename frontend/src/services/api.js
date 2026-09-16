@@ -452,3 +452,14 @@ export async function syncSatelliteFirms(params = {}) {
   return request(`${API_V1}/satellite/firms${queryString}`);
 }
 
+// 7. SATRA AI Assistant & Domain Chatbot
+export async function sendChatMessage(message, history = []) {
+  return request(`${API_BASE}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({
+      message,
+      history,
+    }),
+  });
+}
+

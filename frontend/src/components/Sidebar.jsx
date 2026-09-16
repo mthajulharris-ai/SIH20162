@@ -9,7 +9,6 @@ import {
   Map,
   Satellite,
   Cpu,
-  Sparkles,
   Settings,
   Radio,
   LogOut,

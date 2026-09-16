@@ -47,6 +47,84 @@ function latLngToVector3(lat, lng, radius) {
 }
 
 /**
+ * Classification-driven hotspot palette (SATRA thermal taxonomy).
+ * Industrial Fire            -> Red
+ * Forest Fire                -> Orange
+ * Persistent Thermal Source  -> Yellow
+ * Other                      -> Cyan / Blue
+ */
+function getClassificationHex(predictedClass) {
+  const c = (predictedClass || '').toLowerCase();
+  if (c.includes('industrial')) return 0xef4444;
+  if (
+    c.includes('forest') ||
+    c.includes('wildfire') ||
+    c.includes('vegetation') ||
+    c.includes('bushfire')
+  ) {
+    return 0xf97316;
+  }
+  if (c.includes('persistent')) return 0xfacc15;
+  return 0x38bdf8;
+}
+
+function getClassificationCss(predictedClass) {
+  return `#${getClassificationHex(predictedClass).toString(16).padStart(6, '0')}`;
+}
+
+/**
+ * Shared soft radial-gradient texture used by the static thermal heat zones.
+ * Smooth falloff (hot core -> transparent edge), rendered ONCE per detection
+ * as a geographic overlay — never animated, never blinking.
+ */
+let heatGradientTextureCache = null;
+function getHeatGradientTexture() {
+  if (heatGradientTextureCache) return heatGradientTextureCache;
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+  grad.addColorStop(0.32, 'rgba(255, 255, 255, 0.55)');
+  grad.addColorStop(0.65, 'rgba(255, 255, 255, 0.18)');
+  grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  heatGradientTextureCache = new THREE.CanvasTexture(canvas);
+  return heatGradientTextureCache;
+}
+
+/* ---------- Hover tooltip formatting helpers (static data only) ---------- */
+function formatConfidenceValue(det) {
+  const v = parseFloat(det?.prediction_confidence);
+  if (isNaN(v)) return 'N/A';
+  return `${(v <= 1 ? v * 100 : v).toFixed(1)}%`;
+}
+
+function formatFRPValue(det) {
+  const v = parseFloat(det?.frp);
+  return isNaN(v) ? 'N/A' : `${v.toFixed(1)} MW`;
+}
+
+function formatTemperatureValue(det) {
+  const v = parseFloat(det?.brightness);
+  return isNaN(v) ? 'N/A' : `${v.toFixed(1)} K`;
+}
+
+function formatLatLonValue(det) {
+  const lat = parseFloat(det?.latitude);
+  const lon = parseFloat(det?.longitude);
+  if (isNaN(lat) || isNaN(lon)) return 'N/A';
+  return `${Math.abs(lat).toFixed(4)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(4)}° ${lon >= 0 ? 'E' : 'W'}`;
+}
+
+function formatDetectionTimestamp(det) {
+  return det?.acq_date || det?.created_at || det?.timestamp || 'N/A';
+}
+
+/**
  * Compute the geographically upright globe quaternion for a given lat/lon.
  * Centers (lat, lon) directly facing the camera (+Z) with North pointing strictly UP (+Y).
  * Eliminates oblique tilt and sideways roll.
@@ -873,7 +951,17 @@ export function EarthGlobe3D({
     }
   }, [earthMode, isEarthIntelligence]);
 
-  // Update Hotspot Markers when detections, selection, or earthMode change
+  // ========================================================================
+  // STATIC THERMAL HOTSPOT VISUALIZATION (NO BLINKING / NO PULSING / NO BEAMS)
+  // Professional, stable representation of thermal activity:
+  //   A. Heat intensity zones — soft static red/orange/yellow geographic
+  //      heat patches (smooth gradients, size & opacity by FRP risk level)
+  //   B. Small static detection points — compact color-coded markers:
+  //      Industrial Fire = Red, Forest Fire = Orange,
+  //      Persistent Thermal Source = Yellow, Other = Cyan/Blue
+  //   C. Selected detection — ONE thin cyan outline ring + small glow
+  // All markers are fully static; interaction happens on hover / click only.
+  // ========================================================================
   useEffect(() => {
     if (!markersGroupRef.current) return;
     const group = markersGroupRef.current;
@@ -890,8 +978,9 @@ export function EarthGlobe3D({
     }
 
     const surfaceRadius = 100.25;
+    const heatTex = getHeatGradientTexture();
 
-    detections.forEach((d, idx) => {
+    detections.forEach((d) => {
       const lat = parseFloat(d.latitude);
       const lon = parseFloat(d.longitude);
       if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) return;
@@ -904,192 +993,105 @@ export function EarthGlobe3D({
         Math.abs(parseFloat(selectedDetection.latitude) - lat) < 0.0001 &&
         Math.abs(parseFloat(selectedDetection.longitude) - lon) < 0.0001;
 
+      const classColor = getClassificationHex(d.predicted_class);
+
       // Marker Container positioned at exact lat/lon
       const markerRoot = new THREE.Group();
       markerRoot.position.copy(pos);
       // Orient so that +Z points outward along the surface normal vector
       markerRoot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
-      markerRoot.userData = {
-        detection: d,
-        pulsePhase: idx * 0.75,
-        isSelected: !!isSelected,
-      };
+      markerRoot.userData = { detection: d, isSelected: !!isSelected };
 
+      // FRP-driven thermal intensity (static — sized once, never animated)
       const frpVal = parseFloat(d.frp || 0);
       const isCritical = d.alert_level === 'CRITICAL' || frpVal >= 80;
       const isHighFRP = frpVal >= 50;
       const isMediumFRP = frpVal >= 20;
 
-      let mainColor = 0xef4444; // Standard thermal red
-      let coreColor = 0xffffff;
-      let coreRadius = 0.95;
-      let beamHeight = 8.0;
-      let showOuterWave = false;
-      let beamOpacity = 0.75;
-
-      if (earthMode === 'thermal') {
-        // ========================================================
-        // MODE 2: THERMAL EARTH (BLUE = EARTH, RED = THERMAL HOTSPOT)
-        // FRP-driven visual hierarchy:
-        // - Low (<20 MW): small red point
-        // - Medium (20-50 MW): brighter/larger red point
-        // - High (>=50 MW): strong bright red glow + tall beam
-        // - Critical / Selected: bright red center + pulsing ring + expanding wave
-        // ========================================================
-        if (isSelected) {
-          mainColor = 0xff1e1e; // Vivid scarlet red
-          coreColor = 0xffffff;
-          coreRadius = 1.85;
-          beamHeight = 26.0;
-          beamOpacity = 0.98;
-          showOuterWave = true;
-        } else if (isCritical) {
-          mainColor = 0xff1e1e;
-          coreColor = 0xffe4e6;
-          coreRadius = 1.6;
-          beamHeight = 22.0;
-          beamOpacity = 0.92;
-          showOuterWave = true;
-        } else if (isHighFRP) {
-          mainColor = 0xff2222;
-          coreColor = 0xff4545;
-          coreRadius = 1.35;
-          beamHeight = 16.0;
-          beamOpacity = 0.85;
-          showOuterWave = true;
-        } else if (isMediumFRP) {
-          mainColor = 0xef4444;
-          coreColor = 0xef4444;
-          coreRadius = 1.05;
-          beamHeight = 11.0;
-          beamOpacity = 0.75;
-          showOuterWave = false;
-        } else {
-          // Low FRP (< 20 MW)
-          mainColor = 0xdc2626;
-          coreColor = 0xdc2626;
-          coreRadius = 0.8;
-          beamHeight = 6.5;
-          beamOpacity = 0.65;
-          showOuterWave = false;
-        }
-      } else if (earthMode === 'hybrid') {
-        // ========================================================
-        // MODE 3: HYBRID EARTH (REALISTIC EARTH + RED THERMAL INTELLIGENCE)
-        // High-contrast red thermal anomaly overlay on natural textures
-        // ========================================================
-        if (isSelected) {
-          mainColor = 0xff1e1e;
-          coreColor = 0xffffff;
-          coreRadius = 1.8;
-          beamHeight = 25.0;
-          beamOpacity = 0.95;
-          showOuterWave = true;
-        } else if (isCritical || isHighFRP) {
-          mainColor = 0xef4444;
-          coreColor = 0xff4545;
-          coreRadius = 1.4;
-          beamHeight = 18.0;
-          beamOpacity = 0.88;
-          showOuterWave = true;
-        } else {
-          mainColor = 0xef4444;
-          coreColor = 0xef4444;
-          coreRadius = 1.0;
-          beamHeight = 10.0;
-          beamOpacity = 0.7;
-          showOuterWave = false;
-        }
-      } else {
-        // ========================================================
-        // MODE 1: NORMAL EARTH (REALISTIC EARTH OBSERVATION)
-        // Subtle markers that preserve the natural Earth visual
-        // ========================================================
-        const pClassLower = (d.predicted_class || '').toLowerCase();
-        const isIndustrial = pClassLower.includes('industrial');
-        const isPersistent = pClassLower.includes('persistent');
-
-        if (isSelected) {
-          mainColor = 0xff1e1e;
-          coreColor = 0xffffff;
-          coreRadius = 1.5;
-          beamHeight = 22.0;
-          beamOpacity = 0.9;
-          showOuterWave = true;
-        } else if (isIndustrial) {
-          mainColor = 0xef4444;
-          coreColor = 0xef4444;
-          coreRadius = 1.1;
-          beamHeight = 10.0;
-          beamOpacity = 0.75;
-          showOuterWave = false;
-        } else if (isPersistent) {
-          mainColor = 0xf59e0b;
-          coreColor = 0xf59e0b;
-          coreRadius = 0.95;
-          beamHeight = 8.0;
-          beamOpacity = 0.65;
-          showOuterWave = false;
-        } else {
-          mainColor = 0x38bdf8;
-          coreColor = 0x38bdf8;
-          coreRadius = 0.8;
-          beamHeight = 6.0;
-          beamOpacity = 0.6;
-          showOuterWave = false;
-        }
-      }
-
-      // 1. Glowing Center Point (Sphere)
-      const coreGeo = new THREE.SphereGeometry(coreRadius, 16, 16);
-      const coreMat = new THREE.MeshBasicMaterial({
-        color: coreColor,
-      });
-      const coreMesh = new THREE.Mesh(coreGeo, coreMat);
-      markerRoot.add(coreMesh);
-
-      // 2. Vertical Light Beacon (Pillar pointing along surface normal)
-      const pillarGeo = new THREE.CylinderGeometry(0.2, isSelected ? 0.9 : 0.6, beamHeight, 8);
-      pillarGeo.rotateX(Math.PI / 2); // Orient along +Z
-      pillarGeo.translate(0, 0, beamHeight / 2);
-      const pillarMat = new THREE.MeshBasicMaterial({
-        color: mainColor,
+      // ------------------------------------------------------------
+      // A. HEAT INTENSITY ZONE — soft static thermal patch (red ->
+      //    orange -> yellow gradient), gentle at global zoom scale
+      // ------------------------------------------------------------
+      const heatRadius = isSelected
+        ? 6.2
+        : isCritical
+          ? 5.4
+          : isHighFRP
+            ? 4.4
+            : isMediumFRP
+              ? 3.6
+              : 2.8;
+      const heatOpacity = isSelected
+        ? 0.72
+        : isCritical
+          ? 0.5
+          : isHighFRP
+            ? 0.42
+            : isMediumFRP
+              ? 0.34
+              : 0.26;
+      const heatGeo = new THREE.PlaneGeometry(heatRadius * 2, heatRadius * 2);
+      const heatMat = new THREE.MeshBasicMaterial({
+        map: heatTex,
+        color: classColor,
         transparent: true,
-        opacity: beamOpacity,
-      });
-      const pillarMesh = new THREE.Mesh(pillarGeo, pillarMat);
-      markerRoot.add(pillarMesh);
-
-      // 3. Pulsing Base Radar Ring on surface
-      const ringRadius = coreRadius * (isSelected ? 3.2 : 2.5);
-      const ringGeo = new THREE.RingGeometry(ringRadius * 0.72, ringRadius, 24);
-      const ringMat = new THREE.MeshBasicMaterial({
-        color: mainColor,
+        opacity: heatOpacity,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
         side: THREE.DoubleSide,
-        transparent: true,
-        opacity: isSelected ? 0.9 : 0.6,
       });
-      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
-      markerRoot.add(ringMesh);
-      markerRoot.userData.ringMesh = ringMesh;
+      const heatMesh = new THREE.Mesh(heatGeo, heatMat);
+      heatMesh.position.set(0, 0, 0.35);
+      markerRoot.add(heatMesh);
 
-      // 4. Expanding Radar Wave Ring (Especially for Selected / Critical / High-FRP Hotspot)
-      if (showOuterWave) {
-        const outerRadarGeo = new THREE.RingGeometry(ringRadius * 0.9, ringRadius * 1.1, 24);
-        const outerRadarMat = new THREE.MeshBasicMaterial({
-          color: isSelected ? 0xffffff : mainColor,
+      // ------------------------------------------------------------
+      // B. SMALL STATIC DETECTION POINT — compact color-coded marker
+      // ------------------------------------------------------------
+      const pointRadius = isSelected ? 0.72 : isHighFRP || isCritical ? 0.52 : 0.42;
+      const pointGeo = new THREE.SphereGeometry(pointRadius, 14, 14);
+      const pointMat = new THREE.MeshBasicMaterial({
+        color: isSelected ? 0xffffff : classColor,
+      });
+      const pointMesh = new THREE.Mesh(pointGeo, pointMat);
+      pointMesh.position.set(0, 0, 0.3);
+      markerRoot.add(pointMesh);
+
+      // ------------------------------------------------------------
+      // C. SELECTED DETECTION — ONE subtle highlight: thin cyan
+      //    outline ring + small glow. Static, never animated.
+      // ------------------------------------------------------------
+      if (isSelected) {
+        const selRingGeo = new THREE.RingGeometry(1.1, 1.22, 40);
+        const selRingMat = new THREE.MeshBasicMaterial({
+          color: 0x38bdf8,
           side: THREE.DoubleSide,
           transparent: true,
-          opacity: 0.6,
+          opacity: 0.9,
+          depthWrite: false,
         });
-        const outerRadarMesh = new THREE.Mesh(outerRadarGeo, outerRadarMat);
-        markerRoot.add(outerRadarMesh);
-        markerRoot.userData.outerRadarMesh = outerRadarMesh;
+        const selRingMesh = new THREE.Mesh(selRingGeo, selRingMat);
+        selRingMesh.position.set(0, 0, 0.42);
+        markerRoot.add(selRingMesh);
+
+        // Small soft cyan glow backing the highlight (static)
+        const selGlowGeo = new THREE.PlaneGeometry(3.2, 3.2);
+        const selGlowMat = new THREE.MeshBasicMaterial({
+          map: heatTex,
+          color: 0x38bdf8,
+          transparent: true,
+          opacity: 0.3,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        });
+        const selGlowMesh = new THREE.Mesh(selGlowGeo, selGlowMat);
+        selGlowMesh.position.set(0, 0, 0.4);
+        markerRoot.add(selGlowMesh);
       }
 
       group.add(markerRoot);
     });
-  }, [detections, selectedDetection, earthMode]);
+  }, [detections, selectedDetection]);
 
   // Smooth Globe Rotation & Controlled Zoom on Selected Detection
   useEffect(() => {
@@ -1548,36 +1550,57 @@ export function EarthGlobe3D({
         </div>
       )}
 
-      {/* Micro Hover Tooltip */}
-      {hoveredDetection && !selectedDetection && (
+      {/* Detection Hover Information Card (interaction only — no blinking) */}
+      {hoveredDetection && (
         <div
           style={{
             position: 'fixed',
             left: tooltipPos.x + 14,
             top: tooltipPos.y - 12,
-            background: 'rgba(15, 23, 42, 0.94)',
+            background: 'rgba(15, 23, 42, 0.95)',
             backdropFilter: 'blur(10px)',
             border: '1px solid rgba(56, 189, 248, 0.35)',
             borderRadius: '6px',
-            padding: '8px 12px',
+            padding: '9px 12px',
             color: '#F8FAFC',
             fontSize: '12px',
             pointerEvents: 'none',
             zIndex: 100,
             boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6)',
+            minWidth: '185px',
           }}
         >
-          <div style={{ fontWeight: 700, color: hoveredDetection.predicted_class?.includes('Industrial') ? '#EF4444' : '#F59E0B' }}>
-            {hoveredDetection.predicted_class || 'Thermal Hotspot'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+            <span
+              style={{
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: getClassificationCss(hoveredDetection.predicted_class),
+                boxShadow: `0 0 6px ${getClassificationCss(hoveredDetection.predicted_class)}`,
+                flexShrink: 0,
+              }}
+            />
+            <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
+              {hoveredDetection.predicted_class || 'Thermal Hotspot'}
+            </span>
           </div>
-          <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-            FRP: {hoveredDetection.frp ? `${parseFloat(hoveredDetection.frp).toFixed(1)} MW` : 'N/A'} | Temp: {hoveredDetection.brightness ? `${parseFloat(hoveredDetection.brightness).toFixed(1)} K` : 'N/A'}
+          <div style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'monospace', marginBottom: '5px' }}>
+            ID: {hoveredDetection.detection_id || hoveredDetection.id || 'N/A'}
           </div>
-          <div style={{ fontSize: '10.5px', fontFamily: 'monospace', color: '#38BDF8', marginTop: '2px' }}>
-            {parseFloat(hoveredDetection.latitude).toFixed(4)}°, {parseFloat(hoveredDetection.longitude).toFixed(4)}°
+          <div style={{ fontSize: '11px', color: '#CBD5E1', lineHeight: 1.55 }}>
+            <div>Confidence: {formatConfidenceValue(hoveredDetection)}</div>
+            <div>FRP: {formatFRPValue(hoveredDetection)}</div>
+            <div>Temp: {formatTemperatureValue(hoveredDetection)}</div>
+            <div style={{ fontFamily: 'monospace', color: '#38BDF8', marginTop: '2px' }}>
+              {formatLatLonValue(hoveredDetection)}
+            </div>
+            <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '3px' }}>
+              {formatDetectionTimestamp(hoveredDetection)}
+            </div>
           </div>
-          <div style={{ fontSize: '10px', color: '#94A3B8', marginTop: '2px' }}>
-            Click to target coordinate
+          <div style={{ fontSize: '10px', color: '#64748B', marginTop: '5px' }}>
+            Click to select detection
           </div>
         </div>
       )}

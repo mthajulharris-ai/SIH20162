@@ -14,8 +14,13 @@ import {
   Monitor,
   Palette,
   Check,
+  Bot,
+  MessageSquare,
+  Trash2,
+  Sparkles,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { AiAssistantModal } from '../components/AiAssistantModal';
 
 export function SettingsView({
   detections = [],
@@ -27,6 +32,38 @@ export function SettingsView({
   const [rotationSpeed, setRotationSpeed] = useState('normal');
   const [glowIntensity, setGlowIntensity] = useState('high');
   const [isSaved, setIsSaved] = useState(false);
+
+  // AI Assistant state
+  const [isAiEnabled, setIsAiEnabled] = useState(() => {
+    try {
+      const saved = localStorage.getItem('satra_ai_assistant_enabled');
+      return saved !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [clearNotice, setClearNotice] = useState(false);
+
+  const toggleAiEnabled = () => {
+    const next = !isAiEnabled;
+    setIsAiEnabled(next);
+    try {
+      localStorage.setItem('satra_ai_assistant_enabled', String(next));
+    } catch (e) {
+      console.warn('Failed to save AI enabled state:', e);
+    }
+  };
+
+  const handleClearHistory = () => {
+    try {
+      localStorage.removeItem('satra_chat_history');
+      setClearNotice(true);
+      setTimeout(() => setClearNotice(false), 2500);
+    } catch (e) {
+      console.warn('Failed to clear chat history:', e);
+    }
+  };
 
   const handleSave = () => {
     setIsSaved(true);
@@ -200,6 +237,213 @@ export function SettingsView({
         </div>
       </div>
 
+      {/* AI Assistant Section */}
+      <div className="card-panel" style={{ marginBottom: 0 }}>
+        <div className="panel-header">
+          <div className="panel-title">
+            <Bot size={16} style={{ color: 'var(--primary-cyan)' }} />
+            AI Assistant
+          </div>
+          <span
+            style={{
+              fontSize: '11px',
+              color: isAiEnabled ? 'var(--success, #22c55e)' : 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: isAiEnabled ? 'var(--success, #22c55e)' : 'var(--text-muted)',
+                display: 'inline-block',
+              }}
+            />
+            {isAiEnabled ? 'OPERATIONAL / ACTIVE' : 'DISABLED'}
+          </span>
+        </div>
+
+        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          SATRA domain-specific intelligence copilot for Industrial Fire Detection, Persistent Thermal Source Monitoring, NASA FIRMS satellite telemetry (VIIRS 375m & MODIS 1km), Fire Radiative Power (FRP), and ML ensemble classification. Accessible from normal application pages and configurable below.
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '14px',
+            alignItems: 'stretch',
+          }}
+        >
+          {/* Card 1: Enable / Disable */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                  Enable AI Assistant
+                </span>
+                <button
+                  onClick={toggleAiEnabled}
+                  style={{
+                    width: '42px',
+                    height: '22px',
+                    borderRadius: '12px',
+                    background: isAiEnabled ? 'var(--primary-cyan)' : 'var(--border-strong)',
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'relative',
+                    transition: 'background 0.2s ease',
+                    padding: '2px',
+                  }}
+                  title={isAiEnabled ? 'Disable AI Assistant' : 'Enable AI Assistant'}
+                >
+                  <div
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      borderRadius: '50%',
+                      background: '#FFFFFF',
+                      transform: isAiEnabled ? 'translateX(20px)' : 'translateX(0px)',
+                      transition: 'transform 0.2s ease',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                    }}
+                  />
+                </button>
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Controls copilot access across navigation modules and interactive chat drawers.
+              </div>
+            </div>
+            <div style={{ fontSize: '11px', color: isAiEnabled ? 'var(--ice-blue)' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+              Status: {isAiEnabled ? 'Enabled (Active)' : 'Disabled'}
+            </div>
+          </div>
+
+          {/* Card 2: AI Model Architecture */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)' }}>
+                  AI Model
+                </span>
+                <span style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '4px', background: 'rgba(69,200,245,0.12)', color: 'var(--primary-cyan)', fontFamily: 'var(--font-mono)' }}>
+                  v2.0-SCI
+                </span>
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Soft-Voting Ensemble combining Random Forest, LightGBM, and XGBoost with a 0.60 calibrated confidence threshold.
+              </div>
+            </div>
+            <div style={{ fontSize: '10.5px', color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)' }}>
+              Taxonomy: 0=Ind, 1=Forest, 2=Persist, 3=Other
+            </div>
+          </div>
+
+          {/* Card 3: Open AI Assistant */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              border: isAiEnabled ? '1px solid var(--border-color)' : '1px solid var(--border-subtle)',
+              background: 'var(--bg-card)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+              opacity: isAiEnabled ? 1 : 0.6,
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '4px' }}>
+                Open AI Assistant
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Launch the interactive SATRA copilot workspace to ask technical questions and inspect live analytics.
+              </div>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(true)}
+              disabled={!isAiEnabled}
+              className="btn-primary"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '9px 14px',
+                fontSize: '12.5px',
+                cursor: isAiEnabled ? 'pointer' : 'not-allowed',
+              }}
+            >
+              <MessageSquare size={14} />
+              <span>Open AI Assistant</span>
+            </button>
+          </div>
+
+          {/* Card 4: Clear Chat History */}
+          <div
+            style={{
+              padding: '16px',
+              borderRadius: '10px',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-card)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'space-between',
+              gap: '12px',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-heading)', marginBottom: '4px' }}>
+                Clear Chat History
+              </div>
+              <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                Purge stored conversation messages and reset cached assistant telemetry queries.
+              </div>
+            </div>
+            <button
+              onClick={handleClearHistory}
+              className="btn-secondary"
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '9px 14px',
+                fontSize: '12.5px',
+              }}
+            >
+              <Trash2 size={14} />
+              <span>{clearNotice ? 'History Cleared!' : 'Clear Chat History'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Settings Grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(440px, 1fr))', gap: '20px' }}>
         {/* Telemetry & API Settings */}
@@ -362,6 +606,13 @@ export function SettingsView({
           <span>{isSaved ? 'Preferences Saved!' : 'Save System Preferences'}</span>
         </button>
       </div>
+
+      {/* Embedded Settings AI Assistant Workspace Modal */}
+      <AiAssistantModal
+        isOpen={isChatOpen && isAiEnabled}
+        onClose={() => setIsChatOpen(false)}
+        onClearHistory={handleClearHistory}
+      />
     </div>
   );
 }
