@@ -1,0 +1,322 @@
+[
+  {
+    "chunk_id": "01_satra_system_overview_chk_000",
+    "text": "[Satra System Overview \u2014 Problem Statement & Context]\nThe Smart India Hackathon (SIH) problem statement addresses the critical need for automated, satellite-driven detection and distinction of industrial thermal anomalies versus natural forest or agricultural fires. In major industrial belts\u2014such as refineries, petrochemical hubs, thermal power plants, steel mills, and fertilizer factories\u2014high-temperature operations produce thermal radiation that is frequently misclassified by conventional satellite fire products as uncontrolled wildfires. Conversely, actual runaway industrial incidents, tank farm fires, and chemical explosions require immediate automated detection, severity grading, and dispatch verification.",
+    "document_name": "Satra System Overview",
+    "document_type": "MD",
+    "section": "Problem Statement & Context",
+    "source": "01_satra_system_overview.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "01_satra_system_overview_chk_001",
+    "text": "[Satra System Overview \u2014 SATRA Mission & Objectives]\nSATRA (Satellite-based Autonomous Thermal Risk Analysis) is an aerospace-grade intelligence platform engineered to:\n1. Ingest real-time thermal anomaly observations from polar-orbiting satellite constellations (NASA FIRMS / VIIRS / MODIS).\n2. Filter, calibrate, and enrich thermal detections with geographic, infrastructural, and meteorological context.\n3. Classify thermal events using an ensemble machine learning architecture into:\n   - `0 = Industrial Fire` \u2014 Runaway or uncontained thermal events occurring inside industrial facility perimeters.\n   - `1 = Forest Fire` \u2014 Natural vegetation or canopy wildfire exhibiting rapid spatial propagation.\n   - `2 = Persistent Thermal Source` \u2014 Regulated, stationary industrial sources such as flare stacks, blast furnaces, or cement kilns.\n   - `3 = Other` \u2014 Agricultural stubble burning, controlled biomass burning, or solar glare false positives.\n4. Issue automated tiered alerts (CRITICAL, HIGH, MEDIUM, LOW) to plant safety officers and civil defense authorities.\n5. Provide a 3D Earth, interactive GIS investigation deck, and domain-grounded AI copilot for telemetry analysis.",
+    "document_name": "Satra System Overview",
+    "document_type": "MD",
+    "section": "SATRA Mission & Objectives",
+    "source": "01_satra_system_overview.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "01_satra_system_overview_chk_002",
+    "text": "[Satra System Overview \u2014 Core Capabilities]\n- **Latency**: Sub-30-minute detection turnaround from satellite overpass to incident alert dispatch.\n- **Multi-Sensor Fusion**: Correlates high-resolution 375m VIIRS I-band data with MODIS 1km calibrated radiance observations.\n- **Verification Workflow**: Integrated human-in-the-loop verification pipeline allowing security dispatchers to confirm industrial incidents or flag maintenance flare venting.",
+    "document_name": "Satra System Overview",
+    "document_type": "MD",
+    "section": "Core Capabilities",
+    "source": "01_satra_system_overview.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "02_satellite_sensors_firms_chk_000",
+    "text": "[Satellite Sensors Firms \u2014 NASA FIRMS Overview]\nNASA FIRMS (Fire Information for Resource Management System) delivers global active fire and thermal anomaly data within 3 hours of satellite observation, with Ultra Real-Time (URT) feeds available within minutes. FIRMS ingests data from two primary sensor suites: VIIRS and MODIS.",
+    "document_name": "Satellite Sensors Firms",
+    "document_type": "MD",
+    "section": "NASA FIRMS Overview",
+    "source": "02_satellite_sensors_firms.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "02_satellite_sensors_firms_chk_001",
+    "text": "[Satellite Sensors Firms \u2014 VIIRS (Visible Infrared Imaging Radiometer Suite)]\n- **Platforms**: Suomi-NPP (SNPP), NOAA-20 (JPSS-1), and NOAA-21 (JPSS-2).\n- **Spatial Resolution**: 375 meters at nadir in Imagery (I) bands.\n- **Key Channels for Thermal Analysis**:\n  - **Band I4 (3.55 - 3.93 \u03bcm)**: Mid-wave infrared (MWIR) channel with extreme radiometric sensitivity to high-temperature sub-pixel thermal emitters. Saturates around 367 K.\n  - **Band I5 (10.50 - 12.40 \u03bcm)**: Thermal infrared (TIR / LWIR) channel used as the baseline background reference temperature.\n- **Key Advantage**: 375m pixel resolution detects sub-pixel industrial fires and small flare emissions that are completely invisible to 1km sensors. Minimal pixel distortion across wide swaths (3,060 km) due to pixel aggregation techniques.",
+    "document_name": "Satellite Sensors Firms",
+    "document_type": "MD",
+    "section": "VIIRS (Visible Infrared Imaging Radiometer Suite)",
+    "source": "02_satellite_sensors_firms.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "02_satellite_sensors_firms_chk_002",
+    "text": "[Satellite Sensors Firms \u2014 MODIS (Moderate Resolution Imaging Spectroradiometer)]\n- **Platforms**: Terra (morning equator crossing ~10:30 AM/PM) and Aqua (afternoon equator crossing ~01:30 AM/PM).\n- **Spatial Resolution**: 1,000 meters (1 km) at nadir.\n- **Key Channels**:\n  - **Band 21/22 (3.96 \u03bcm)**: High-range MWIR channel designed not to saturate up to 500 K.\n  - **Band 31 (11.0 \u03bcm)** & **Band 32 (12.0 \u03bcm)**: Long-wave infrared background reference channels.\n- **Role in SATRA**: Provides long-term multi-decadal baseline calibration and cross-sensor validation for extreme thermal emission events.",
+    "document_name": "Satellite Sensors Firms",
+    "document_type": "MD",
+    "section": "MODIS (Moderate Resolution Imaging Spectroradiometer)",
+    "source": "02_satellite_sensors_firms.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "02_satellite_sensors_firms_chk_003",
+    "text": "[Satellite Sensors Firms \u2014 Data Acquisition & Geometry]\n- **Scan & Track**: Geometric dimensions of the projected satellite footprint on Earth. At swath edges, scan width expands due to panoramic distortion. SATRA normalizes scan and track values to evaluate true radiant spatial density.\n- **Day/Night Flag (`daynight`)**: Distinguishes solar-illuminated daytime overpasses (`D`) from nighttime overpasses (`N`). Nighttime observations are especially reliable for industrial thermal analysis because solar reflection and soil heating false positives are eliminated.",
+    "document_name": "Satellite Sensors Firms",
+    "document_type": "MD",
+    "section": "Data Acquisition & Geometry",
+    "source": "02_satellite_sensors_firms.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "03_thermal_anomalies_and_physics_chk_000",
+    "text": "[Thermal Anomalies And Physics \u2014 What is a Thermal Anomaly?]\nA thermal anomaly is a localized pixel or cluster where measured infrared radiance significantly departs from the statistical background temperature of the surrounding land cover. In satellite remote sensing, anomalous high temperatures indicate active combustion, flare venting, molten metal processing, or wildfire activity.",
+    "document_name": "Thermal Anomalies And Physics",
+    "document_type": "MD",
+    "section": "What is a Thermal Anomaly?",
+    "source": "03_thermal_anomalies_and_physics.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "03_thermal_anomalies_and_physics_chk_001",
+    "text": "[Thermal Anomalies And Physics \u2014 Planck's Radiation Law]\nThe spectral radiance $B(\\lambda, T)$ of a blackbody emitter increases exponentially with temperature, and the peak of radiant emission shifts toward shorter wavelengths as temperature rises (Wien's Displacement Law):\n$$\\lambda_{max} \\cdot T \\approx 2898 \\text{ }\\mu\\text{m}\\cdot\\text{K}$$ - Ambient background Earth surfaces (~300 K) emit predominantly in the Long-Wave Infrared (LWIR ~10\u201312 \u03bcm).\n- Active flaming combustion and industrial flares (800 K \u2013 1800 K) emit predominantly in the Mid-Wave Infrared (MWIR ~3.7\u20134.0 \u03bcm).\n- Consequently, sub-pixel fires that occupy less than 0.1% of a 375m pixel cause massive radiance spikes in MWIR Band I4 while barely altering LWIR Band I5.",
+    "document_name": "Thermal Anomalies And Physics",
+    "document_type": "MD",
+    "section": "Planck's Radiation Law",
+    "source": "03_thermal_anomalies_and_physics.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "03_thermal_anomalies_and_physics_chk_002",
+    "text": "[Thermal Anomalies And Physics \u2014 Brightness Temperature Difference ($\\Delta T$)]\nThe temperature differential $\\Delta T = T_{3.75} - T_{11}$ (or $T_{I4} - T_{I5}$) serves as a primary discriminant in SATRA:\n- Non-fire ground pixels: $\\Delta T \\approx 0\\text{ to }5 \\text{ K}$.\n- Mild thermal heating or solar glare: $\\Delta T \\approx 5\\text{ to }12 \\text{ K}$.\n- Active flaming fire or flare stack: $\\Delta T > 20 \\text{ K}$, often exceeding $50\\text{ to }80 \\text{ K}$.",
+    "document_name": "Thermal Anomalies And Physics",
+    "document_type": "MD",
+    "section": "Brightness Temperature Difference ($\\Delta T$)",
+    "source": "03_thermal_anomalies_and_physics.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "03_thermal_anomalies_and_physics_chk_003",
+    "text": "[Thermal Anomalies And Physics \u2014 Fire Radiative Power (FRP)]\nFire Radiative Power (expressed in Megawatts, MW) quantifies the rate of radiant energy emitted by active combustion. SATRA calculates FRP based on the empirical bi-spectral formulation derived by Wooster et al.:\n$$FRP \\approx \\frac{A_{pixel} \\cdot \\sigma}{a} \\cdot \\left(L_{MWIR} - L_{b,MWIR}\\right)$$\nWhere:\n- $A_{pixel}$ is the pixel surface ground area in square meters.\n- $\\sigma$ is the Stefan-Boltzmann constant ($5.6704 \\times 10^{-8} \\text{ W}\\cdot\\text{m}^{-2}\\cdot\\text{K}^{-4}$).\n- $L_{MWIR}$ and $L_{b,MWIR}$ are the target and background spectral radiances.\n- $a$ is a sensor-specific calibration coefficient.",
+    "document_name": "Thermal Anomalies And Physics",
+    "document_type": "MD",
+    "section": "Fire Radiative Power (FRP)",
+    "source": "03_thermal_anomalies_and_physics.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "03_thermal_anomalies_and_physics_chk_004",
+    "text": "[Thermal Anomalies And Physics \u2014 Diagnostic Significance of FRP in SATRA]\n- **Small Agricultural Burning**: 1 \u2013 15 MW.\n- **Regulated Industrial Flare Stacks**: 15 \u2013 60 MW (consistent, localized, stationary).\n- **Major Industrial Tank / Process Fire**: 60 \u2013 250+ MW (intense, localized, rising trajectory).\n- **Large Forest Wildfire Front**: 100 \u2013 1000+ MW (spatially sprawling across dozens of connected pixels).",
+    "document_name": "Thermal Anomalies And Physics",
+    "document_type": "MD",
+    "section": "Diagnostic Significance of FRP in SATRA",
+    "source": "03_thermal_anomalies_and_physics.md",
+    "page_number": 3,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_000",
+    "text": "[Industrial Fire Classification Methodology \u2014 Four-Class Taxonomy]\nSATRA categorizes every thermal detection into one of four distinct operational classes:",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Four-Class Taxonomy",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_001",
+    "text": "[Industrial Fire Classification Methodology \u2014 Class 0: Industrial Fire]\n- **Definition**: Acute, uncontrolled thermal combustion or runaway chemical event originating within or immediately adjacent to industrial facility boundaries.\n- **Physical Characteristics**:\n  - Very high localized FRP (typically > 50 MW).\n  - Spatial radius typically under 500 meters (compact emitter, point source).\n  - Proximity to registered industrial polygons (refineries, petrochemical complexes, chemical storage, pipeline depots, tank farms).\n  - High confidence score (> 80%).\n  - Acute onset with no historical signature in preceding weeks or dramatic deviation from baseline flare intensity.",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Class 0: Industrial Fire",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_002",
+    "text": "[Industrial Fire Classification Methodology \u2014 Class 1: Forest Fire]\n- **Definition**: Uncontained wildfire burning biomass in forested, scrubland, or protected conservation zones.\n- **Physical Characteristics**:\n  - Spatially dispersed multi-pixel cluster (DBSCAN cluster count > 5).\n  - High directional velocity and expansion between sequential satellite overpasses.\n  - Proximity to high vegetation density / forest land use land cover (LULC).\n  - Greater distance (> 5 km) from heavy industrial perimeters.",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Class 1: Forest Fire",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_003",
+    "text": "[Industrial Fire Classification Methodology \u2014 Class 2: Persistent Thermal Source]\n- **Definition**: Routine, stationary, industrial thermal activity resulting from normal operational processes.\n- **Examples**:\n  - Petrochemical safety flare stacks.\n  - Blast furnace exhausts in steel manufacturing.\n  - Rotary kilns in cement factories.\n  - Coke oven battery degassing.\n- **Physical Characteristics**:\n  - High temporal recurrence: Detected at identical geographic coordinates ($< 300\\text{ m}$ deviation) across multiple passes over 30+ days.\n  - Steady or bounded FRP variance without rapid perimeter spread.\n  - Stationary spatial cluster size (single pixel or fixed twin-pixel cluster).",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Class 2: Persistent Thermal Source",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_004",
+    "text": "[Industrial Fire Classification Methodology \u2014 Class 3: Other]\n- **Definition**: Non-critical thermal events including agricultural crop residue burning, controlled sugarcane field clearing, hot soil solar reflections, or low-temperature biomass burnings located outside industrial perimeters.",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Class 3: Other",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 3,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "04_industrial_fire_classification_methodology_chk_005",
+    "text": "[Industrial Fire Classification Methodology \u2014 Differentiation Heuristics & Decision Logic]\n1. **Spatial Proximity**: Distance to nearest industrial facility (OpenStreetMap / industrial database tags). Detections $< 1.0\\text{ km}$ from heavy industrial infrastructure have high prior probability for Class 0 or Class 2.\n2. **Persistence Index**: Historical detection frequency within a 500m radius over the previous 7, 30, and 90 days. A stationary point with high history is classified as Class 2 unless its instantaneous FRP exceeds 3\u00d7 standard deviations above baseline.\n3. **Cluster Morphology**: Aspect ratio and perimeter-to-area ratio of thermal cluster. Point-like clusters indicate industrial origins; linear fronts indicate advancing wildfires.",
+    "document_name": "Industrial Fire Classification Methodology",
+    "document_type": "MD",
+    "section": "Differentiation Heuristics & Decision Logic",
+    "source": "04_industrial_fire_classification_methodology.md",
+    "page_number": 3,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "05_satra_ml_model_architecture_chk_000",
+    "text": "[Satra Ml Model Architecture \u2014 How the ML Model Classifies Thermal Anomalies]\nSATRA classifies every ingested thermal anomaly using a Soft-Voting Ensemble across 4 standardized operational classes:\n- `0 = Industrial Fire`: Uncontrolled or runaway thermal combustion originating within or adjacent to industrial facility perimeters.\n- `1 = Forest Fire`: Wildfire burning natural forest, canopy, or vegetative land cover.\n- `2 = Persistent Thermal Source`: Stationary industrial heat emitters such as petrochemical flare stacks, blast furnaces, and cement kilns.\n- `3 = Other`: Crop residue burning, controlled agricultural burns, or false alarms. **Soft-Voting Ensemble Architecture:**\nThe classification engine averages predicted posterior probabilities across three state-of-the-art models:\n1. **Random Forest Classifier**: 150 estimators, max depth 14, min samples split 4. Provides variance reduction and resilience against sensor noise.\n2. **LightGBM Classifier**: 100 estimators, learning rate 0.05, num leaves 31. Captures complex non-linear geographic and radiometric interactions.\n3. **XGBoost Classifier**: 100 estimators, max depth 6, learning rate 0.08, colsample by tree 0.85. Excels at feature split optimization and class-imbalance regularization.",
+    "document_name": "Satra Ml Model Architecture",
+    "document_type": "MD",
+    "section": "How the ML Model Classifies Thermal Anomalies",
+    "source": "05_satra_ml_model_architecture.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "05_satra_ml_model_architecture_chk_001",
+    "text": "[Satra Ml Model Architecture \u2014 Confidence Calibration & Thresholding]\n- **Soft-Voting Ensemble**: Predictions from the three constituent models are averaged across class probabilities:\n  $$P(\\text{Class } c) = \\frac{1}{3} \\sum_{m=1}^{3} P_m(\\text{Class } c)$$\n- **Calibrated Verification Threshold**: $0.60$ (60%).\n  - A predicted class probability $\\ge 0.60$ is considered High Confidence.\n  - For Class 0 (Industrial Fire), probabilities $\\ge 0.75$ trigger automatic `CRITICAL` alert escalation.\n  - Detections with confidence between $0.40$ and $0.60$ are marked with `verification_status: REQUIRES_VERIFICATION`.",
+    "document_name": "Satra Ml Model Architecture",
+    "document_type": "MD",
+    "section": "Confidence Calibration & Thresholding",
+    "source": "05_satra_ml_model_architecture.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "05_satra_ml_model_architecture_chk_002",
+    "text": "[Satra Ml Model Architecture \u2014 28 Engineered Features]\nThe model operates on 28 tabular features derived from satellite telemetry and geospatial GIS layers:\n1. `latitude`: Geographic latitude (WGS84).\n2. `longitude`: Geographic longitude (WGS84).\n3. `brightness`: MWIR Band I4 brightness temperature (Kelvin).\n4. `scan`: Along-scan pixel dimension (km).\n5. `track`: Along-track pixel dimension (km).\n6. `acq_time`: Satellite acquisition time (UTC HHMM converted to float hour).\n7. `confidence`: Raw sensor detection confidence score (0\u2013100 or low/nominal/high encoded).\n8. `bright_t31`: LWIR Band I5 background brightness temperature (Kelvin).\n9. `frp`: Fire Radiative Power (Megawatts).\n10. `daynight`: Binary flag (1 = Day, 0 = Night).\n11. `brightness_diff`: Temperature delta ($T_{I4} - T_{I5}$) in Kelvin.\n12. `hour_of_day`: Acquisition hour in local standard time (0\u201323).\n13. `month`: Seasonality marker (1\u201312).\n14. `day_of_week`: Day of week (0 = Monday, 6 = Sunday).\n15. `dist_to_industrial_km`: Geodesic distance to nearest registered industrial parcel.\n16. `dist_to_forest_km`: Geodesic distance to nearest classified forest/vegetation boundary.\n17. `industrial_density_5km`: Number of registered industrial sites within 5km radius.\n18. `rolling_fire_count_7d`: Historical count of thermal detections within 500m in the past 7 days.\n19. `rolling_fire_count_30d`: Historical count of thermal detections within 500m in the past 30 days.\n20. `rolling_avg_frp_7d`: Moving average of FRP for this spatial coordinate over 7 days.\n21. `frp_to_mean_ratio`: Ratio of instantaneous FRP to rolling 30-day baseline FRP.\n22. `cluster_pixel_count`: Number of spatial neighbor pixels detected in the same overpass.\n23. `cluster_max_frp`: Peak FRP recorded across the local DBSCAN cluster.\n24. `spatial_cluster_area`: Convex hull polygon area of the multi-pixel thermal cluster ($km^2$).\n25. `aspect_ratio`: Spatial aspect ratio of the cluster (elongation indicator).\n26. `persistent_source_flag`: Binary indicator if location is on the permanent industrial flare registry.\n27. `solar_elevation_angle`: Computed solar elevation angle to screen false sun glint.\n28. `land_cover_code`: USGS/Copernicus numerical land cover classification code.",
+    "document_name": "Satra Ml Model Architecture",
+    "document_type": "MD",
+    "section": "28 Engineered Features",
+    "source": "05_satra_ml_model_architecture.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "05_satra_ml_model_architecture_chk_003",
+    "text": "[Satra Ml Model Architecture \u2014 Model Validation & Performance Benchmarks]\n- **Overall Accuracy**: 93.4% on 5-fold stratified cross-validation.\n- **Industrial Fire (Class 0)**: Precision = 94.2%, Recall = 91.8%, F1-Score = 93.0%.\n- **Persistent Thermal Source (Class 2)**: Precision = 96.1%, Recall = 95.4%, F1-Score = 95.7%.\n- **Forest Fire (Class 1)**: Precision = 92.5%, Recall = 94.0%, F1-Score = 93.2%.",
+    "document_name": "Satra Ml Model Architecture",
+    "document_type": "MD",
+    "section": "Model Validation & Performance Benchmarks",
+    "source": "05_satra_ml_model_architecture.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "06_gis_and_spatial_clustering_chk_000",
+    "text": "[Gis And Spatial Clustering \u2014 Geospatial Framework]\nSATRA utilizes standard WGS84 coordinates (`EPSG:4326`) for all ingested points, polygons, and satellite footprints. The GIS Investigation Deck renders multi-layered map overlays using Leaflet and WebGL:\n- Real-time thermal hotspot markers colored by severity: Critical Red (`#E63946`), High Orange (`#F59E0B`), Moderate Gold (`#EAB308`), Low Cyan (`#45C8F5`).\n- OpenStreetMap and satellite imagery basemaps.\n- Industrial boundary polygons representing refineries, power plants, chemical complexes, and special economic zones.",
+    "document_name": "Gis And Spatial Clustering",
+    "document_type": "MD",
+    "section": "Geospatial Framework",
+    "source": "06_gis_and_spatial_clustering.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "06_gis_and_spatial_clustering_chk_001",
+    "text": "[Gis And Spatial Clustering \u2014 DBSCAN Spatial Clustering]\nTo aggregate individual 375m pixels into coherent incidents, SATRA applies DBSCAN (Density-Based Spatial Clustering of Applications with Noise):\n- **Epsilon ($\\epsilon$)**: $0.05^\\circ$ (~5.5 km at equator).\n- **Minimum Samples (`min_samples`)**: 3 detection pixels.\n- **Metric**: Haversine distance.\n- **Clustering Outputs**:\n  - Cluster centroid $(\\text{lat}_{c}, \\text{lon}_{c})$.\n  - Total integrated FRP: $\\sum FRP_i$.\n  - Spatial footprint area (convex hull).\n  - Dispersion index: indicates whether the cluster is expanding linearly (forest fire front) or concentrated around a single complex (industrial plant).",
+    "document_name": "Gis And Spatial Clustering",
+    "document_type": "MD",
+    "section": "DBSCAN Spatial Clustering",
+    "source": "06_gis_and_spatial_clustering.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "06_gis_and_spatial_clustering_chk_002",
+    "text": "[Gis And Spatial Clustering \u2014 Spatial Filtering & Queries]\nThe SATRA GIS subsystem supports spatial bounding box queries (`bbox=min_lon,min_lat,max_lon,max_lat`) and radial proximity queries around high-value facilities. Facilities within a 2km radius of an unverified detection receive instant push notification previews.",
+    "document_name": "Gis And Spatial Clustering",
+    "document_type": "MD",
+    "section": "Spatial Filtering & Queries",
+    "source": "06_gis_and_spatial_clustering.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "07_alerts_and_incident_verification_chk_000",
+    "text": "[Alerts And Incident Verification \u2014 Alert Grading & Severity Rules]\nEvery detection is evaluated by SATRA's alert rule engine to calculate alert severity: 1. **CRITICAL**:\n   - Classification: `Industrial Fire` (Class 0) with confidence $\\ge 0.75$.\n   - OR any industrial detection with $\\text{FRP} \\ge 100 \\text{ MW}$.\n   - Response Protocol: Immediate automated visual alert, siren banner in Command Center, automated dispatch trigger.\n2. **HIGH**:\n   - Classification: `Industrial Fire` with confidence between $0.60$ and $0.74$.\n   - OR `Forest Fire` within 3km of an industrial boundary.\n3. **MEDIUM**:\n   - Persistent thermal source exhibiting an unusual spike ($\\text{FRP} > 2.5\\times$ rolling average).\n   - OR unverified anomalous hotspot with confidence between $0.40$ and $0.60$.\n4. **LOW**:\n   - Standard persistent thermal source conforming to baseline flare operations.\n   - Minor agricultural burns outside protected zones.",
+    "document_name": "Alerts And Incident Verification",
+    "document_type": "MD",
+    "section": "Alert Grading & Severity Rules",
+    "source": "07_alerts_and_incident_verification.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "07_alerts_and_incident_verification_chk_001",
+    "text": "[Alerts And Incident Verification \u2014 Verification Status Lifecycle]\nIncident alerts follow a formal operational lifecycle:\n- `REQUIRES_VERIFICATION`: Initial status assigned to high-risk detections awaiting human dispatcher confirmation.\n- `VERIFIED_INDUSTRIAL`: Dispatcher has confirmed with on-site CCTV, thermal sensors, or plant telemetry that a real industrial incident is occurring.\n- `FALSE_POSITIVE`: Confirmed as non-hazardous flare stack venting, solar reflection, or permitted controlled maintenance.\n- `RESOLVED`: Incident containment complete; thermal signature extinguished in subsequent satellite passes.",
+    "document_name": "Alerts And Incident Verification",
+    "document_type": "MD",
+    "section": "Verification Status Lifecycle",
+    "source": "07_alerts_and_incident_verification.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_000",
+    "text": "[System Architecture And Api \u2014 Software Stack]\n- **Backend Framework**: FastAPI (Python 3.14) running on Uvicorn ASGI server.\n- **Database**: SQLite / PostgreSQL with SQLAlchemy ORM and Alembic migrations.\n- **Machine Learning Core**: Scikit-Learn, LightGBM, XGBoost, NumPy, SciPy, FAISS.\n- **Frontend Client**: Vite + React, Vanilla CSS design system, Leaflet maps, Lucide icons.\n- **Vector Search Engine**: FAISS (`faiss-cpu`) local index with normalized vector cosine similarity.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "Software Stack",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_001",
+    "text": "[System Architecture And Api \u2014 1. Telemetry & Detections]\n- `GET /api/v1/detections`: List recent satellite thermal detections with filtering by date, class, minimum FRP, and bounding box.\n- `GET /api/v1/detections/{id}`: Detailed telemetry record for a specific detection ID including coordinates, FRP, brightness, and model feature vector.\n- `POST /api/v1/detections/upload`: Ingest new satellite telemetry CSV/JSON file and trigger pipeline inference.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "1. Telemetry & Detections",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 1,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_002",
+    "text": "[System Architecture And Api \u2014 2. Incident Alerts]\n- `GET /api/v1/alerts`: Query active alerts filtered by severity level (`CRITICAL`, `HIGH`, etc.) and verification status.\n- `PATCH /api/v1/alerts/{id}/status`: Update verification status (`VERIFIED_INDUSTRIAL`, `FALSE_POSITIVE`, `RESOLVED`).",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "2. Incident Alerts",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_003",
+    "text": "[System Architecture And Api \u2014 3. Analytics & FIRMS]\n- `GET /api/v1/analytics/summary`: Aggregated system metrics: total active fires, industrial fire count, persistent source count, and 7-day trend series.\n- `GET /api/v1/firms/status`: NASA FIRMS collector status, latest pass timestamp, and sensor health.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "3. Analytics & FIRMS",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 2,
+    "updated_at": "2026-09-16"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_004",
+    "text": "[System Architecture And Api \u2014 4. AI Copilot Chat]\n- `POST /api/chat` (and `POST /api/v1/chat`): Domain AI Assistant endpoint executing hybrid intent routing, FAISS vector retrieval, live database synthesis, and citation generation.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "4. AI Copilot Chat",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 3,
+    "updated_at": "2026-09-16"
+  }
+]

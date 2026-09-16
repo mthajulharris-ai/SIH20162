@@ -161,6 +161,9 @@ def root_health():
 
 app.include_router(health_router, prefix="/api", tags=["Health"])
 
+from backend.api.v1.endpoints.chat import router as chat_router
+app.include_router(chat_router, prefix="/api/chat", tags=["AI Assistant"])
+
 # Versioned API Router (/api/v1/...)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
