@@ -115,6 +115,7 @@ export function SatelliteDataView({
     }
   };
 
+<<<<<<< HEAD
   // Real NASA FIRMS Presets for 1-click test
   const REAL_FIRMS_PRESETS = [
     {
@@ -207,13 +208,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
   };
 
   // Determine Connection Status Display
+=======
+  // Determine Connection Status Display (Section 15 Specification: LIVE / DEGRADED / OFFLINE)
+>>>>>>> c080c5c (LIVE CONNECTION)
   const getConnectionStatusInfo = () => {
     if (!isBackendHealthy) {
       return {
         label: 'OFFLINE',
         color: 'red',
         badge: '503 ERR',
-        subtext: 'Backend service offline',
+        subtext: 'No current satellite data available',
         statusType: 'error',
       };
     }
@@ -222,27 +226,37 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
     if (st === 'API KEY REQUIRED') {
       return {
-        label: 'API KEY REQUIRED',
+        label: 'OFFLINE',
         color: 'amber',
         badge: 'CONFIG .ENV',
-        subtext: 'Configure NASA_FIRMS_MAP_KEY',
+        subtext: 'NASA_FIRMS_MAP_KEY required',
         statusType: 'warning',
       };
     }
 
-    if (st === 'API ERROR') {
+    if (st === 'DEGRADED') {
       return {
-        label: 'API ERROR',
+        label: 'DEGRADED',
+        color: 'amber',
+        badge: 'CACHED',
+        subtext: 'NASA FIRMS temporarily unavailable',
+        statusType: 'warning',
+      };
+    }
+
+    if (st === 'API ERROR' || st === 'OFFLINE') {
+      return {
+        label: 'OFFLINE',
         color: 'red',
-        badge: 'HTTP ERR',
-        subtext: satelliteStatus?.message || 'NASA FIRMS connection error',
+        badge: 'ERROR',
+        subtext: satelliteStatus?.message || 'No current satellite data available',
         statusType: 'error',
       };
     }
 
     if (st === 'NO DATA') {
       return {
-        label: 'NO DATA',
+        label: 'LIVE',
         color: 'cyan',
         badge: '0 DETECTIONS',
         subtext: '0 hotspots in target window',
@@ -251,10 +265,10 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
     }
 
     return {
-      label: 'CONNECTED',
+      label: 'LIVE',
       color: 'emerald',
-      badge: '200 OK',
-      subtext: 'NASA LANCE / FIRMS Active',
+      badge: 'NASA FIRMS',
+      subtext: 'VIIRS / MODIS Active',
       statusType: 'success',
     };
   };
@@ -535,7 +549,11 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
         <KpiCard
           title="Last Synchronized"
           value={displayLastSync}
-          subtext={satelliteStatus?.last_sync ? 'Automated telemetry sync' : 'Latest observation timestamp'}
+          subtext={
+            satelliteStatus?.data_age_seconds !== undefined
+              ? `Data age: ${satelliteStatus.data_age_seconds < 60 ? `${satelliteStatus.data_age_seconds}s ago` : `${Math.floor(satelliteStatus.data_age_seconds / 60)}m ago`}`
+              : (satelliteStatus?.last_sync ? 'Automated telemetry sync' : 'Latest observation timestamp')
+          }
           icon={Clock}
           accentColor="amber"
           badgeText="UTC SYNC"

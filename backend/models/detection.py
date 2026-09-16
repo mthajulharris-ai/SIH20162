@@ -100,30 +100,85 @@ class Detection(Base):
         return value
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert ORM model instance into a Python dictionary with standard and alias keys."""
+        """Convert ORM model instance into a Python dictionary with standard, normalized, and alias keys."""
+        # Format observed_at from acq_date and acq_time
+        observed_at_str = None
+        if self.acq_date:
+            raw_time = str(self.acq_time or "0000").zfill(4)[:4]
+            hour = raw_time[:2]
+            minute = raw_time[2:4]
+            observed_at_str = f"{self.acq_date}T{hour}:{minute}:00Z"
+
+        created_iso = self.created_at.isoformat() if self.created_at else None
+        risk_score = round(float(self.prediction_confidence or 0.0) * 100.0, 1)
+        risk_level = self.alert_level or "LOW"
+        scan_val = 0.375 if "VIIRS" in (self.instrument or "").upper() or "VIIRS" in (self.source or "").upper() else 1.0
+        track_val = 0.375 if "VIIRS" in (self.instrument or "").upper() or "VIIRS" in (self.source or "").upper() else 1.0
+
         return {
             "id": self.id,
+            # Top-level unified fields
+            "source": self.source,
+            "satellite": self.source,
+            "instrument": self.instrument or ("VIIRS" if "VIIRS" in self.source else "MODIS"),
             "latitude": self.latitude,
             "longitude": self.longitude,
-            "brightness": self.brightness,
-            "confidence": self.confidence,
             "acq_date": self.acq_date,
             "acquisition_date": self.acq_date,
             "acq_time": self.acq_time,
             "acquisition_time": self.acq_time,
-            "source": self.source,
-            "satellite": self.source,
-            "instrument": self.instrument,
+            "confidence": self.confidence,
+            "brightness": self.brightness,
+            "brightness_temperature": self.brightness,
             "frp": self.frp,
             "daynight": self.daynight,
+            "scan": scan_val,
+            "track": track_val,
             "source_file": self.source_file,
+            "created_at": created_iso,
+            "observed_at": observed_at_str or created_iso,
+            "received_at": created_iso,
+            "processed_at": created_iso,
+
+            # SATRA Analytical Fields
+            "risk_score": risk_score,
+            "risk_level": risk_level,
+            "classification": self.predicted_class,
             "predicted_class": self.predicted_class,
             "prediction_confidence": self.prediction_confidence,
             "is_persistent": self.is_persistent,
             "model_version": self.model_version or "2.0.0-scientific-prototype",
             "data_provenance": self.data_provenance or "REAL_FIRMS",
-            "alert_level": self.alert_level or "LOW",
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "alert_level": risk_level,
+
+            # Clearly separated Provenance Structures (Requirement 5)
+            "nasa_data": {
+                "source": self.source,
+                "satellite": self.source,
+                "instrument": self.instrument or ("VIIRS" if "VIIRS" in self.source else "MODIS"),
+                "latitude": self.latitude,
+                "longitude": self.longitude,
+                "acquisition_date": self.acq_date,
+                "acquisition_time": self.acq_time,
+                "observed_at": observed_at_str or created_iso,
+                "confidence": self.confidence,
+                "brightness_temperature": self.brightness,
+                "frp": self.frp,
+                "daynight": self.daynight,
+                "scan": scan_val,
+                "track": track_val,
+            },
+            "satra_analytics": {
+                "classification": self.predicted_class,
+                "risk_score": risk_score,
+                "risk_level": risk_level,
+                "prediction_confidence": self.prediction_confidence,
+                "is_persistent": self.is_persistent,
+                "model_version": self.model_version or "2.0.0-scientific-prototype",
+                "received_at": created_iso,
+                "processed_at": created_iso,
+                "data_provenance": self.data_provenance or "REAL_FIRMS",
+            },
         }
 
 

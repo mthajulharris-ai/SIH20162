@@ -424,6 +424,21 @@ export async function getFirmsHealth() {
   return request(`${API_V1}/satellite/firms/health`);
 }
 
+export async function getRecentSatelliteDetections(limit = 20) {
+  return request(`${API_V1}/satellite/detections/recent?limit=${limit}`);
+}
+
+export async function searchSatelliteLocation(lat, lon, radiusKm = 100) {
+  return request(`${API_V1}/satellite/search?lat=${lat}&lon=${lon}&radius_km=${radiusKm}`);
+}
+
+export async function askSatraAi(query) {
+  return request(`${API_V1}/satellite/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+  });
+}
+
 export async function syncSatelliteFirms(params = {}) {
   const query = new URLSearchParams();
   Object.entries(params).forEach(([key, val]) => {

@@ -124,8 +124,18 @@ class DetectionResponse(DetectionBase):
     """Schema for returning a detection record with database IDs and metadata."""
     id: int = Field(..., description="Unique database ID of the detection record")
     created_at: datetime = Field(..., description="UTC timestamp when record was ingested")
+    observed_at: Optional[str] = Field(None, description="ISO UTC timestamp of satellite observation")
+    received_at: Optional[str] = Field(None, description="ISO UTC timestamp when SATRA received NASA record")
+    processed_at: Optional[str] = Field(None, description="ISO UTC timestamp when SATRA completed AI processing")
+    brightness_temperature: Optional[float] = Field(None, description="Brightness temperature in Kelvin")
+    risk_score: Optional[float] = Field(None, description="SATRA ML risk score (0-100)")
+    risk_level: Optional[str] = Field(None, description="SATRA alert level")
+    classification: Optional[str] = Field(None, description="SATRA predicted class")
+    satellite: Optional[str] = Field(None, description="Satellite name alias")
+    acquisition_date: Optional[str] = Field(None, description="Acquisition date alias")
+    acquisition_time: Optional[str] = Field(None, description="Acquisition time alias")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, extra="allow")
 
 
 class DetectionListResponse(BaseModel):

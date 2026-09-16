@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     # NASA FIRMS API Configurations
     NASA_FIRMS_BASE_URL: str = "https://firms.modaps.eosdis.nasa.gov/api"
     NASA_FIRMS_MAP_KEY: str = ""
+    NASA_FIRMS_POLL_INTERVAL_MINUTES: int = 15
 
     model_config = SettingsConfigDict(
         env_file=".env",

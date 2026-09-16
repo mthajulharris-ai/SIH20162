@@ -42,7 +42,22 @@ async def lifespan(app: FastAPI):
     except Exception as err:
         logger.info("Ensemble model initialization note: %s", str(err))
 
+    # Start NASA FIRMS automated background ingestion worker
+    try:
+        from backend.services.firms_worker import start_firms_worker, stop_firms_worker
+        start_firms_worker()
+        logger.info("NASA FIRMS automated background ingestion worker launched.")
+    except Exception as worker_err:
+        logger.warning("Failed to launch FIRMS background worker: %s", worker_err)
+
     yield
+
+    # Clean shutdown
+    try:
+        from backend.services.firms_worker import stop_firms_worker
+        await stop_firms_worker()
+    except Exception:
+        pass
     logger.info("Application shutting down.")
 
 
@@ -148,6 +163,10 @@ app.include_router(health_router, prefix="/api", tags=["Health"])
 
 # Versioned API Router (/api/v1/...)
 app.include_router(api_router, prefix=settings.API_V1_STR)
+
+# Direct Satellite Router (/api/satellite/...) for seamless client integration
+from backend.api.v1.endpoints.satellite import router as satellite_router
+app.include_router(satellite_router, prefix="/api/satellite", tags=["Satellite Telemetry"])
 
 
 @app.get("/", tags=["Root"])

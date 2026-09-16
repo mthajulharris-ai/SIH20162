@@ -12,6 +12,7 @@ import {
   User,
   Settings,
   UploadCloud,
+  Bot,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge } from './StatusBadge';
 import { useLiveClock } from '../services/useLiveClock';
@@ -26,6 +27,7 @@ export function Header({
   onFocusDetection,
   onNavigate,
   onOpenUploadModal,
+  onToggleChatbot,
 }) {
   const { dateStr, timeStr } = useLiveClock();
   const [searchQuery, setSearchQuery] = useState('');
@@ -137,6 +139,20 @@ export function Header({
                 </button>
               </div>
             ))}
+          </div>
+        )}
+        {isSearchOpen && searchQuery.trim().length > 1 && searchResults.length === 0 && (
+          <div
+            className="satra-search-results"
+            style={{
+              padding: '12px 14px',
+              fontSize: '11.5px',
+              color: 'var(--text-muted)',
+              textAlign: 'center',
+              lineHeight: 1.4,
+            }}
+          >
+            No satellite thermal detections found in the selected area for the selected time range.
           </div>
         )}
       </div>
@@ -279,6 +295,18 @@ export function Header({
           )}
         </div>
 
+
+        {/* SATRA AI Copilot Quick Launcher */}
+        {onToggleChatbot && (
+          <button
+            className="satra-icon-btn"
+            onClick={onToggleChatbot}
+            title="SATRA AI Satellite Copilot"
+            style={{ color: 'var(--primary-cyan, #06B6D4)' }}
+          >
+            <Bot size={15} />
+          </button>
+        )}
 
         {/* Settings Navigation Shortcut */}
         {onNavigate && (

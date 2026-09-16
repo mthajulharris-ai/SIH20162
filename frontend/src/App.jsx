@@ -15,7 +15,12 @@ import { AiAssistantView } from './views/AiAssistantView';
 import { SettingsView } from './views/SettingsView';
 import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
+<<<<<<< HEAD
 import { AiAssistantModal } from './components/AiAssistantModal';
+=======
+import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
+import { Sparkles } from 'lucide-react';
+>>>>>>> c080c5c (LIVE CONNECTION)
 
 import {
   getHealth,
@@ -250,6 +255,8 @@ export function App() {
     return <LoginView onLogin={handleLogin} />;
   }
 
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -274,7 +281,11 @@ export function App() {
           onFocusDetection={handleFocusDetection}
           onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
+<<<<<<< HEAD
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
+=======
+          onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
+>>>>>>> c080c5c (LIVE CONNECTION)
         />
 
         <div className="content-body">
@@ -401,11 +412,50 @@ export function App() {
           }}
         />
 
+<<<<<<< HEAD
         {/* Global AI Assistant Expandable Workspace / Slide-Over Modal */}
         <AiAssistantModal
           isOpen={isAiAssistantModalOpen}
           onClose={() => setIsAiAssistantModalOpen(false)}
         />
+=======
+        {/* SATRA AI Satellite Copilot Chatbot Modal (Section 14) */}
+        <SatraAiChatbotModal
+          isOpen={isChatbotOpen}
+          onClose={() => setIsChatbotOpen(false)}
+          onFocusDetection={handleFocusDetection}
+        />
+
+        {/* Floating Copilot Launcher Button */}
+        {!isChatbotOpen && (
+          <button
+            onClick={() => setIsChatbotOpen(true)}
+            style={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              zIndex: 999,
+              background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.5)',
+              borderRadius: '24px',
+              padding: '10px 18px',
+              color: '#FFFFFF',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontSize: '12.5px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.03em',
+            }}
+            title="Open SATRA AI Satellite Copilot"
+          >
+            <Sparkles size={16} style={{ color: '#38BDF8' }} />
+            <span>SATRA AI Copilot</span>
+          </button>
+        )}
+>>>>>>> c080c5c (LIVE CONNECTION)
       </main>
     </div>
   );
