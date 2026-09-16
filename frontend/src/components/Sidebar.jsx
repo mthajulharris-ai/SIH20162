@@ -9,6 +9,8 @@ import {
   Map,
   Satellite,
   Cpu,
+  Sparkles,
+  Settings,
   Radio,
   LogOut,
 } from 'lucide-react';
@@ -30,6 +32,8 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
     { id: 'gis-investigation', num: '07', label: 'GIS Investigation', icon: Map },
     { id: 'satellite-data', num: '08', label: 'Satellite Data', icon: Satellite },
     { id: 'ai-intelligence', num: '09', label: 'AI Intelligence', icon: Cpu },
+    { id: 'space-explorer', num: '10', label: 'Space Explorer', icon: Sparkles },
+    { id: 'settings', num: '11', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -81,7 +85,7 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
                   textAlign: 'left',
                   fontSize: '13px',
                   fontWeight: isActive ? 600 : 500,
-                  color: isActive ? '#FFFFFF' : 'inherit',
+                  color: isActive ? 'var(--nav-item-active-color)' : 'inherit',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',

@@ -3,6 +3,7 @@ FastAPI Main Application Entry Point.
 SIH 2026 Problem Statement PS 26162:
 AI-Based Detection and Classification of Industrial Fires and Persistent Thermal Sources.
 """
+from datetime import datetime, timezone
 import logging
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -132,8 +133,17 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 # Routers Mounting
 # =====================================================================
 
-# Direct /health and /api/health route convenience endpoints
-app.include_router(health_router, tags=["Health"])
+# Direct /health returning online (per root test contract) and /api/health returning healthy
+@app.get("/health", tags=["Health"])
+def root_health():
+    return {
+        "status": "online",
+        "service": "SATRA FastAPI",
+        "app": settings.PROJECT_NAME,
+        "version": settings.VERSION,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
 app.include_router(health_router, prefix="/api", tags=["Health"])
 
 # Versioned API Router (/api/v1/...)

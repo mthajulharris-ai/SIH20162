@@ -235,7 +235,7 @@ export function Header({
           {isNotifOpen && (
             <div className="satra-notif-popover">
               <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 700, fontSize: '12px', color: '#FFFFFF' }}>
+                <span style={{ fontWeight: 700, fontSize: '12px', color: 'var(--text-heading)' }}>
                   Incident Alerts ({unverifiedAlerts.length})
                 </span>
                 {onNavigate && (
@@ -265,7 +265,7 @@ export function Header({
                         <StatusBadge status={a.alert_level} type="severity" />
                         <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>#{a.id}</span>
                       </div>
-                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#FFFFFF' }}>{a.title}</div>
+                      <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-heading)' }}>{a.title}</div>
                       <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: 2 }}>{a.message}</div>
                     </div>
                   ))
@@ -278,6 +278,7 @@ export function Header({
             </div>
           )}
         </div>
+
 
         {/* Settings Navigation Shortcut */}
         {onNavigate && (

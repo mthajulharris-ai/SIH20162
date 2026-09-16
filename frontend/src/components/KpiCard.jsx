@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTheme } from '../context/ThemeContext';
 
 export function KpiCard({
   title,
@@ -11,15 +12,28 @@ export function KpiCard({
   trendPositive = true,
   sparklineData = null,
 }) {
-  const colorMap = {
-    cyan: { bg: 'rgba(69, 200, 245, 0.15)', text: '#45C8F5', border: 'rgba(69, 200, 245, 0.35)' },
-    ice: { bg: 'rgba(141, 231, 255, 0.15)', text: '#8DE7FF', border: 'rgba(141, 231, 255, 0.35)' },
-    red: { bg: 'rgba(255, 69, 58, 0.15)', text: '#FF453A', border: 'rgba(255, 69, 58, 0.35)' },
-    orange: { bg: 'rgba(255, 138, 0, 0.15)', text: '#FF8A00', border: 'rgba(255, 138, 0, 0.35)' },
-    amber: { bg: 'rgba(255, 200, 87, 0.15)', text: '#FFC857', border: 'rgba(255, 200, 87, 0.35)' },
-    emerald: { bg: 'rgba(69, 212, 131, 0.15)', text: '#45D483', border: 'rgba(69, 212, 131, 0.35)' },
-    purple: { bg: 'rgba(167, 139, 250, 0.15)', text: '#A78BFA', border: 'rgba(167, 139, 250, 0.35)' },
-  };
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
+  const colorMap = isLight
+    ? {
+        cyan: { bg: 'rgba(2, 132, 199, 0.12)', text: '#0284C7', border: 'rgba(2, 132, 199, 0.35)' },
+        ice: { bg: 'rgba(2, 132, 199, 0.12)', text: '#0284C7', border: 'rgba(2, 132, 199, 0.35)' },
+        red: { bg: 'rgba(220, 38, 38, 0.12)', text: '#DC2626', border: 'rgba(220, 38, 38, 0.35)' },
+        orange: { bg: 'rgba(234, 88, 12, 0.12)', text: '#EA580C', border: 'rgba(234, 88, 12, 0.35)' },
+        amber: { bg: 'rgba(217, 119, 6, 0.12)', text: '#D97706', border: 'rgba(217, 119, 6, 0.35)' },
+        emerald: { bg: 'rgba(22, 163, 74, 0.12)', text: '#16A34A', border: 'rgba(22, 163, 74, 0.35)' },
+        purple: { bg: 'rgba(124, 58, 237, 0.12)', text: '#7C3AED', border: 'rgba(124, 58, 237, 0.35)' },
+      }
+    : {
+        cyan: { bg: 'rgba(69, 200, 245, 0.15)', text: '#45C8F5', border: 'rgba(69, 200, 245, 0.35)' },
+        ice: { bg: 'rgba(141, 231, 255, 0.15)', text: '#8DE7FF', border: 'rgba(141, 231, 255, 0.35)' },
+        red: { bg: 'rgba(255, 69, 58, 0.15)', text: '#FF453A', border: 'rgba(255, 69, 58, 0.35)' },
+        orange: { bg: 'rgba(255, 138, 0, 0.15)', text: '#FF8A00', border: 'rgba(255, 138, 0, 0.35)' },
+        amber: { bg: 'rgba(255, 200, 87, 0.15)', text: '#FFC857', border: 'rgba(255, 200, 87, 0.35)' },
+        emerald: { bg: 'rgba(69, 212, 131, 0.15)', text: '#45D483', border: 'rgba(69, 212, 131, 0.35)' },
+        purple: { bg: 'rgba(167, 139, 250, 0.15)', text: '#A78BFA', border: 'rgba(167, 139, 250, 0.35)' },
+      };
 
   const theme = colorMap[accentColor] || colorMap.cyan;
 

@@ -87,7 +87,7 @@ export function ProvenanceBadge({ provenance }) {
   }
   if (upper.includes('USER') || upper.includes('UPLOAD')) {
     return (
-      <span className="badge badge-verified" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.35)' }} title="User-uploaded satellite observation">
+      <span className="badge badge-verified" style={{ background: 'rgba(2, 132, 199, 0.12)', color: 'var(--primary-cyan)', borderColor: 'var(--border-color)' }} title="User-uploaded satellite observation">
         USER_UPLOADED
       </span>
     );

@@ -690,13 +690,13 @@ export function UploadAndAnalyzeModal({
           maxWidth: '880px',
           maxHeight: '94vh',
           overflowY: 'auto',
-          background: 'linear-gradient(180deg, #0B1726 0%, #060E18 100%)',
-          border: '1px solid rgba(56, 189, 248, 0.35)',
+          background: 'var(--modal-bg, #0B1726)',
+          border: '1px solid var(--border-color)',
           borderRadius: '14px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 32px rgba(56, 189, 248, 0.15)',
+          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.35), 0 0 32px rgba(2, 132, 199, 0.1)',
           display: 'flex',
           flexDirection: 'column',
-          color: '#F8FAFC',
+          color: 'var(--text-primary)',
         }}
       >
         {/* Modal Header */}
@@ -706,8 +706,8 @@ export function UploadAndAnalyzeModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '16px 24px',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            background: 'rgba(15, 32, 50, 0.65)',
+            borderBottom: '1px solid var(--border-color)',
+            background: 'var(--panel-header-bg)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -728,7 +728,7 @@ export function UploadAndAnalyzeModal({
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: '#FFFFFF' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: 'var(--text-heading)' }}>
                   Upload Satellite Observation Data
                 </h2>
                 <span
@@ -769,10 +769,10 @@ export function UploadAndAnalyzeModal({
             <div
               style={{
                 display: 'flex',
-                background: 'rgba(15, 23, 42, 0.8)',
+                background: 'var(--panel-secondary)',
                 padding: '4px',
                 borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border-subtle)',
                 gap: '4px',
               }}
             >
@@ -783,8 +783,8 @@ export function UploadAndAnalyzeModal({
                   padding: '8px 14px',
                   borderRadius: '6px',
                   border: activeTab === 'upload' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'upload' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                  color: activeTab === 'upload' ? '#FFFFFF' : 'var(--text-muted)',
+                  background: activeTab === 'upload' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                  color: activeTab === 'upload' ? 'var(--text-heading)' : 'var(--text-muted)',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -805,8 +805,8 @@ export function UploadAndAnalyzeModal({
                   padding: '8px 14px',
                   borderRadius: '6px',
                   border: activeTab === 'templates' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'templates' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                  color: activeTab === 'templates' ? '#FFFFFF' : 'var(--text-muted)',
+                  background: activeTab === 'templates' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                  color: activeTab === 'templates' ? 'var(--text-heading)' : 'var(--text-muted)',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -827,8 +827,8 @@ export function UploadAndAnalyzeModal({
                   padding: '8px 14px',
                   borderRadius: '6px',
                   border: activeTab === 'manual' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'manual' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                  color: activeTab === 'manual' ? '#FFFFFF' : 'var(--text-muted)',
+                  background: activeTab === 'manual' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
+                  color: activeTab === 'manual' ? 'var(--text-heading)' : 'var(--text-muted)',
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',

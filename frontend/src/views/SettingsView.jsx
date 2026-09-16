@@ -9,11 +9,18 @@ import {
   Download,
   CheckCircle2,
   Radio,
+  Moon,
+  Sun,
+  Monitor,
+  Palette,
+  Check,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export function SettingsView({
   detections = [],
 }) {
+  const { theme, effectiveTheme, setTheme } = useTheme();
   const [pollInterval, setPollInterval] = useState('30');
   const [enableSound, setEnableSound] = useState(false);
   const [enableFlash, setEnableFlash] = useState(true);
@@ -36,12 +43,36 @@ export function SettingsView({
     downloadAnchor.remove();
   };
 
+  const themeOptions = [
+    {
+      id: 'dark',
+      name: 'Standard / Dark Mode',
+      tag: 'Default SATRA Command',
+      icon: Moon,
+      desc: 'Authentic aerospace deep command center theme with cyan, ice-blue, and thermal risk indicators.',
+    },
+    {
+      id: 'light',
+      name: 'Light Mode',
+      tag: 'Tactical Light Variant',
+      icon: Sun,
+      desc: 'Clean light surfaces with high-contrast slate typography, preserving all scientific markers and GIS hierarchy.',
+    },
+    {
+      id: 'system',
+      name: 'System Preference',
+      tag: 'OS Synchronized',
+      icon: Monitor,
+      desc: 'Automatically matches your operating system display settings and updates dynamically.',
+    },
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '22px', maxWidth: '1000px' }}>
       {/* Title Header */}
       <div
         style={{
-          background: 'rgba(15, 32, 50, 0.7)',
+          background: 'var(--panel-header-bg)',
           border: '1px solid var(--border-color)',
           borderRadius: '10px',
           padding: '14px 20px',
@@ -52,12 +83,120 @@ export function SettingsView({
       >
         <Settings size={20} style={{ color: 'var(--primary-cyan)' }} />
         <div>
-          <div style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>
+          <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
             SATRA System Configuration & Flight Deck Preferences
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Configure client telemetry polling, 3D visualization shaders, and alert parameters
+            Configure client telemetry polling, display appearance themes, and alert parameters
           </div>
+        </div>
+      </div>
+
+      {/* Primary Appearance / Theme Panel */}
+      <div className="card-panel" style={{ marginBottom: 0 }}>
+        <div className="panel-header">
+          <div className="panel-title">
+            <Palette size={16} style={{ color: 'var(--primary-cyan)' }} />
+            Appearance & Visual Theme
+          </div>
+          <span
+            style={{
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            Active: {effectiveTheme.toUpperCase()} MODE
+          </span>
+        </div>
+
+        <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginBottom: '16px' }}>
+          Select your preferred interface display mode. SATRA Standard Dark is the authentic default; switching to Light Mode provides high-contrast daylight visibility while preserving all data layers, satellite maps, and AI confidence levels.
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '14px' }}>
+          {themeOptions.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = theme === opt.id;
+            return (
+              <div
+                key={opt.id}
+                onClick={() => setTheme(opt.id)}
+                style={{
+                  padding: '16px',
+                  borderRadius: '10px',
+                  border: isSelected
+                    ? '2px solid var(--primary-cyan)'
+                    : '1px solid var(--border-color)',
+                  background: isSelected
+                    ? 'var(--panel-secondary)'
+                    : 'var(--bg-card)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px',
+                  position: 'relative',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isSelected ? '0 0 16px rgba(2, 132, 199, 0.18)' : 'none',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        width: '32px',
+                        height: '32px',
+                        borderRadius: '8px',
+                        background: isSelected ? 'var(--primary-cyan)' : 'var(--panel-secondary)',
+                        color: isSelected ? '#FFFFFF' : 'var(--text-secondary)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Icon size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                        {opt.name}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          color: isSelected ? 'var(--primary-cyan)' : 'var(--text-muted)',
+                          fontWeight: 600,
+                        }}
+                      >
+                        {opt.tag}
+                      </span>
+                    </div>
+                  </div>
+                  {isSelected && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '3px 8px',
+                        borderRadius: '20px',
+                        background: 'rgba(2, 132, 199, 0.15)',
+                        color: 'var(--primary-cyan)',
+                        fontSize: '10.5px',
+                        fontWeight: 700,
+                      }}
+                    >
+                      <Check size={12} />
+                      Active
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.45 }}>
+                  {opt.desc}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -97,7 +236,7 @@ export function SettingsView({
               <div
                 style={{
                   padding: '10px 14px',
-                  background: 'rgba(11, 23, 38, 0.6)',
+                  background: 'var(--panel-secondary)',
                   borderRadius: '6px',
                   border: '1px solid var(--border-subtle)',
                   display: 'flex',
@@ -118,7 +257,7 @@ export function SettingsView({
               <div
                 style={{
                   padding: '10px 14px',
-                  background: 'rgba(11, 23, 38, 0.6)',
+                  background: 'var(--panel-secondary)',
                   borderRadius: '6px',
                   border: '1px solid var(--border-subtle)',
                   display: 'flex',
@@ -127,8 +266,8 @@ export function SettingsView({
                   fontSize: '12px',
                 }}
               >
-                <span className="mono-cell">backend/thermal_monitoring.db</span>
-                <span style={{ color: 'var(--primary-cyan)' }}>Healthy</span>
+                <span className="mono-cell" style={{ color: 'var(--text-primary)' }}>backend/thermal_monitoring.db</span>
+                <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>Healthy</span>
               </div>
             </div>
           </div>
@@ -179,7 +318,7 @@ export function SettingsView({
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '6px' }}>
               <div>
-                <div style={{ fontSize: '12.5px', color: '#FFFFFF', fontWeight: 600 }}>Critical Alert Visual Pulse</div>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-heading)', fontWeight: 600 }}>Critical Alert Visual Pulse</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Pulsing red HUD reticle on active selection</div>
               </div>
               <input
@@ -204,7 +343,7 @@ export function SettingsView({
         }}
       >
         <div>
-          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#FFFFFF' }}>Telemetry Data Export</div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)' }}>Telemetry Data Export</div>
           <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
             Export all loaded satellite detections ({detections.length} records) as JSON for external GIS analysis
           </div>
