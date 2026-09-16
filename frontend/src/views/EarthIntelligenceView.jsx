@@ -338,8 +338,8 @@ out center 25;`;
       );
 
       const osm = L.tileLayer(
-        'https://{s}.tile.openstreetmap.org/{z}/{y}.png',
-        { attribution: '&copy; OpenStreetMap', maxZoom: 19 }
+        'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { attribution: '&copy; OpenStreetMap contributors', maxZoom: 19 }
       );
 
       const darkCanvas = L.tileLayer(

@@ -27,6 +27,7 @@ import {
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { uploadAndAnalyzeSatelliteFile } from '../services/api';
+import { AiClassificationSection } from '../components/AiClassificationSection';
 
 export function OverviewView({
   analytics,
@@ -797,6 +798,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     <span>Retry</span>
                   </button>
                 )}
+              </div>
+            )}
+
+            {/* AI Classification Breakdown Result */}
+            {analysisResult && !isAnalyzing && (
+              <div style={{ marginTop: '14px' }}>
+                <AiClassificationSection analysisResult={analysisResult} compact={true} />
               </div>
             )}
 

@@ -31,6 +31,7 @@ import {
   startSatelliteAnalysisJob,
   getSatelliteAnalysisJobStatus,
 } from '../services/api';
+import { AiClassificationSection } from './AiClassificationSection';
 
 /**
  * Built-in real satellite test records for immediate operator analysis
@@ -1618,7 +1619,14 @@ export function UploadAndAnalyzeModal({
               {/* TAB CONTENT: Summary & Hotspots */}
               {analysisViewTab === 'summary' && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                  {/* Primary Hotspot Grid */}
+                  {/* UNIFIED AI CLASSIFICATION SECTION (Four Classes + Dominant Classification Highlight) */}
+                  <AiClassificationSection
+                    analysisResult={analysisResult}
+                    summaryData={summaryData}
+                    totalRecords={analysisResult.total_records}
+                  />
+
+                  {/* Secondary Hotspot Telemetry Grid */}
                   <div
                     style={{
                       display: 'grid',
@@ -1637,25 +1645,6 @@ export function UploadAndAnalyzeModal({
                       </div>
                       <div style={{ fontSize: '12px', fontFamily: 'var(--font-mono)', color: '#FFFFFF', marginTop: '2px' }}>
                         Lon: <strong>{analysisResult.exact_location.longitude.toFixed(4)}°</strong>
-                      </div>
-                    </div>
-
-                    {/* AI Classification */}
-                    <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--thermal-red)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Flame size={14} />
-                        <span>AI CLASSIFICATION</span>
-                      </div>
-                      <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF' }}>
-                        {analysisResult.prediction.classification || analysisResult.prediction.predicted_class}
-                      </div>
-                      <div style={{ fontSize: '11px', color: 'var(--ice-blue)', marginTop: '2px' }}>
-                        Confidence: <strong>{(analysisResult.prediction.confidence * 100).toFixed(1)}%</strong>
-                      </div>
-                      <div style={{ fontSize: '11px', marginTop: '4px' }}>
-                        Status: <strong style={{ color: (analysisResult.prediction.status === 'LOW_CONFIDENCE_REVIEW' || analysisResult.prediction.confidence < 0.6) ? '#F59E0B' : '#10B981' }}>
-                          {(analysisResult.prediction.status === 'LOW_CONFIDENCE_REVIEW' || analysisResult.prediction.confidence < 0.6) ? 'LOW CONFIDENCE REVIEW' : 'CLASSIFIED'}
-                        </strong>
                       </div>
                     </div>
 

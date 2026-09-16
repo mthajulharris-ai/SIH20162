@@ -169,8 +169,12 @@ export function GisInvestigationView({
     );
 
     const osm = L.tileLayer(
-      'https://{s}.tile.openstreetmap.org/{z}/{y}.png',
-      { attribution: '&copy; OpenStreetMap contributors &bull; SATRA Local Context', maxZoom: 19 }
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+        subdomains: ['a', 'b', 'c'],
+      }
     );
 
     // Default to Dark Canvas as in existing system
@@ -188,6 +192,11 @@ export function GisInvestigationView({
         { position: 'topright' }
       )
       .addTo(map);
+
+    // Ensure clean tile layout recalculation on basemap switch
+    map.on('baselayerchange', () => {
+      map.invalidateSize();
+    });
 
     // Dedicated layer groups
     const detectionGroup = L.layerGroup().addTo(map);
@@ -422,6 +431,23 @@ out center 35;`;
 
       marker.addTo(detectionGroup);
     });
+
+    // Automatically fit map bounds to detections when available and no specific detection is selected
+    if (filteredDetections.length > 0 && !selectedDetection && mapInstanceRef.current) {
+      const validPoints = filteredDetections
+        .map((d) => [parseFloat(d.latitude), parseFloat(d.longitude)])
+        .filter(([lat, lon]) => !isNaN(lat) && !isNaN(lon));
+      if (validPoints.length > 0) {
+        try {
+          const bounds = L.latLngBounds(validPoints);
+          if (bounds.isValid()) {
+            mapInstanceRef.current.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
+          }
+        } catch (err) {
+          console.warn('Unable to fit bounds to detections:', err);
+        }
+      }
+    }
   }, [filteredDetections, selectedDetection, onSelectDetection]);
 
   // 4. Update Real Local Context Markers & Investigation Radius Circle
