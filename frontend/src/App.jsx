@@ -284,7 +284,7 @@ export function App() {
               analytics={analytics}
               detections={detections}
               recentAlerts={recentAlerts}
-              onNavigate={setCurrentTab}
+              onNavigate={handleTabChange}
               onUpdateAlertStatus={handleUpdateAlertStatus}
               onFocusDetection={handleFocusDetection}
               selectedDetection={selectedDetection}
@@ -361,6 +361,16 @@ export function App() {
               detections={detections}
               isBackendHealthy={isBackendHealthy}
               onRefresh={loadDashboardData}
+              onNavigate={handleTabChange}
+              onFocusDetection={handleFocusDetection}
+              onSelectDetection={setSelectedDetection}
+              onAnalysisSuccess={(newDetection) => {
+                if (newDetection) {
+                  setDetections((prev) => [newDetection, ...prev]);
+                  setSelectedDetection(newDetection);
+                }
+                loadDashboardData();
+              }}
               onOpenUploadModal={() => setIsUploadModalOpen(true)}
             />
           )}
