@@ -556,7 +556,7 @@ export function GlobalThermalEarth({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#FFFFFF', border: '2px solid #FF1E1E', boxShadow: '0 0 8px #FF1E1E', flexShrink: 0 }} />
-            <span><strong style={{ color: '#FF4545' }}>PULSING RED</strong> &mdash; Selected / Critical</span>
+            <span><strong style={{ color: '#FF4545' }}>TARGET RED</strong> &mdash; Selected / Critical</span>
           </div>
         </div>
       )}
@@ -586,7 +586,7 @@ export function GlobalThermalEarth({
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', color: '#38BDF8', textTransform: 'uppercase' }}>
-            <Radio size={12} style={{ color: '#EF4444' }} className="animate-pulse" />
+            <Radio size={12} style={{ color: '#EF4444' }} />
             <span>Global Thermal Earth</span>
           </div>
           <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginTop: '1px' }}>

@@ -15,6 +15,8 @@ from collections import Counter
 from statistics import mean, median
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+import numpy as np
+
 from backend.schemas.observation import (
     BrightnessAnalysisSummary,
     ConfidenceAnalysisSummary,
@@ -467,6 +469,228 @@ class IncrementalDatasetAggregator:
                 if rank >= 2 or float(frp or 0.0) >= 30.0:
                     replace_idx = (self.total_records * 31) % self.max_map_hotspots
                     self.top_hotspots[replace_idx] = hotspot_entry
+
+    def add_chunk_vectorized(
+        self,
+        records: List[Dict[str, Any]],
+        X: np.ndarray,
+        pred_class_ids: np.ndarray,
+        confs: np.ndarray,
+        proba_matrix: Optional[np.ndarray] = None,
+        lats: Optional[np.ndarray] = None,
+        lons: Optional[np.ndarray] = None,
+    ) -> None:
+        """
+        Ultra-fast SIMD vectorized chunk aggregation for million-record streams.
+        Operates directly on NumPy arrays (X, pred_class_ids, confs) to bypass
+        per-record Python loops and dictionary allocations.
+        """
+        n = len(records)
+        if n == 0:
+            return
+
+        self.total_records += n
+
+        # 1. Classification and Confidence counts
+        is_low_conf = confs < 0.60
+        n_low_conf = int(np.count_nonzero(is_low_conf))
+        self.low_confidence_count += n_low_conf
+        self.classified_count += (n - n_low_conf)
+
+        # 2. Predicted class distribution
+        # Class ID mapping: 0=Industrial Fire, 1=Forest Fire, 2=Persistent Thermal Source, 3=Other
+        CLASS_NAMES = ["Industrial Fire", "Forest Fire", "Persistent Thermal Source", "Other"]
+        ALERT_LEVELS = ["CRITICAL", "HIGH", "MEDIUM", "LOW"]
+        class_bincount = np.bincount(pred_class_ids, minlength=4)
+        for i in range(4):
+            c_cnt = int(class_bincount[i])
+            if c_cnt > 0:
+                self.class_counts[CLASS_NAMES[i]] += c_cnt
+
+        # 3. Risk / Alert Level counts
+        valid_mask = ~is_low_conf
+        if n_low_conf > 0:
+            self.risk_counts["LOW_CONFIDENCE_REVIEW"] += n_low_conf
+        self.risk_counts["CRITICAL"] += int(np.count_nonzero((pred_class_ids == 0) & valid_mask))
+        self.risk_counts["HIGH"] += int(np.count_nonzero((pred_class_ids == 1) & valid_mask))
+        self.risk_counts["MEDIUM"] += int(np.count_nonzero((pred_class_ids == 2) & valid_mask))
+        self.risk_counts["LOW"] += int(np.count_nonzero((pred_class_ids == 3) & valid_mask))
+
+        # 4. FRP Statistics from X[:, 0]
+        frp_arr = X[:, 0]
+        self.frp_count += n
+        frp_sum_chunk = float(np.sum(frp_arr))
+        self.frp_sum += frp_sum_chunk
+        f_min = float(np.min(frp_arr))
+        f_max = float(np.max(frp_arr))
+        if f_min < self.frp_min:
+            self.frp_min = f_min
+        if f_max > self.frp_max:
+            self.frp_max = f_max
+        self.detected_fields.add("frp")
+
+        # Reservoir sampling for FRP median estimation
+        if len(self.frp_reservoir) < self._max_reservoir_size:
+            needed = self._max_reservoir_size - len(self.frp_reservoir)
+            self.frp_reservoir.extend(frp_arr[:needed].tolist())
+        else:
+            # Stride-based sample replacement
+            sample_stride = max(1, n // 50)
+            sample_indices = np.arange(0, n, sample_stride)
+            for s_idx in sample_indices[:50]:
+                rep_idx = (self.total_records + int(s_idx) * 37) % self._max_reservoir_size
+                self.frp_reservoir[rep_idx] = float(frp_arr[s_idx])
+
+        # 5. Brightness Statistics from X[:, 1]
+        bright_arr = X[:, 1]
+        self.bright_count += n
+        bright_sum_chunk = float(np.sum(bright_arr))
+        self.bright_sum += bright_sum_chunk
+        b_min = float(np.min(bright_arr))
+        b_max = float(np.max(bright_arr))
+        if b_min < self.bright_min:
+            self.bright_min = b_min
+        if b_max > self.bright_max:
+            self.bright_max = b_max
+        self.detected_fields.add("brightness")
+
+        # 6. FIRMS Confidence field statistics
+        conf_counter = Counter(r.get("confidence") for r in records)
+        for raw_k, count in conf_counter.items():
+            raw_c = str(raw_k or "").lower()
+            if raw_c in ("high", "h") or (raw_c.isdigit() and int(raw_c) >= 80):
+                self.high_conf_count += count
+                self.conf_sum += 0.90 * count
+                self.conf_count += count
+            elif raw_c in ("low", "l") or (raw_c.isdigit() and int(raw_c) < 50):
+                self.low_conf_count += count
+                self.conf_sum += 0.35 * count
+                self.conf_count += count
+            else:
+                self.nom_conf_count += count
+                self.conf_sum += 0.65 * count
+                self.conf_count += count
+
+        # 7. Day/Night counts from X[:, 3] (1.0 = Night, 0.0 = Day)
+        night_in_chunk = int(np.count_nonzero(X[:, 3] == 1.0))
+        self.night_count += night_in_chunk
+        self.day_count += (n - night_in_chunk)
+
+        # 8. Dates
+        date_counter = Counter(r.get("acq_date") for r in records if r.get("acq_date"))
+        if date_counter:
+            for d, c in date_counter.items():
+                self.daily_counts[d] += c
+                if self.earliest_date is None or d < self.earliest_date:
+                    self.earliest_date = d
+                if self.latest_date is None or d > self.latest_date:
+                    self.latest_date = d
+            self.detected_fields.add("acq_date")
+
+        # 9. Spatial Statistics
+        if lats is None:
+            lats = np.fromiter((float(r.get("latitude", 0.0)) for r in records), dtype=np.float64, count=n)
+        if lons is None:
+            lons = np.fromiter((float(r.get("longitude", 0.0)) for r in records), dtype=np.float64, count=n)
+
+        self.lat_sum += float(np.sum(lats))
+        self.lon_sum += float(np.sum(lons))
+        min_lat = float(np.min(lats))
+        max_lat = float(np.max(lats))
+        min_lon = float(np.min(lons))
+        max_lon = float(np.max(lons))
+        if min_lat < self.min_lat:
+            self.min_lat = min_lat
+        if max_lat > self.max_lat:
+            self.max_lat = max_lat
+        if min_lon < self.min_lon:
+            self.min_lon = min_lon
+        if max_lon > self.max_lon:
+            self.max_lon = max_lon
+        self.detected_fields.add("latitude")
+        self.detected_fields.add("longitude")
+
+        # 10. Spatial Grid Clustering (~5 km resolution)
+        grid_lats = np.int64(np.round(lats * 20))
+        grid_lons = np.int64(np.round(lons * 20))
+        keys = (grid_lats << 32) | (grid_lons & 0xFFFFFFFF)
+        unique_keys, inverse, counts = np.unique(keys, return_inverse=True, return_counts=True)
+        lat_sums = np.bincount(inverse, weights=lats)
+        lon_sums = np.bincount(inverse, weights=lons)
+        max_frps = np.zeros(len(unique_keys), dtype=np.float64)
+        np.maximum.at(max_frps, inverse, frp_arr)
+
+        for i in range(len(unique_keys)):
+            k = unique_keys[i]
+            grid_k = (int(k >> 32), int(np.int32(k & 0xFFFFFFFF)))
+            if grid_k in self.grid_clusters:
+                c_entry = self.grid_clusters[grid_k]
+                c_entry[0] += float(counts[i])
+                c_entry[1] += float(lat_sums[i])
+                c_entry[2] += float(lon_sums[i])
+                if max_frps[i] > c_entry[3]:
+                    c_entry[3] = float(max_frps[i])
+            else:
+                self.grid_clusters[grid_k] = [
+                    float(counts[i]),
+                    float(lat_sums[i]),
+                    float(lon_sums[i]),
+                    float(max_frps[i]),
+                ]
+
+        # Strictly bound cluster memory to avoid uncontrolled growth
+        if len(self.grid_clusters) > 30000:
+            self.grid_clusters = {k: v for k, v in self.grid_clusters.items() if v[0] > 1.0}
+
+        # 11. Satellite & Instrument provenance
+        if records:
+            for s_i in (0, n // 2, n - 1):
+                r_s = records[s_i]
+                sat = r_s.get("satellite")
+                inst = r_s.get("instrument")
+                if sat and inst:
+                    self.satellite_sources.add(f"{sat} ({inst})")
+                elif sat:
+                    self.satellite_sources.add(str(sat))
+
+        # 12. Top representative hotspots for map visualization (strictly capped at max_map_hotspots)
+        needed = self.max_map_hotspots - len(self.top_hotspots)
+        if needed > 0:
+            fill_n = min(needed, n)
+            for i in range(fill_n):
+                cls_idx = int(pred_class_ids[i])
+                c_val = float(confs[i])
+                al = "LOW_CONFIDENCE_REVIEW" if c_val < 0.60 else ALERT_LEVELS[cls_idx]
+                self.top_hotspots.append({
+                    "latitude": float(lats[i]),
+                    "longitude": float(lons[i]),
+                    "confidence": round(c_val, 4),
+                    "predicted_class": CLASS_NAMES[cls_idx],
+                    "alert_level": al,
+                    "frp": round(float(frp_arr[i]), 2),
+                    "brightness": round(float(bright_arr[i]), 2),
+                })
+        else:
+            # When top_hotspots is full, keep higher risk / higher FRP items preferentially in reservoir
+            high_mask = (frp_arr >= 30.0) | ((confs >= 0.60) & (pred_class_ids <= 1))
+            cand_indices = np.where(high_mask)[0]
+            if len(cand_indices) > 0:
+                if len(cand_indices) > 30:
+                    cand_indices = cand_indices[np.argsort(frp_arr[cand_indices])[-30:]]
+                for idx in cand_indices:
+                    cls_idx = int(pred_class_ids[idx])
+                    c_val = float(confs[idx])
+                    al = "LOW_CONFIDENCE_REVIEW" if c_val < 0.60 else ALERT_LEVELS[cls_idx]
+                    replace_idx = (self.total_records + int(idx) * 31) % self.max_map_hotspots
+                    self.top_hotspots[replace_idx] = {
+                        "latitude": float(lats[idx]),
+                        "longitude": float(lons[idx]),
+                        "confidence": round(c_val, 4),
+                        "predicted_class": CLASS_NAMES[cls_idx],
+                        "alert_level": al,
+                        "frp": round(float(frp_arr[idx]), 2),
+                        "brightness": round(float(bright_arr[idx]), 2),
+                    }
 
     def build_summary(
         self,

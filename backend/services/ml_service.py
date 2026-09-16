@@ -179,6 +179,39 @@ class MLInferenceService:
             logger.error("[SATRA ERROR] Error during ML batch inference: %s", str(e), exc_info=True)
             raise MLServiceException(f"ML batch inference execution failed: {str(e)}")
 
+    def predict_batch_fast(
+        self,
+        observations: Union[List[Dict[str, Any]], Any, np.ndarray],
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Ultra-fast vectorized batch feature extraction and ensemble prediction.
+        Returns:
+            - X: np.ndarray of shape (N, 6) feature matrix
+            - pred_class_ids: np.ndarray of shape (N,) int64 class indices (0..3)
+            - confs: np.ndarray of shape (N,) float64 confidence scores
+            - proba_matrix: np.ndarray of shape (N, 4) probability distribution
+        """
+        service = self._ensure_loaded()
+        try:
+            import numpy as np
+            if isinstance(observations, np.ndarray):
+                X = observations
+            else:
+                from backend.ml.feature_extractor import extract_features_vectorized
+                X = extract_features_vectorized(observations)
+
+            if hasattr(service, "predict_batch_fast"):
+                pred_class_ids, confs, proba_matrix = service.predict_batch_fast(X)
+            else:
+                proba_matrix = service.predict_probabilities(X)
+                pred_class_ids = np.argmax(proba_matrix, axis=1)
+                confs = np.max(proba_matrix, axis=1)
+
+            return X, pred_class_ids, confs, proba_matrix
+        except Exception as e:
+            logger.error("[SATRA ERROR] Error during fast ML batch inference: %s", str(e), exc_info=True)
+            raise MLServiceException(f"Fast ML batch inference failed: {str(e)}")
+
     def predict_with_fallback(self, observation: Dict[str, Any]) -> Tuple[Dict[str, Any], bool]:
         """
         Executes ML prediction. If ML inference fails or is not configured,

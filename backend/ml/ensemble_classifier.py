@@ -191,6 +191,23 @@ class SoftVotingEnsembleWrapper:
             })
         return results
 
+    def predict_batch_fast(
+        self,
+        X: np.ndarray,
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Ultra-fast vectorized batch prediction for million-record streams.
+        Returns raw NumPy arrays:
+            - pred_class_ids: 1D int64 array of shape (N,)
+            - confs: 1D float64 array of shape (N,)
+            - proba_matrix: 2D float64 array of shape (N, 4)
+        Bypasses dictionary generation and allocation overhead entirely.
+        """
+        proba_matrix = self.predict_probabilities(X)
+        pred_class_ids = np.argmax(proba_matrix, axis=1)
+        confs = np.max(proba_matrix, axis=1)
+        return pred_class_ids, confs, proba_matrix
+
 
 def build_ensemble_classifier() -> VotingClassifier:
     """

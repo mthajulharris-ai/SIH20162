@@ -300,7 +300,7 @@ export function EarthGlobe3D({
   // Interaction State Refs
   const isDraggingRef = useRef(false);
   const previousMousePositionRef = useRef({ x: 0, y: 0 });
-  const autoRotateRef = useRef(true);
+  const autoRotateRef = useRef(false);
   const lastInteractionTimeRef = useRef(Date.now());
   const cameraDistanceRef = useRef(CAMERA_DIST_GLOBAL);
   const targetCameraDistanceRef = useRef(CAMERA_DIST_GLOBAL);
@@ -321,7 +321,7 @@ export function EarthGlobe3D({
   }, [selectedDetection]);
 
   // UI States
-  const [autoRotate, setAutoRotate] = useState(true);
+  const [autoRotate, setAutoRotate] = useState(false);
   const [hoveredDetection, setHoveredDetection] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [copiedCoords, setCopiedCoords] = useState(false);
@@ -755,32 +755,8 @@ export function EarthGlobe3D({
         }
       }
 
-      // Atmospheric cloud slow drift
-      if (cloudsMeshRef.current) {
-        cloudsMeshRef.current.rotation.y += 0.00018;
-      }
-
-      // Hotspot Markers Animated Radar Pulses
-      if (markersGroupRef.current) {
-        markersGroupRef.current.children.forEach((marker) => {
-          if (marker.userData?.ringMesh) {
-            const isSel = marker.userData.isSelected;
-            const pulseSpeed = isSel ? 4.5 : 2.5;
-            const baseScale = isSel ? 1.4 : 1.0;
-            const scale = baseScale + Math.sin(elapsedTime * pulseSpeed + (marker.userData.pulsePhase || 0)) * (isSel ? 0.45 : 0.22);
-            marker.userData.ringMesh.scale.set(scale, scale, scale);
-          }
-          if (marker.userData?.outerRadarMesh) {
-            // Continuously expanding radar wave
-            const wavePhase = (elapsedTime * 1.5 + (marker.userData.pulsePhase || 0)) % 1.0;
-            const waveScale = 1.0 + wavePhase * 2.8;
-            marker.userData.outerRadarMesh.scale.set(waveScale, waveScale, waveScale);
-            if (marker.userData.outerRadarMesh.material) {
-              marker.userData.outerRadarMesh.material.opacity = Math.max(0, 0.7 * (1.0 - wavePhase));
-            }
-          }
-        });
-      }
+      // Atmospheric cloud layer remains stationary for analytical stability
+      // Hotspot markers remain stable at their calibrated visual scale
 
       // Compute Exact Screen-Space Coordinates for Vector Target Reticle HUD
       const activeDet = selectedDetectionRef.current;
@@ -1622,7 +1598,7 @@ export function EarthGlobe3D({
             justifyContent: 'center',
           }}
         >
-          {/* Outer Rotating Tactical Bracket */}
+          {/* Outer Tactical Bracket (Stationary) */}
           <div
             style={{
               position: 'absolute',
@@ -1630,7 +1606,6 @@ export function EarthGlobe3D({
               height: '84px',
               border: '1px dashed rgba(56, 189, 248, 0.45)',
               borderRadius: '50%',
-              animation: 'spinSlow 18s linear infinite',
             }}
           />
 
