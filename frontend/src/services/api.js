@@ -4,8 +4,8 @@
  * PS 26162: AI-Based Detection & Classification of Industrial Fires & Persistent Thermal Sources.
  */
 
-// Prefer VITE_API_URL when set (e.g. http://localhost:8000); otherwise use Vite proxy paths.
-const ENV_API_URL = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+// Prefer VITE_API_BASE_URL (or VITE_API_URL) when set (e.g. http://127.0.0.1:8000); otherwise use Vite proxy paths.
+const ENV_API_URL = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
 const DIRECT_BACKEND_URL = ENV_API_URL || 'http://127.0.0.1:8000';
 const API_BASE = ENV_API_URL ? `${ENV_API_URL}/api` : '/api';
 const API_V1 = ENV_API_URL ? `${ENV_API_URL}/api/v1` : '/api/v1';
@@ -83,19 +83,21 @@ async function probeHealthUrl(url, timeoutMs = 4000) {
   }
 }
 
-// 1. Health & Status — shared real-time backend probe (GET /health)
-// Tries canonical GET /health first, then legacy /api/health.
-export async function getHealth() {
-  const candidates = ENV_API_URL
-    ? [`${ENV_API_URL}/health`, `${ENV_API_URL}/api/health`]
-    : [
-        'http://localhost:8000/health',
-        '/health',
-        `${DIRECT_BACKEND_URL}/health`,
-        '/api/health',
-        'http://localhost:8000/api/health',
-        `${DIRECT_BACKEND_URL}/api/health`,
-      ];
+// 1. Health & Status — shared real-time backend probe (GET /api/v1/health or /health)
+export async function getHealth(timeoutMs = 4000) {
+  const candidates = [];
+  if (ENV_API_URL) {
+    candidates.push(`${ENV_API_URL}/api/v1/health`);
+    candidates.push(`${ENV_API_URL}/health`);
+    candidates.push(`${ENV_API_URL}/api/health`);
+  }
+  candidates.push(`${DIRECT_BACKEND_URL}/api/v1/health`);
+  candidates.push('/api/v1/health');
+  candidates.push('http://localhost:8000/api/v1/health');
+  candidates.push(`${DIRECT_BACKEND_URL}/health`);
+  candidates.push('/health');
+  candidates.push('http://localhost:8000/health');
+  candidates.push('/api/health');
 
   let lastError;
   const tried = new Set();
@@ -103,7 +105,7 @@ export async function getHealth() {
     if (tried.has(url)) continue;
     tried.add(url);
     try {
-      const data = await probeHealthUrl(url);
+      const data = await probeHealthUrl(url, timeoutMs);
       const status = String(data?.status || '').toLowerCase();
       if (status === 'online' || status === 'healthy' || status === 'ok' || status === 'running') {
         return data;
