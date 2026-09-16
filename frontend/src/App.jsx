@@ -247,7 +247,7 @@ export function App() {
 
   // Protected Routing: unauthenticated visitors or explicit login route
   const isLoginRoute = window.location.hash.toLowerCase() === '#login' || window.location.pathname === '/login';
-  if (!isAuthenticated || (isLoginRoute && !isAuthenticated)) {
+  if (!isAuthenticated || isLoginRoute) {
     return <LoginView onLogin={handleLogin} />;
   }
 
