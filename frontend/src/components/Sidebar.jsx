@@ -10,9 +10,10 @@ import {
   Satellite,
   Cpu,
   Radio,
+  LogOut,
 } from 'lucide-react';
 
-export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true, connectionStatus }) {
+export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = true, connectionStatus, onLogout }) {
   const status = connectionStatus || (isBackendHealthy ? 'online' : isBackendHealthy === false ? 'offline' : 'checking');
   const isOnline = status === 'online';
   const isChecking = status === 'checking';
@@ -126,6 +127,42 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
             <span className="telemetry-val" style={{ color: 'var(--ice-blue)' }}>VIIRS / MODIS</span>
           </div>
         </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="sidebar-logout-btn"
+            style={{
+              marginTop: '10px',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '8px 12px',
+              background: 'rgba(255, 69, 58, 0.08)',
+              border: '1px solid rgba(255, 69, 58, 0.25)',
+              borderRadius: '6px',
+              color: '#FF6B6B',
+              fontSize: '12px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 69, 58, 0.18)';
+              e.currentTarget.style.borderColor = 'rgba(255, 69, 58, 0.5)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 69, 58, 0.08)';
+              e.currentTarget.style.borderColor = 'rgba(255, 69, 58, 0.25)';
+            }}
+            title="Sign out of SATRA platform"
+          >
+            <LogOut size={13} />
+            <span>Sign Out</span>
+          </button>
+        )}
       </div>
     </aside>
   );

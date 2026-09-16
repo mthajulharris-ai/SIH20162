@@ -14,6 +14,7 @@ import { SatelliteDataView } from './views/SatelliteDataView';
 import { AiIntelligenceView } from './views/AiIntelligenceView';
 import { SpaceExplorerView } from './views/SpaceExplorerView';
 import { SettingsView } from './views/SettingsView';
+import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 
 import {
@@ -27,14 +28,25 @@ import {
 } from './services/api';
 
 export function App() {
+  const [authSession, setAuthSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem('satra_auth');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+  const isAuthenticated = !!authSession;
+
   const validTabs = [
     'overview', 'earth-intel', 'thermal-intel', 'detection-explorer',
     'alerts', 'analytics', 'gis-investigation', 'satellite-data',
-    'ai-intelligence', 'space-explorer', 'settings'
+    'ai-intelligence', 'space-explorer', 'settings', 'dashboard'
   ];
 
   const getInitialTab = () => {
     const hash = window.location.hash.replace('#', '').trim();
+    if (hash === 'dashboard') return 'overview';
     if (validTabs.includes(hash)) return hash;
     return 'earth-intel';
   };
@@ -45,6 +57,10 @@ export function App() {
   useEffect(() => {
     const onHashChange = () => {
       const hash = window.location.hash.replace('#', '').trim();
+      if (hash === 'dashboard') {
+        setCurrentTab('overview');
+        return;
+      }
       if (validTabs.includes(hash) && hash !== currentTab) {
         setCurrentTab(hash);
       }
@@ -54,8 +70,29 @@ export function App() {
   }, [currentTab]);
 
   const handleTabChange = (tabId) => {
-    setCurrentTab(tabId);
-    window.location.hash = tabId;
+    const target = tabId === 'dashboard' ? 'overview' : tabId;
+    setCurrentTab(target);
+    window.location.hash = target;
+  };
+
+  const handleLogin = (userData) => {
+    try {
+      localStorage.setItem('satra_auth', JSON.stringify(userData));
+    } catch (e) {
+      console.warn('Failed to persist auth:', e);
+    }
+    setAuthSession(userData);
+    handleTabChange('overview');
+  };
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('satra_auth');
+    } catch (e) {
+      console.warn('Failed to clear auth:', e);
+    }
+    setAuthSession(null);
+    window.location.hash = 'login';
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
   // ONE shared real-time backend connection state used by Header + Sidebar.
@@ -208,6 +245,12 @@ export function App() {
     (a) => a.verification_status === 'REQUIRES_VERIFICATION' || a.alert_level === 'CRITICAL'
   ).length;
 
+  // Protected Routing: unauthenticated visitors or explicit login route
+  const isLoginRoute = window.location.hash.toLowerCase() === '#login' || window.location.pathname === '/login';
+  if (!isAuthenticated || (isLoginRoute && !isAuthenticated)) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
   return (
     <div className="app-container">
       {/* Sidebar Navigation */}
@@ -217,6 +260,7 @@ export function App() {
         alertCount={unverifiedAlertsCount}
         isBackendHealthy={isBackendHealthy}
         connectionStatus={connectionStatus}
+        onLogout={handleLogout}
       />
 
       {/* Main Content Area */}
