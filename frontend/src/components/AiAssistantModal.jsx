@@ -959,3 +959,4 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     </div>
   );
 }
+

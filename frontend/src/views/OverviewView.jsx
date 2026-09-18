@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   BarChart3,
   Crosshair,
+  Target,
+  Layers,
 } from 'lucide-react';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { uploadAndAnalyzeSatelliteFile, getSatelliteStatus } from '../services/api';
@@ -444,6 +446,61 @@ export function OverviewView({
                 isOverview={true}
               />
 
+              {/* Map Controls: +, -, Locate, Layers */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  background: 'rgba(11, 23, 38, 0.9)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <button
+                  title="Zoom In"
+                  onClick={() => {
+                    const evt = new CustomEvent('satra-globe-zoom-in');
+                    window.dispatchEvent(evt);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
+                >
+                  +
+                </button>
+                <button
+                  title="Zoom Out"
+                  onClick={() => {
+                    const evt = new CustomEvent('satra-globe-zoom-out');
+                    window.dispatchEvent(evt);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
+                >
+                  &minus;
+                </button>
+                <button
+                  title="Locate Hotspot"
+                  onClick={() => {
+                    if (detections.length > 0) handleSelectHotspot(detections[0]);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+                >
+                  <Target size={14} />
+                </button>
+                <button
+                  title="Toggle Layers"
+                  onClick={() => onNavigate && onNavigate('gis-investigation')}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+                >
+                  <Layers size={14} />
+                </button>
+              </div>
               {/* Globe Legend (Bottom Overlay) */}
               <div
                 style={{
