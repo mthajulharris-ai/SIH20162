@@ -2,8 +2,11 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 
-// 11 Master Views
+// Master Views
 import { OverviewView } from './views/OverviewView';
+import { PathIntelligenceView } from './views/PathIntelligenceView';
+import { InvestigateView } from './views/InvestigateView';
+import { HistoryView } from './views/HistoryView';
 import { EarthIntelligenceView } from './views/EarthIntelligenceView';
 import { ThermalIntelligenceView } from './views/ThermalIntelligenceView';
 import { DetectionExplorerView } from './views/DetectionExplorerView';
@@ -61,9 +64,10 @@ export function App() {
   const isAuthenticated = !!authSession;
 
   const validTabs = [
-    'overview', 'earth-intel', 'thermal-intel', 'detection-explorer',
-    'alerts', 'analytics', 'gis-investigation', 'satellite-data',
-    'settings', 'ai-assistant', 'dashboard'
+    'overview', 'path-intel', 'investigate', 'live-monitoring',
+    'alerts', 'history', 'analytics', 'settings',
+    'earth-intel', 'thermal-intel', 'detection-explorer',
+    'gis-investigation', 'satellite-data', 'ai-assistant', 'dashboard'
   ];
 
   const normalizeTab = (rawHash) => {
@@ -303,35 +307,35 @@ export function App() {
 
         <div className="content-body">
           <ErrorBoundary key={currentTab}>
-            {/* 01 Overview */}
+            {/* 01 Overview — Geospatial Situational Awareness */}
           {currentTab === 'overview' && (
             <OverviewView
-              analytics={analytics}
               detections={detections}
-              recentAlerts={recentAlerts}
               onNavigate={handleTabChange}
-              onUpdateAlertStatus={handleUpdateAlertStatus}
-              onFocusDetection={handleFocusDetection}
               selectedDetection={selectedDetection}
               onSelectDetection={setSelectedDetection}
-              onOpenUploadModal={() => setIsUploadModalOpen(true)}
-              onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
             />
           )}
 
-          {/* 02 Earth Intelligence */}
-          {currentTab === 'earth-intel' && (
-            <EarthIntelligenceView
-              detections={detections}
-              analytics={analytics}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
+          {/* 02 Path Intelligence — Corridor Risk Analysis */}
+          {currentTab === 'path-intel' && (
+            <PathIntelligenceView
               onNavigate={handleTabChange}
+              onSelectDetection={setSelectedDetection}
             />
           )}
 
-          {/* 03 Thermal Intelligence */}
-          {currentTab === 'thermal-intel' && (
+          {/* 03 Investigate — Deep Thermal Event Intelligence */}
+          {currentTab === 'investigate' && (
+            <InvestigateView
+              selectedDetection={selectedDetection}
+              allDetections={detections}
+              onSelectDetection={setSelectedDetection}
+            />
+          )}
+
+          {/* 04 Live Monitoring / Thermal Telemetry */}
+          {(currentTab === 'live-monitoring' || currentTab === 'thermal-intel') && (
             <ThermalIntelligenceView
               detections={detections}
               analytics={analytics}
@@ -341,18 +345,6 @@ export function App() {
               onNavigate={handleTabChange}
               onRefresh={loadDashboardData}
               isBackendHealthy={isBackendHealthy}
-            />
-          )}
-
-          {/* 04 Detection Explorer */}
-          {currentTab === 'detection-explorer' && (
-            <DetectionExplorerView
-              detections={detections}
-              onRefresh={loadDashboardData}
-              loading={loading}
-              onFocusDetection={handleFocusDetection}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
             />
           )}
 
@@ -367,9 +359,25 @@ export function App() {
             />
           )}
 
-          {/* 06 Analytics */}
+          {/* 06 History */}
+          {currentTab === 'history' && (
+            <HistoryView detections={detections} />
+          )}
+
+          {/* 07 Analytics */}
           {currentTab === 'analytics' && (
             <AnalyticsView analytics={analytics} />
+          )}
+
+          {/* Legacy & Secondary Modules */}
+          {currentTab === 'earth-intel' && (
+            <EarthIntelligenceView
+              detections={detections}
+              analytics={analytics}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onNavigate={handleTabChange}
+            />
           )}
 
           {/* 07 GIS Investigation */}
