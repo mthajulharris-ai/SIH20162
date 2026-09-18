@@ -46,7 +46,8 @@ class RAGRetriever:
 
     def normalize_query(self, query: str) -> str:
         """Clean and normalize query string for optimal embedding lookup."""
-        q = query.strip()
+        from .multilingual import normalize_multilingual_query
+        q = normalize_multilingual_query(query).strip()
         # Clean extra whitespace
         q = re.sub(r'\s+', ' ', q)
         return q

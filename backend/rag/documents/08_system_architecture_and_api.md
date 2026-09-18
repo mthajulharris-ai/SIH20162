@@ -24,3 +24,15 @@
 
 ### 4. AI Copilot Chat
 - `POST /api/chat` (and `POST /api/v1/chat`): Domain AI Assistant endpoint executing hybrid intent routing, FAISS vector retrieval, live database synthesis, and citation generation.
+
+## Retrieval-Augmented Generation (RAG) Architecture
+
+**Retrieval-Augmented Generation (RAG)** in SATRA is an intelligent knowledge-retrieval pipeline that grounds the SATRA AI Assistant in verified technical documentation and live telemetry data, preventing AI hallucinations.
+
+### Core Components of SATRA RAG:
+1. **Document Ingestion & Semantic Chunking**: Technical specification documents covering sensors, physics, machine learning models, GIS, and alerts are chunked with metadata preservation.
+2. **Dense Vector Embeddings**: Document chunks are projected into a normalized vector space using dense semantic embeddings.
+3. **FAISS Vector Index**: Fast similarity search using FAISS retrieves the top-k most relevant document chunks based on cosine similarity.
+4. **Multilingual Query Normalization**: User queries in English, Tamil, Tanglish, or Hindi are mapped to normalized domain concepts for vector search.
+5. **Grounded Response Generation**: The assistant synthesizes verified answers using strictly the retrieved context and live database observations, citing exact source documents and sections.
+

@@ -146,8 +146,14 @@ export function EarthIntelligenceView({
     // Base Tile Layer (Default: Esri Satellite)
     const esriSat = L.tileLayer(
       'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 18 }
+      {
+        maxZoom: 18,
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+      }
     );
+    esriSat.on('tileerror', (e) => {
+      if (e.tile) e.tile.style.display = 'none';
+    });
     esriSat.addTo(map);
     baseTileLayerRef.current = esriSat;
 
@@ -196,7 +202,7 @@ export function EarthIntelligenceView({
     };
   }, []);
 
-  // 2. Handle Basemap Switcher
+  // 2. Handle Basemap Switcher (Real geographic layers with no CARTO dependency)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -206,30 +212,52 @@ export function EarthIntelligenceView({
     }
 
     let url;
-    let maxZ = 18;
+    let layerOptions = { maxZoom: 18 };
 
     switch (basemap) {
       case 'Dark':
-        url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-        maxZ = 19;
+        // Esri World Dark Gray Base (Tactical dark canvas)
+        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
+        layerOptions = {
+          maxZoom: 18,
+          maxNativeZoom: 16,
+          attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+        };
         break;
       case 'Terrain':
+        // Esri World Topographic Map
         url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
-        maxZ = 17;
+        layerOptions = {
+          maxZoom: 18,
+          maxNativeZoom: 17,
+          attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, USGS',
+        };
         break;
       case 'Light':
-        url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-        maxZ = 19;
+        // OpenStreetMap Standard Map (High-contrast light street / terrain)
+        url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        layerOptions = {
+          maxZoom: 19,
+          subdomains: ['a', 'b', 'c'],
+          attribution: '&copy; OpenStreetMap contributors',
+        };
         break;
       case 'Satellite':
       default:
+        // Esri World Imagery (High-resolution satellite view)
         url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        maxZ = 18;
+        layerOptions = {
+          maxZoom: 18,
+          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+        };
         break;
     }
 
     if (layers.satelliteImagery || basemap !== 'Satellite') {
-      const newLayer = L.tileLayer(url, { maxZoom: maxZ });
+      const newLayer = L.tileLayer(url, layerOptions);
+      newLayer.on('tileerror', (e) => {
+        if (e.tile) e.tile.style.display = 'none';
+      });
       newLayer.addTo(map);
       baseTileLayerRef.current = newLayer;
     }
@@ -811,6 +839,7 @@ export function EarthIntelligenceView({
             <span>ZOOM: <strong style={{ color: '#38BDF8' }}>{mapCoords.zoom}x</strong></span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>BASEMAP: <strong style={{ color: '#38BDF8' }}>{basemap === 'Light' ? 'OpenStreetMap' : 'Esri ArcGIS'}</strong></span>
             <span>REGION: <strong style={{ color: '#FFFFFF' }}>South Asia</strong></span>
             <span>PROJECTION: <strong style={{ color: '#94A3B8' }}>EPSG:3857 (WGS84)</strong></span>
             <span>SENSOR: <strong style={{ color: '#10B981' }}>VIIRS 375m &bull; MODIS 1km</strong></span>

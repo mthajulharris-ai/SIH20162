@@ -456,7 +456,9 @@ export function App() {
       {/* Single persistent floating "Ask SATRA" access point — fixed to the
           viewport (bottom: 24px / right: 24px) on every page. The ONLY
           floating AI Assistant entry; no duplicate chatbot cards. */}
-      <FloatingAiButton onClick={() => setIsAiAssistantModalOpen(true)} />
+      {!isChatbotOpen && (
+        <FloatingAiButton onClick={() => setIsChatbotOpen(true)} />
+      )}
     </div>
   );
 }

@@ -277,7 +277,7 @@
     "section": "Software Stack",
     "source": "08_system_architecture_and_api.md",
     "page_number": 1,
-    "updated_at": "2026-09-16"
+    "updated_at": "2026-09-18"
   },
   {
     "chunk_id": "08_system_architecture_and_api_chk_001",
@@ -287,7 +287,7 @@
     "section": "1. Telemetry & Detections",
     "source": "08_system_architecture_and_api.md",
     "page_number": 1,
-    "updated_at": "2026-09-16"
+    "updated_at": "2026-09-18"
   },
   {
     "chunk_id": "08_system_architecture_and_api_chk_002",
@@ -297,7 +297,7 @@
     "section": "2. Incident Alerts",
     "source": "08_system_architecture_and_api.md",
     "page_number": 2,
-    "updated_at": "2026-09-16"
+    "updated_at": "2026-09-18"
   },
   {
     "chunk_id": "08_system_architecture_and_api_chk_003",
@@ -307,7 +307,7 @@
     "section": "3. Analytics & FIRMS",
     "source": "08_system_architecture_and_api.md",
     "page_number": 2,
-    "updated_at": "2026-09-16"
+    "updated_at": "2026-09-18"
   },
   {
     "chunk_id": "08_system_architecture_and_api_chk_004",
@@ -317,6 +317,26 @@
     "section": "4. AI Copilot Chat",
     "source": "08_system_architecture_and_api.md",
     "page_number": 3,
-    "updated_at": "2026-09-16"
+    "updated_at": "2026-09-18"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_005",
+    "text": "[System Architecture And Api \u2014 Retrieval-Augmented Generation (RAG) Architecture]\n**Retrieval-Augmented Generation (RAG)** in SATRA is an intelligent knowledge-retrieval pipeline that grounds the SATRA AI Assistant in verified technical documentation and live telemetry data, preventing AI hallucinations.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "Retrieval-Augmented Generation (RAG) Architecture",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 3,
+    "updated_at": "2026-09-18"
+  },
+  {
+    "chunk_id": "08_system_architecture_and_api_chk_006",
+    "text": "[System Architecture And Api \u2014 Core Components of SATRA RAG:]\n1. **Document Ingestion & Semantic Chunking**: Technical specification documents covering sensors, physics, machine learning models, GIS, and alerts are chunked with metadata preservation.\n2. **Dense Vector Embeddings**: Document chunks are projected into a normalized vector space using dense semantic embeddings.\n3. **FAISS Vector Index**: Fast similarity search using FAISS retrieves the top-k most relevant document chunks based on cosine similarity.\n4. **Multilingual Query Normalization**: User queries in English, Tamil, Tanglish, or Hindi are mapped to normalized domain concepts for vector search.\n5. **Grounded Response Generation**: The assistant synthesizes verified answers using strictly the retrieved context and live database observations, citing exact source documents and sections.",
+    "document_name": "System Architecture And Api",
+    "document_type": "MD",
+    "section": "Core Components of SATRA RAG:",
+    "source": "08_system_architecture_and_api.md",
+    "page_number": 4,
+    "updated_at": "2026-09-18"
   }
 ]

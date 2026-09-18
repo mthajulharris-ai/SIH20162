@@ -22,6 +22,7 @@ class ChatHistoryItem(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000, description="User question or query for the AI Assistant")
     history: Optional[List[ChatHistoryItem]] = Field(default=None, description="Optional conversational history context")
+    language: Optional[str] = Field(default="auto", description="Response language: 'auto', 'en', 'ta', 'tanglish', 'hi'")
 
 
 class ChatResponse(BaseModel):
@@ -32,6 +33,7 @@ class ChatResponse(BaseModel):
         description="Data provenance flags indicating whether RAG documents or live database telemetry was utilized",
     )
     timestamp: Optional[str] = Field(default=None, description="Response generation timestamp in ISO-8601 UTC")
+    language: Optional[str] = Field(default="en", description="Resolved response language ('en', 'ta', 'tanglish', 'hi')")
 
 
 @router.post(
@@ -67,6 +69,7 @@ def chat_endpoint(
         message=clean_message,
         db=db,
         history=history_dicts,
+        language=payload.language or "auto",
     )
 
     return ChatResponse(
@@ -74,4 +77,5 @@ def chat_endpoint(
         sources=result.get("sources"),
         data_used=result.get("data_used", {"rag": False, "live_data": False}),
         timestamp=result["timestamp"],
+        language=result.get("language", "en"),
     )

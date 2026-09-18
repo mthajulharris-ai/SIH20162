@@ -14,16 +14,19 @@ import {
   Minimize2,
   RefreshCw,
   Cpu,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+  ShieldAlert,
 } from 'lucide-react';
 import { sendChatMessage } from '../services/api';
-
-const DEFAULT_SUGGESTED_QUESTIONS = [
-  'What is a thermal anomaly?',
-  'How does SATRA classify fires?',
-  'Explain this detection',
-  'Show recent industrial fires',
-  'What is NASA FIRMS?',
-];
+import {
+  MULTILINGUAL_SUGGESTED_QUESTIONS,
+  startVoiceRecognition,
+  speakText,
+  stopSpeaking,
+} from '../services/speech';
 
 export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
   const [messages, setMessages] = useState(() => {
@@ -53,8 +56,15 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [detectedLanguage, setDetectedLanguage] = useState('auto');
+  const [isListening, setIsListening] = useState(false);
+  const [listeningStatus, setListeningStatus] = useState('');
+  const [activeSpeechId, setActiveSpeechId] = useState(null);
+  const [speechError, setSpeechError] = useState(null);
+
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   // Persist messages
   useEffect(() => {
@@ -79,11 +89,33 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     }
   }, [isOpen]);
 
+  // Stop speech synthesis and voice recognition when modal closes or unmounts
+  useEffect(() => {
+    return () => {
+      stopSpeaking();
+      try {
+        recognitionRef.current?.abort?.();
+      } catch {
+        // no-op
+      }
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSendMessage = async (textToSend) => {
     const query = (textToSend || inputMessage).trim();
     if (!query || isLoading) return;
+
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // no-op
+      }
+      setIsListening(false);
+      setListeningStatus('');
+    }
 
     const userMsgId = 'user_' + Date.now();
     const newUserMsg = {
@@ -105,13 +137,17 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
         content: m.content,
       }));
 
-      const res = await sendChatMessage(query, historyPayload);
+      const res = await sendChatMessage(query, historyPayload, 'auto');
+      if (res.language) {
+        setDetectedLanguage(res.language);
+      }
       const assistantMsg = {
         id: 'ai_' + Date.now(),
         role: 'assistant',
         content: res.response || "No response received from SATRA AI service.",
         sources: res.sources || ['SATRA Domain Engine'],
         data_used: res.data_used || { rag: true, live_data: false },
+        language: res.language || 'auto',
         timestamp: res.timestamp || new Date().toISOString(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
@@ -132,6 +168,78 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     }
   };
 
+  const toggleVoiceRecognition = () => {
+    if (isListening) {
+      try {
+        recognitionRef.current?.stop();
+      } catch {
+        // no-op
+      }
+      setIsListening(false);
+      setListeningStatus('');
+      return;
+    }
+
+    setSpeechError(null);
+    setIsListening(true);
+    setListeningStatus('Listening...');
+
+    recognitionRef.current = startVoiceRecognition({
+      language: detectedLanguage || 'auto',
+      onStart: () => {
+        setListeningStatus('Recording...');
+      },
+      onResult: ({ finalTranscript, interimTranscript }) => {
+        if (interimTranscript) {
+          setListeningStatus('Processing voice...');
+          setInputMessage(interimTranscript);
+        }
+        if (finalTranscript) {
+          setInputMessage(finalTranscript);
+          setIsListening(false);
+          setListeningStatus('');
+          handleSendMessage(finalTranscript);
+        }
+      },
+      onError: (err) => {
+        setIsListening(false);
+        setListeningStatus('');
+        if (err.error === 'not-allowed') {
+          setSpeechError('Microphone permission denied. Please allow microphone access in your browser.');
+        } else if (err.error === 'no-speech') {
+          setSpeechError('No speech detected. Please try speaking again.');
+        } else if (err.error === 'not-supported') {
+          setSpeechError('Speech recognition is not supported in this browser. Please type your query.');
+        } else {
+          setSpeechError(`Voice input issue: ${err.message || err.error}`);
+        }
+        setTimeout(() => setSpeechError(null), 6000);
+      },
+      onEnd: () => {
+        setIsListening(false);
+        setListeningStatus('');
+      },
+    });
+  };
+
+  const handleToggleSpeak = (msgId, text, msgLang) => {
+    if (activeSpeechId === msgId) {
+      stopSpeaking();
+      setActiveSpeechId(null);
+      return;
+    }
+
+    stopSpeaking();
+    setActiveSpeechId(msgId);
+    speakText(
+      text,
+      msgLang || detectedLanguage || 'en',
+      () => setActiveSpeechId(msgId),
+      () => setActiveSpeechId(null),
+      () => setActiveSpeechId(null)
+    );
+  };
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -144,11 +252,12 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
       id: 'welcome_' + Date.now(),
       role: 'assistant',
       content:
-        "Conversation cleared.\n\nAsk me anything about **Industrial Fire Detection**, **NASA FIRMS**, **FRP Calculations**, **AI Classification Models**, or **Live System Telemetry`.",
+        "Hello! I'm SATRA AI Assistant.\n\nI can help you understand fire detections, satellite observations, thermal anomalies, alerts and SATRA analytics.\n\nPick one of the suggested questions below or ask SATRA anything.",
       sources: ['SATRA Operational Guidelines'],
       timestamp: new Date().toISOString(),
     };
     setMessages([welcome]);
+    setDetectedLanguage('auto');
     try {
       localStorage.removeItem('satra_chat_history');
     } catch (e) {
@@ -359,42 +468,25 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
             >
               <Bot size={18} />
             </div>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                  ✨ SATRA AI Assistant
-                </span>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: 'rgba(34, 197, 94, 0.15)',
-                    color: '#22c55e',
-                    border: '1px solid rgba(34, 197, 94, 0.3)',
-                    fontWeight: 600,
-                    fontFamily: 'var(--font-mono)',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  ONLINE
-                </span>
-                <span
-                  style={{
-                    fontSize: '10px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: 'rgba(69, 200, 245, 0.12)',
-                    color: 'var(--primary-cyan)',
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                >
-                  v2.0-SCI
-                </span>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Satellite Intelligence Copilot
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
+                SATRA AI Assistant
+              </span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  color: '#22c55e',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                ONLINE
+              </span>
             </div>
           </div>
 
@@ -473,6 +565,33 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                   <span style={{ fontSize: '9.5px', color: 'var(--text-muted)' }}>
                     {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
+                  {!isUser && (
+                    <button
+                      onClick={() => handleToggleSpeak(m.id, m.content, m.language)}
+                      className="satra-icon-btn"
+                      style={{
+                        padding: '1px 5px',
+                        background: activeSpeechId === m.id ? 'rgba(69, 200, 245, 0.2)' : 'transparent',
+                        color: activeSpeechId === m.id ? 'var(--primary-cyan)' : 'var(--text-muted)',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        fontSize: '9.5px',
+                        marginLeft: '3px',
+                      }}
+                      title={activeSpeechId === m.id ? 'Stop speaking' : 'Read response aloud'}
+                    >
+                      {activeSpeechId === m.id ? (
+                        <VolumeX size={11} style={{ color: 'var(--primary-cyan)' }} />
+                      ) : (
+                        <Volume2 size={11} />
+                      )}
+                      <span>{activeSpeechId === m.id ? 'Stop' : 'Listen'}</span>
+                    </button>
+                  )}
                 </div>
 
                 <div
@@ -674,7 +793,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                 scrollbarWidth: 'none',
               }}
             >
-              {DEFAULT_SUGGESTED_QUESTIONS.slice(0, 5).map((q, qIdx) => (
+              {(MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] || MULTILINGUAL_SUGGESTED_QUESTIONS.auto || MULTILINGUAL_SUGGESTED_QUESTIONS.en).slice(0, 5).map((q, qIdx) => (
                 <button
                   key={qIdx}
                   onClick={() => handleSendMessage(q)}
@@ -707,6 +826,55 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
           </div>
         )}
 
+        {/* Voice recording status or error feedback */}
+        {(isListening || listeningStatus || speechError) && (
+          <div
+            style={{
+              padding: '6px 16px',
+              background: speechError ? 'rgba(239, 68, 68, 0.12)' : 'rgba(69, 200, 245, 0.1)',
+              borderTop: speechError ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(69, 200, 245, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              fontSize: '11px',
+              color: speechError ? '#ef4444' : 'var(--primary-cyan)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {speechError ? (
+                <ShieldAlert size={13} />
+              ) : (
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: 'var(--primary-cyan)',
+                    display: 'inline-block',
+                    animation: 'pulse 1.5s infinite',
+                  }}
+                />
+              )}
+              <span>{speechError || listeningStatus || 'Listening for speech...'}</span>
+            </div>
+            {isListening && (
+              <button
+                onClick={toggleVoiceRecognition}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '10.5px',
+                  textDecoration: 'underline',
+                }}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Bottom Input Box */}
         <div
           style={{
@@ -715,14 +883,43 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
             borderTop: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
+            gap: '8px',
           }}
         >
+          <button
+            onClick={toggleVoiceRecognition}
+            className="satra-icon-btn"
+            disabled={isLoading}
+            style={{
+              padding: '8px',
+              borderRadius: '6px',
+              border: isListening ? '1px solid #ef4444' : '1px solid var(--border-color)',
+              background: isListening ? 'rgba(239, 68, 68, 0.18)' : 'var(--panel-secondary)',
+              color: isListening ? '#ef4444' : 'var(--primary-cyan)',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s ease',
+            }}
+            title={isListening ? 'Stop recording voice' : 'Voice Input (Speak question)'}
+          >
+            {isListening ? <MicOff size={15} className="animate-pulse" /> : <Mic size={15} />}
+          </button>
+
           <input
             ref={inputRef}
             type="text"
             className="satra-search-input"
-            placeholder="Ask SATRA anything..."
+            placeholder={
+              detectedLanguage === 'ta'
+                ? 'SATRA AI-யிடம் கேளுங்கள்...'
+                : detectedLanguage === 'hi'
+                ? 'SATRA AI से पूछें...'
+                : detectedLanguage === 'tanglish'
+                ? 'SATRA AI kitta kelunga...'
+                : 'Ask SATRA anything...'
+            }
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}
