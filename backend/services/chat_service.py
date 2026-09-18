@@ -162,7 +162,9 @@ def _is_unrelated(query: str) -> bool:
     """
     Identifies queries completely outside the SATRA domain (e.g., cooking, pop culture, generic trivia).
     """
+    from backend.rag.multilingual import normalize_multilingual_query
     q = query.lower().strip()
+    q_norm = normalize_multilingual_query(query).lower().strip()
 
     # Allowed technical / domain keywords
     domain_terms = [
@@ -174,10 +176,11 @@ def _is_unrelated(query: str) -> bool:
         "gis", "coordinates", "latitude", "longitude", "area", "district", "region",
         "today", "yesterday", "recent", "week", "stats", "facilities", "sensor",
         "lightgbm", "xgboost", "random forest", "ensemble", "snpp", "noaa", "terra", "aqua",
-        "hello", "hi", "hey", "help", "who are you", "what can you do", "explain"
+        "hello", "hi", "hey", "help", "who are you", "what can you do", "explain", "rag",
+        "overview", "taxonomy", "class"
     ]
 
-    if any(term in q for term in domain_terms):
+    if any(term in q or term in q_norm for term in domain_terms):
         return False
 
     # Check for clearly off-topic patterns
@@ -189,7 +192,7 @@ def _is_unrelated(query: str) -> bool:
         r"\b(crypto|bitcoin|stock price|trading|forex|ethereum)\b",
     ]
     for pattern in off_topic_patterns:
-        if re.search(pattern, q):
+        if re.search(pattern, q) or re.search(pattern, q_norm):
             return True
 
     return True
@@ -575,9 +578,10 @@ def generate_chat_response(
     message: str,
     db: Optional[Session] = None,
     history: Optional[List[Dict[str, str]]] = None,
+    language: str = "auto",
 ) -> Dict[str, Any]:
     """
-    Main RAG generation pipeline:
+    Main RAG generation pipeline with Multilingual Voice and Text Support:
     1. Scope & Guardrails: Filters out-of-scope questions with exact required response.
     2. Greetings & System Capability: Explains capabilities.
     3. Intent Router: Classifies question into RAG, Live Data, Hybrid, or Unrelated.
@@ -585,27 +589,48 @@ def generate_chat_response(
     5. Database Telemetry Queries: Grounded queries for today's fires, alerts, counts.
     6. RAG Vector Knowledge Retrieval: Retrieves top-k chunks from FAISS vector store.
     7. Grounded Response Generation: Synthesizes grounded answer with source citations.
+    8. Multilingual Localization: Localizes response to English, Tamil, Tanglish, or Hindi.
     """
+    from backend.rag.multilingual import detect_language, normalize_multilingual_query, localize_response
+
     msg = message.strip()
     msg_lower = msg.lower()
+    msg_norm = normalize_multilingual_query(msg)
+    msg_norm_lower = msg_norm.lower()
     timestamp = datetime.now(timezone.utc).isoformat()
+
+    # Determine target language: explicit preference takes priority; otherwise auto-detect
+    if language and language.lower() in ["en", "ta", "tanglish", "hi"]:
+        target_lang = language.lower()
+    else:
+        target_lang = detect_language(msg)
+
+    def _finalize(result: Dict[str, Any]) -> Dict[str, Any]:
+        if target_lang != "en" and result and "response" in result:
+            result["response"] = localize_response(result["response"], target_lang=target_lang, original_query=msg)
+        result["language"] = target_lang
+        return result
 
     # 1. Scope & Guardrails Filter
     if _is_unrelated(msg):
-        return {
+        return _finalize({
             "response": UNRELATED_RESPONSE,
             "sources": [],
             "data_used": {"rag": False, "live_data": False},
             "timestamp": timestamp,
-        }
+        })
 
     # 2. Greetings / Introduction
-    if msg_lower in ["hi", "hello", "hey", "greetings", "who are you", "what can you do", "help"]:
+    greeting_triggers = [
+        "hi", "hello", "hey", "greetings", "who are you", "what can you do", "help",
+        "வணக்கம்", "नमस्ते", "namaste", "vanakkam"
+    ]
+    if msg_lower in greeting_triggers or msg_norm_lower in ["hi", "hello", "hey", "greetings", "who are you", "what can you do", "help"]:
         det_count = 0
         if db:
             det_count = db.query(func.count(Detection.id)).scalar() or 0
 
-        return {
+        return _finalize({
             "response": (
                 f"Hello! I am the **SATRA Domain AI Assistant** for the **Industrial Fire Detection and Persistent Thermal Source Monitoring Platform**.\n\n"
                 f"Currently monitoring **{det_count:,}** active thermal observations in the live database.\n\n"
@@ -620,52 +645,56 @@ def generate_chat_response(
             "sources": [{"document": "SATRA System Overview", "section": "SATRA Mission & Objectives", "page": 1}],
             "data_used": {"rag": True, "live_data": True if det_count else False},
             "timestamp": timestamp,
-        }
+        })
 
-    # 3. Intent Detection & Routing
+    # 3. Intent Detection & Routing (evaluate with normalized query)
     intent = None
     try:
         from backend.rag.router import IntentRouter
         router = IntentRouter()
-        intent = router.classify(msg)
+        intent = router.classify(msg_norm)
     except Exception as e:
         logger.warning("IntentRouter error (%s), using default routing.", e)
 
     # 4. Specific Detection Analysis (Priority for 'why was this classified', 'explain this detection')
     is_det_query = (intent and intent.detection_id is not None) or any(
-        w in msg_lower for w in ["why was detection", "why was this", "explain why detection", "classified as", "why was #"]
+        w in msg_lower or w in msg_norm_lower for w in ["why was detection", "why was this", "explain why detection", "classified as", "why was #"]
     )
     if db is not None and is_det_query:
-        det_result = _handle_specific_detection_query(msg, db)
+        det_result = _handle_specific_detection_query(msg_norm, db) or _handle_specific_detection_query(msg, db)
         if det_result:
-            return det_result
+            return _finalize(det_result)
 
     # 5. Live Database Questions (Today's fires, alerts, statistics)
-    if db is not None and (intent is None or intent.requires_live_data or any(w in msg_lower for w in ["today", "recent", "unresolved", "alert", "how many", "area", "district", "highest"])):
-        db_result = _handle_database_query(msg, db)
+    if db is not None and (
+        intent is None
+        or intent.requires_live_data
+        or any(w in msg_lower or w in msg_norm_lower for w in ["today", "recent", "unresolved", "alert", "how many", "area", "district", "highest"])
+    ):
+        db_result = _handle_database_query(msg_norm, db) or _handle_database_query(msg, db)
         if db_result:
-            return db_result
+            return _finalize(db_result)
 
-    # 6. RAG Vector Knowledge Retrieval
+    # 6. RAG Vector Knowledge Retrieval (uses normalized query for dense search)
     try:
         from backend.rag.retriever import RAGRetriever
         from backend.rag.generator import GroundedResponseGenerator
         retriever = RAGRetriever()
-        retrieved_chunks = retriever.retrieve(msg, top_k=4)
+        retrieved_chunks = retriever.retrieve(msg_norm, top_k=4)
 
         if retrieved_chunks and retrieved_chunks[0].score >= 0.20:
             sources = [c.to_source_citation() for c in retrieved_chunks]
             response_text = GroundedResponseGenerator.generate(
-                msg,
+                msg_norm,
                 retrieved_chunks=retrieved_chunks,
                 data_used={"rag": True, "live_data": False}
             )
-            return {
+            return _finalize({
                 "response": response_text,
                 "sources": sources,
                 "data_used": {"rag": True, "live_data": False},
                 "timestamp": timestamp,
-            }
+            })
     except Exception as e:
         logger.warning("RAG vector retrieval exception: %s", str(e))
 
@@ -675,7 +704,7 @@ def generate_chat_response(
     for key, topic in DOMAIN_TOPICS.items():
         score = 0
         for kw in topic["keywords"]:
-            if kw in msg_lower:
+            if kw in msg_lower or kw in msg_norm_lower:
                 score += len(kw) * len(kw)
         if score > best_score:
             best_score = score
@@ -683,15 +712,15 @@ def generate_chat_response(
 
     if best_key and best_score > 0:
         topic = DOMAIN_TOPICS[best_key]
-        return {
+        return _finalize({
             "response": f"## {topic['title']}\n\n{topic['content']}",
             "sources": [{"document": "SATRA Technical Specification", "section": topic["title"], "page": 1}],
             "data_used": {"rag": True, "live_data": False},
             "timestamp": timestamp,
-        }
+        })
 
     # 8. Fallback Grounded Guidance
-    return {
+    return _finalize({
         "response": (
             "### SATRA Domain Analysis\n\n"
             f"Regarding your query **\"{msg}\"**:\n\n"
@@ -707,4 +736,5 @@ def generate_chat_response(
         "sources": [{"document": "SATRA Operational Guidelines", "section": "Domain Analysis", "page": 1}],
         "data_used": {"rag": True, "live_data": False},
         "timestamp": timestamp,
-    }
+    })
+

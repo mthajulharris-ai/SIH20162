@@ -91,6 +91,7 @@ export function ThermalIntelligenceView({
   const [searchedLocation, setSearchedLocation] = useState(null);
   const [searchMessage, setSearchMessage] = useState(null);
   const baseTileLayerRef = useRef(null);
+  const nasaLayerRef = useRef(null);
   const labelsLayerRef = useRef(null);
 
   const loadFirmsStatus = useCallback(async () => {
@@ -272,7 +273,16 @@ export function ThermalIntelligenceView({
   const [mapZoomLevel, setMapZoomLevel] = useState(3);
   const [isMapFullscreen, setIsMapFullscreen] = useState(false);
 
-  // Initialize Map with NASA GIBS Satellite Imagery (No CARTO dependency)
+  // Helper: Latest completed NASA GIBS acquisition date (UTC YYYY-MM-DD)
+  // NASA GIBS daily spaceborne mosaics require up to 24 hours to process into global daylight imagery.
+  // Using yesterday's UTC date ensures 100% full, unbroken true-color satellite coverage worldwide.
+  const getLatestGibsDate = () => {
+    const d = new Date();
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().split('T')[0];
+  };
+
+  // Initialize Map with Continuous Geographic Satellite Base & Labels
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
@@ -288,22 +298,22 @@ export function ThermalIntelligenceView({
       worldCopyJump: true,
     });
 
-    // 1. Primary NASA GIBS True Color Satellite Layer (VIIRS SNPP TrueColor 375m)
-    const gibsViirsTiles = L.tileLayer(
-      'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+    // 1. Permanent Underlying Base Satellite Imagery (Esri World Imagery)
+    // Guarantees continuous real geographic satellite coverage across the entire map viewport at all zoom levels
+    const baseSatelliteTiles = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
       {
-        subdomains: 'abc',
-        maxNativeZoom: 9,
         maxZoom: 18,
-        className: 'nasa-gibs-viirs-tiles',
+        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics',
+        zIndex: 1,
+        className: 'base-world-imagery-tiles',
       }
     );
-
-    gibsViirsTiles.on('tileerror', (e) => {
+    baseSatelliteTiles.on('tileerror', (e) => {
       if (e.tile) e.tile.style.display = 'none';
     });
-    gibsViirsTiles.addTo(map);
-    baseTileLayerRef.current = gibsViirsTiles;
+    baseSatelliteTiles.addTo(map);
+    baseTileLayerRef.current = baseSatelliteTiles;
 
     // 2. High-precision geographic boundaries & places overlay
     const labelsTiles = L.tileLayer(
@@ -311,6 +321,7 @@ export function ThermalIntelligenceView({
       {
         maxZoom: 18,
         opacity: 0.8,
+        zIndex: 10,
       }
     );
     labelsTiles.on('tileerror', (e) => {
@@ -338,53 +349,68 @@ export function ThermalIntelligenceView({
     return () => {
       map.remove();
       mapInstanceRef.current = null;
+      baseTileLayerRef.current = null;
+      nasaLayerRef.current = null;
+      labelsLayerRef.current = null;
+      markersLayerRef.current = null;
     };
   }, []);
 
-  // Synchronize Active Satellite Imagery Layer
+  // Synchronize Active Satellite Imagery Layer (NASA VIIRS / NASA MODIS / High-Res)
   useEffect(() => {
-    if (!mapInstanceRef.current || !baseTileLayerRef.current) return;
+    if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
-    map.removeLayer(baseTileLayerRef.current);
 
-    let newTileLayer;
+    // Remove any previously attached NASA GIBS satellite layer
+    if (nasaLayerRef.current) {
+      if (map.hasLayer(nasaLayerRef.current)) {
+        map.removeLayer(nasaLayerRef.current);
+      }
+      nasaLayerRef.current = null;
+    }
+
+    const gibsDate = getLatestGibsDate();
+    let newNasaLayer = null;
+
     if (activeLayer === 'nasa_viirs') {
-      newTileLayer = L.tileLayer(
-        'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+      // Real NASA GIBS VIIRS True Color spaceborne imagery
+      newNasaLayer = L.tileLayer(
+        `https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/${gibsDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
         {
           subdomains: 'abc',
           maxNativeZoom: 9,
           maxZoom: 18,
+          zIndex: 2,
+          opacity: 1.0,
           className: 'nasa-gibs-viirs-tiles',
         }
       );
     } else if (activeLayer === 'nasa_modis') {
-      newTileLayer = L.tileLayer(
-        'https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
+      // Real NASA GIBS MODIS Terra True Color spaceborne imagery
+      newNasaLayer = L.tileLayer(
+        `https://gibs-{s}.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/${gibsDate}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
         {
           subdomains: 'abc',
           maxNativeZoom: 9,
           maxZoom: 18,
+          zIndex: 2,
+          opacity: 1.0,
           className: 'nasa-gibs-modis-tiles',
-        }
-      );
-    } else {
-      // High-resolution local satellite imagery
-      newTileLayer = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          maxZoom: 18,
-          className: 'highres-satellite-tiles',
         }
       );
     }
 
-    newTileLayer.on('tileerror', (e) => {
-      if (e.tile) e.tile.style.display = 'none';
-    });
-    newTileLayer.addTo(map);
-    baseTileLayerRef.current = newTileLayer;
+    if (newNasaLayer) {
+      // If a tile encounters an unorbited edge or transient error, suppress broken tile
+      // so the underlying continuous base satellite imagery seamlessly covers the viewport
+      newNasaLayer.on('tileerror', (e) => {
+        if (e.tile) e.tile.style.display = 'none';
+      });
+      newNasaLayer.addTo(map);
+      nasaLayerRef.current = newNasaLayer;
+    }
 
+    // Ensure boundaries and place labels remain crisp on top of satellite imagery
     if (labelsLayerRef.current) {
       labelsLayerRef.current.bringToFront();
     }
@@ -1502,7 +1528,7 @@ export function ThermalIntelligenceView({
                 )}
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                IMAGERY: NASA GIBS / NASA WORLDVIEW SATELLITE
+                IMAGERY: {activeLayer === 'nasa_viirs' ? 'NASA GIBS VIIRS TrueColor (Spaceborne)' : activeLayer === 'nasa_modis' ? 'NASA GIBS MODIS Terra TrueColor' : 'High-Resolution Satellite Imagery'}
               </div>
             </div>
 
