@@ -604,17 +604,18 @@ out center 35;`;
       {/* 1. GIS Investigation Header & Mission Banner */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.96) 0%, rgba(15, 32, 50, 0.90) 100%)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(56, 189, 248, 0.28)',
-          borderRadius: '12px',
+          background: 'var(--glass-surface)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: '14px',
           padding: '16px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '14px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          boxShadow: 'var(--glass-shadow)',
         }}
       >
         <div>
@@ -778,17 +779,18 @@ out center 35;`;
               position: 'absolute',
               bottom: '16px',
               left: '16px',
-              background: 'rgba(11, 23, 38, 0.92)',
-              backdropFilter: 'blur(8px)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '8px',
-              padding: '10px 14px',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '10px',
+              padding: '12px 16px',
               zIndex: 1000,
               fontSize: '11px',
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              boxShadow: 'var(--glass-shadow)',
               maxWidth: '300px',
             }}
           >
@@ -833,96 +835,133 @@ out center 35;`;
           {/* Target Detection Card */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(15, 32, 50, 0.95) 0%, rgba(11, 23, 38, 0.95) 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              borderRadius: '10px',
-              padding: '14px 16px',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '12px',
+              padding: '16px 18px',
+              boxShadow: 'var(--glass-shadow)',
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <span style={{ fontSize: '11px', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 EXACT DETECTION LOCATION
               </span>
               {selectedDetection && (
-                <span
-                  style={{
-                    fontSize: '10.5px',
-                    padding: '2px 6px',
-                    borderRadius: '4px',
-                    background: selectedDetection.predicted_class === 'Industrial Fire' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.2)',
-                    color: selectedDetection.predicted_class === 'Industrial Fire' ? '#EF4444' : '#38BDF8',
-                    fontWeight: 700,
-                  }}
-                >
-                  #{selectedDetection.id}
-                </span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38BDF8',
+                      fontWeight: 700,
+                      fontSize: '10px',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    TARGET
+                  </span>
+                  <span
+                    style={{
+                      padding: '2px 8px',
+                      borderRadius: '4px',
+                      background: 'rgba(239, 68, 68, 0.15)',
+                      color: '#EF4444',
+                      fontWeight: 700,
+                      fontSize: '10px',
+                      letterSpacing: '0.04em',
+                    }}
+                  >
+                    {selectedDetection.predicted_class}
+                  </span>
+                </div>
               )}
             </div>
 
             {selectedDetection ? (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>
-                  {parseFloat(selectedDetection.latitude).toFixed(5)}° N, {parseFloat(selectedDetection.longitude).toFixed(5)}° E
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                  <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                    {parseFloat(selectedDetection.latitude).toFixed(4)}°, {parseFloat(selectedDetection.longitude).toFixed(4)}°
+                  </span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px', marginTop: '6px', fontSize: '11px', color: '#94A3B8' }}>
-                  <span>FRP: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.frp != null ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}</strong></span>
-                  <span>&bull;</span>
-                  <span>Confidence: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.prediction_confidence != null ? `${(parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}</strong></span>
-                  <span>&bull;</span>
-                  <span>Sensor: <strong style={{ color: '#FFFFFF' }}>{selectedDetection.instrument || 'VIIRS'}</strong></span>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginTop: '12px', fontSize: '11px' }}>
+                  <div style={{ background: 'var(--glass-nested)', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--glass-border-subtle)' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>FRP</span>
+                    <strong style={{ color: '#F97316' }}>{selectedDetection.frp != null ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}</strong>
+                  </div>
+                  <div style={{ background: 'var(--glass-nested)', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--glass-border-subtle)' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Confidence</span>
+                    <strong style={{ color: '#10B981' }}>{selectedDetection.prediction_confidence != null ? `${(parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}</strong>
+                  </div>
+                  <div style={{ background: 'var(--glass-nested)', padding: '6px 8px', borderRadius: '6px', border: '1px solid var(--glass-border-subtle)' }}>
+                    <span style={{ color: 'var(--text-muted)', display: 'block' }}>Satellite</span>
+                    <strong style={{ color: '#38BDF8' }}>{selectedDetection.instrument || selectedDetection.source || 'VIIRS'}</strong>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--glass-border-subtle)', fontSize: '11.5px', color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  {selectedDetection.acq_date && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>Acquisition:</span>
+                      <strong style={{ color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{selectedDetection.acq_date} {selectedDetection.acq_time || ''} UTC</strong>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Status:</span>
+                    <span style={{ color: '#EF4444', fontWeight: 800 }}>Requires Human Verification</span>
+                  </div>
                 </div>
               </div>
             ) : (
-              <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
                 Select a detection marker on the map or click a detection from the explorer to investigate its real geographic surroundings.
               </div>
             )}
           </div>
 
-          {/* Scientific Evidence Rule Card (Section 9) */}
+          {/* Scientific rule callout card */}
           <div
             style={{
-              background: 'rgba(3, 7, 18, 0.85)',
-              border: '1px solid rgba(234, 179, 8, 0.35)',
-              borderRadius: '10px',
-              padding: '12px 14px',
+              background: 'var(--glass-nested)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid rgba(234, 179, 8, 0.3)',
+              borderRadius: '12px',
+              padding: '14px 16px',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FACC15', fontSize: '11.5px', fontWeight: 700 }}>
               <AlertTriangle size={14} />
               <span>SCIENTIFIC RULE: GIS IS SUPPORTING EVIDENCE</span>
             </div>
-            <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px', lineHeight: 1.4 }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4 }}>
               GIS context never automatically confirms fire type. It provides surrounding physical evidence for human verification.
             </div>
 
             <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <span style={{ color: '#94A3B8' }}>GIS Context:</span>
-                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '6px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>GIS Context:</span>
+                <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>
                   {industrialFeatures.length > 0
                     ? `Industrial facility mapped ${formatDistance(industrialFeatures[0].distance_m)} from detection`
                     : 'No mapped industrial facility within 1 km'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <span style={{ color: '#94A3B8' }}>AI Prediction:</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '6px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>AI Prediction:</span>
                 <span style={{ color: selectedDetection?.predicted_class === 'Industrial Fire' ? '#FF453A' : '#38BDF8', fontWeight: 700 }}>
                   {selectedDetection?.predicted_class || 'Thermal Anomaly'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <span style={{ color: '#94A3B8' }}>AI Confidence:</span>
-                <span style={{ color: '#FFFFFF', fontWeight: 600 }}>
-                  {selectedDetection && selectedDetection.prediction_confidence != null ? `${(parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)}%` : 'N/A'}
-                </span>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 6px', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '4px' }}>
-                <span style={{ color: '#F87171' }}>Verification Status:</span>
-                <span style={{ color: '#EF4444', fontWeight: 800 }}>Requires Human Verification</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 8px', background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '6px' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Verification Priority:</span>
+                <span style={{ color: '#EF4444', fontWeight: 700 }}>Requires Human Verification</span>
               </div>
             </div>
           </div>
@@ -930,10 +969,13 @@ out center 35;`;
           {/* NEARBY FEATURES PANEL (Sections 3, 4, 5, 6) */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '10px',
-              padding: '14px',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '12px',
+              padding: '16px',
+              boxShadow: 'var(--glass-shadow)',
               flex: 1,
               display: 'flex',
               flexDirection: 'column',

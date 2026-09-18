@@ -37,28 +37,13 @@ export function App() {
   const [authSession, setAuthSession] = useState(() => {
     try {
       const saved = localStorage.getItem('satra_auth');
-      if (saved) return JSON.parse(saved);
       const wasLoggedOut = localStorage.getItem('satra_logged_out') === 'true';
-      if (!wasLoggedOut) {
-        const defaultUser = {
-          email: 'admin@satra.io',
-          name: 'Flight Controller',
-          role: 'SATRA Flight Controller',
-        };
-        try {
-          localStorage.setItem('satra_auth', JSON.stringify(defaultUser));
-        } catch {
-          // ignore storage error
-        }
-        return defaultUser;
+      if (saved && !wasLoggedOut && window.location.hash.length > 2 && window.location.hash !== '#/login') {
+        return JSON.parse(saved);
       }
       return null;
     } catch {
-      return {
-        email: 'admin@satra.io',
-        name: 'Flight Controller',
-        role: 'SATRA Flight Controller',
-      };
+      return null;
     }
   });
   const isAuthenticated = !!authSession;
