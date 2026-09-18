@@ -10,9 +10,6 @@ import {
   Map,
   ShieldAlert,
   BarChart3,
-  AlertTriangle,
-  Target,
-  Layers,
   Crosshair,
 } from 'lucide-react';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
@@ -361,21 +358,16 @@ export function OverviewView({
           alignItems: 'stretch',
         }}
       >
-        {/* ==================== LEFT COLUMN: GLOBAL VIEW ==================== */}
+        {/* ==================== LEFT COLUMN: GLOBAL VIEW + SATELLITE DATA STATUS ==================== */}
         <div
           style={{
-            background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: '12px',
-            boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
-            overflow: 'hidden',
-            position: 'relative',
             display: 'flex',
             flexDirection: 'column',
-            minHeight: '640px',
+            gap: '16px',
+            height: '100%',
           }}
         >
-          {/* Global View Header */}
+          {/* CARD 1: GLOBAL VIEW (3D Earth Globe + Map Controls + Legend) */}
           <div
             style={{
               background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
@@ -442,7 +434,7 @@ export function OverviewView({
               </div>
             </div>
 
-            {/* Large 3D Earth Centerpiece */}
+            {/* Large 3D Earth Centerpiece with Map Controls & Legend */}
             <div style={{ flex: 1, minHeight: 0, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
               <EarthGlobe3D
                 detections={detections}
@@ -507,7 +499,6 @@ export function OverviewView({
                   <Layers size={14} />
                 </button>
               </div>
-
               {/* Globe Legend (Bottom Overlay) */}
               <div
                 style={{

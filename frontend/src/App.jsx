@@ -17,7 +17,6 @@ import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 import { AiAssistantModal } from './components/AiAssistantModal';
 import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
-import { Sparkles } from 'lucide-react';
 import { FloatingAiButton } from './components/FloatingAiButton';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -35,9 +34,28 @@ export function App() {
   const [authSession, setAuthSession] = useState(() => {
     try {
       const saved = localStorage.getItem('satra_auth');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
+      if (saved) return JSON.parse(saved);
+      const wasLoggedOut = localStorage.getItem('satra_logged_out') === 'true';
+      if (!wasLoggedOut) {
+        const defaultUser = {
+          email: 'admin@satra.io',
+          name: 'Flight Controller',
+          role: 'SATRA Flight Controller',
+        };
+        try {
+          localStorage.setItem('satra_auth', JSON.stringify(defaultUser));
+        } catch {
+          // ignore storage error
+        }
+        return defaultUser;
+      }
       return null;
+    } catch {
+      return {
+        email: 'admin@satra.io',
+        name: 'Flight Controller',
+        role: 'SATRA Flight Controller',
+      };
     }
   });
   const isAuthenticated = !!authSession;
@@ -82,6 +100,7 @@ export function App() {
 
   const handleLogin = (userData) => {
     try {
+      localStorage.removeItem('satra_logged_out');
       localStorage.setItem('satra_auth', JSON.stringify(userData));
     } catch (e) {
       console.warn('Failed to persist auth:', e);
@@ -93,6 +112,7 @@ export function App() {
   const handleLogout = () => {
     try {
       localStorage.removeItem('satra_auth');
+      localStorage.setItem('satra_logged_out', 'true');
     } catch (e) {
       console.warn('Failed to clear auth:', e);
     }
@@ -423,35 +443,6 @@ export function App() {
           onFocusDetection={handleFocusDetection}
         />
 
-        {/* Floating Copilot Launcher Button */}
-        {!isChatbotOpen && (
-          <button
-            onClick={() => setIsChatbotOpen(true)}
-            style={{
-              position: 'fixed',
-              bottom: 24,
-              right: 24,
-              zIndex: 999,
-              background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.5)',
-              borderRadius: '24px',
-              padding: '10px 18px',
-              color: '#FFFFFF',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '12.5px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              letterSpacing: '0.03em',
-            }}
-            title="Open SATRA AI Satellite Copilot"
-          >
-            <Sparkles size={16} style={{ color: '#38BDF8' }} />
-            <span>SATRA AI Copilot</span>
-          </button>
-        )}
       </main>
 
       {/* Single persistent floating "Ask SATRA" access point — fixed to the

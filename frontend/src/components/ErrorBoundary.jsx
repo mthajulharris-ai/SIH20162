@@ -1,10 +1,15 @@
 import React from 'react';
-import { ShieldAlert, RotateCcw, Home } from 'lucide-react';
+import { AlertTriangle, RefreshCw, RotateCcw, Terminal, Home } from 'lucide-react';
 
+/**
+ * SATRA Mission Flight Controller Error Boundary
+ * Catches runtime React render exceptions and renders a diagnostic recovery UI
+ * rather than a completely blank dark screen.
+ */
 export class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
@@ -12,16 +17,26 @@ export class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('[SATRA ErrorBoundary Caught]:', error, errorInfo);
+    console.error('[SATRA UNHANDLED REACT ERROR]', error, errorInfo);
+    this.setState({ errorInfo });
   }
 
+  handleReload = () => {
+    window.location.reload();
+  };
+
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorInfo: null });
     if (this.props.onReset) {
       this.props.onReset();
-    } else {
-      window.location.hash = '/overview';
-      window.location.reload();
+    }
+  };
+
+  handleGoOverview = () => {
+    window.location.hash = '/overview';
+    this.setState({ hasError: false, error: null, errorInfo: null });
+    if (this.props.onReset) {
+      this.props.onReset();
     }
   };
 
@@ -33,118 +48,138 @@ export class ErrorBoundary extends React.Component {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            minHeight: '400px',
-            padding: '32px 20px',
+            minHeight: '420px',
             width: '100%',
+            padding: '32px 20px',
+            boxSizing: 'border-box',
           }}
         >
           <div
             style={{
-              maxWidth: '560px',
+              maxWidth: '640px',
               width: '100%',
-              background: 'rgba(15, 23, 42, 0.95)',
+              backgroundColor: '#0B1726',
               backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(239, 68, 68, 0.4)',
+              border: '1px solid rgba(255, 69, 58, 0.45)',
               borderRadius: '12px',
-              padding: '28px',
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.6), 0 0 20px rgba(239, 68, 68, 0.15)',
+              padding: '32px',
+              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(255, 69, 58, 0.2)',
+              position: 'relative',
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
-              gap: '16px',
+              gap: '18px',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <div
                 style={{
-                  width: '42px',
-                  height: '42px',
+                  width: '48px',
+                  height: '48px',
                   borderRadius: '10px',
-                  background: 'rgba(239, 68, 68, 0.15)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
+                  backgroundColor: 'rgba(255, 69, 58, 0.15)',
+                  border: '1px solid rgba(255, 69, 58, 0.4)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#EF4444',
                   flexShrink: 0,
                 }}
               >
-                <ShieldAlert size={22} />
+                <AlertTriangle size={26} color="#FF453A" />
               </div>
               <div>
-                <h3
-                  style={{
-                    fontSize: '16px',
-                    fontWeight: 800,
-                    color: '#FFFFFF',
-                    margin: 0,
-                    letterSpacing: '0.02em',
-                  }}
-                >
-                  Dashboard View Notice
-                </h3>
-                <p style={{ fontSize: '12.5px', color: 'var(--text-muted)', margin: '3px 0 0 0' }}>
-                  A rendering issue occurred while displaying this module.
+                <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 700, color: '#F4F7FA', letterSpacing: '0.02em' }}>
+                  SATRA Command Telemetry Interruption
+                </h2>
+                <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#9AAFC2' }}>
+                  A UI component encountered an unexpected runtime anomaly.
                 </p>
               </div>
             </div>
 
-            {this.state.error?.message && (
-              <div
-                style={{
-                  background: 'rgba(2, 6, 23, 0.7)',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  fontSize: '12px',
-                  color: '#F87171',
-                  fontFamily: 'var(--font-mono, monospace)',
-                  wordBreak: 'break-word',
-                  lineHeight: 1.5,
-                }}
-              >
-                {this.state.error.message}
+            {/* Diagnostic Log Box */}
+            <div
+              style={{
+                backgroundColor: 'rgba(5, 11, 20, 0.85)',
+                border: '1px solid rgba(120, 200, 240, 0.16)',
+                borderRadius: '8px',
+                padding: '14px 16px',
+                fontFamily: 'JetBrains Mono, Menlo, monospace',
+                fontSize: '12px',
+                color: '#FF8A00',
+                maxHeight: '160px',
+                overflowY: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                lineHeight: 1.5,
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: '#6EDCFF' }}>
+                <Terminal size={14} />
+                <span style={{ fontWeight: 600 }}>Diagnostic Log:</span>
               </div>
-            )}
+              {this.state.error?.message || this.state.error?.toString() || 'Unknown runtime error'}
+            </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginTop: '4px' }}>
               <button
-                onClick={this.handleReset}
-                className="btn-primary"
+                onClick={this.handleReload}
                 style={{
-                  padding: '9px 16px',
-                  fontSize: '12.5px',
-                  fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+                  color: '#FFFFFF',
+                  fontWeight: 600,
+                  fontSize: '13px',
                   cursor: 'pointer',
-                  borderRadius: '6px',
+                  boxShadow: '0 4px 14px rgba(56, 189, 248, 0.3)',
                 }}
               >
-                <RotateCcw size={14} />
-                <span>Reload View</span>
+                <RefreshCw size={15} />
+                <span>Reload Command Deck</span>
               </button>
               <button
-                onClick={() => {
-                  window.location.hash = '/overview';
-                  this.setState({ hasError: false, error: null });
-                }}
-                className="btn-secondary"
+                onClick={this.handleReset}
                 style={{
-                  padding: '9px 16px',
-                  fontSize: '12.5px',
-                  fontWeight: 500,
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '6px',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(120, 200, 240, 0.25)',
+                  background: 'rgba(15, 32, 50, 0.6)',
+                  color: '#8DE7FF',
+                  fontWeight: 600,
+                  fontSize: '13px',
                   cursor: 'pointer',
-                  borderRadius: '6px',
-                  color: '#CBD5E1',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
                 }}
               >
-                <Home size={14} />
+                <RotateCcw size={15} />
+                <span>Attempt In-Place Recovery</span>
+              </button>
+              <button
+                onClick={this.handleGoOverview}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 18px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  color: '#CBD5E1',
+                  fontWeight: 500,
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                }}
+              >
+                <Home size={15} />
                 <span>Go to Overview</span>
               </button>
             </div>
@@ -156,3 +191,5 @@ export class ErrorBoundary extends React.Component {
     return this.props.children;
   }
 }
+
+export default ErrorBoundary;

@@ -1178,6 +1178,17 @@ export function EarthGlobe3D({
     );
   };
 
+  useEffect(() => {
+    const onZoomIn = () => handleZoomIn();
+    const onZoomOut = () => handleZoomOut();
+    window.addEventListener('satra-globe-zoom-in', onZoomIn);
+    window.addEventListener('satra-globe-zoom-out', onZoomOut);
+    return () => {
+      window.removeEventListener('satra-globe-zoom-in', onZoomIn);
+      window.removeEventListener('satra-globe-zoom-out', onZoomOut);
+    };
+  }, []);
+
   // Copy coordinates helper
   const handleCopyCoords = (lat, lon) => {
     navigator.clipboard.writeText(`${lat}, ${lon}`);
