@@ -59,30 +59,31 @@ export function AlertsView({
       {/* Purpose Banner */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(56, 189, 248, 0.28)',
-          borderRadius: '12px',
+          background: 'var(--glass-surface)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: '14px',
           padding: '16px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          boxShadow: 'var(--glass-shadow)',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShieldAlert size={18} style={{ color: '#EF4444' }} />
-            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
               ALERTS &bull; INCIDENT REVIEW QUEUE
             </span>
             <span style={{ fontSize: '10.5px', color: '#EF4444', background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
               What needs attention?
             </span>
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 600, marginTop: '3px' }}>
+          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 500, marginTop: '3px' }}>
             "Review high-risk thermal events requiring human decision and verification."
           </div>
         </div>
@@ -95,8 +96,10 @@ export function AlertsView({
       {/* Safety & Protocol Banner */}
       <div
         style={{
-          background: 'rgba(15, 32, 50, 0.7)',
-          border: '1px solid var(--border-color)',
+          background: 'var(--glass-nested)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-border-subtle)',
           borderRadius: '10px',
           padding: '12px 18px',
           display: 'flex',
@@ -108,7 +111,7 @@ export function AlertsView({
       >
         <ShieldAlert size={18} style={{ color: 'var(--thermal-red)', flexShrink: 0 }} />
         <div>
-          <strong style={{ color: '#FFFFFF' }}>Human-in-the-Loop Incident Verification Queue:</strong> Satellite thermal
+          <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>Human-in-the-Loop Incident Verification Queue:</strong> Satellite thermal
           alerts require human/drone ground confirmation. Update verification states to dispatch inspection units or dismiss controlled flares.
         </div>
       </div>

@@ -59,30 +59,31 @@ export function DetectionExplorerView({
       {/* Purpose Banner */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(11, 23, 38, 0.95) 0%, rgba(15, 32, 50, 0.85) 100%)',
-          backdropFilter: 'blur(14px)',
-          border: '1px solid rgba(56, 189, 248, 0.28)',
-          borderRadius: '12px',
+          background: 'var(--glass-surface)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: '14px',
           padding: '16px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '12px',
-          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.45)',
+          boxShadow: 'var(--glass-shadow)',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Crosshair size={18} style={{ color: '#38BDF8' }} />
-            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
+            <span style={{ fontSize: '13px', fontWeight: 700, letterSpacing: '0.06em', color: 'var(--text-primary)' }}>
               DETECTION EXPLORER
             </span>
             <span style={{ fontSize: '10.5px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.12)', border: '1px solid rgba(56, 189, 248, 0.25)', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
               What did SATRA detect?
             </span>
           </div>
-          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 600, marginTop: '3px' }}>
+          <div style={{ fontSize: '12.5px', color: 'var(--ice-blue)', fontWeight: 500, marginTop: '3px' }}>
             "Inspect individual thermal detections, AI predictions, and verification evidence."
           </div>
         </div>
@@ -295,7 +296,7 @@ export function DetectionExplorerView({
 
             {/* Telemetry Fields */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '12.5px' }}>
-              <div style={{ padding: '10px 12px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+              <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px', textTransform: 'uppercase' }}>
                   Canonical Coordinates
                 </span>
@@ -305,11 +306,11 @@ export function DetectionExplorerView({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>PREDICTED CLASS</span>
                   <ClassBadge predictedClass={inspectorDetection.predicted_class} />
                 </div>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>CONFIDENCE</span>
                   <strong className="mono-cell" style={{ color: 'var(--success)' }}>
                     {((parseFloat(inspectorDetection.prediction_confidence) || 0) * 100).toFixed(1)}%
@@ -318,13 +319,13 @@ export function DetectionExplorerView({
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>RADIATIVE POWER (FRP)</span>
                   <strong className="mono-cell" style={{ color: 'var(--thermal-orange)' }}>
                     {inspectorDetection.frp ? `${parseFloat(inspectorDetection.frp).toFixed(1)} MW` : 'N/A'}
                   </strong>
                 </div>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>BRIGHTNESS TEMP</span>
                   <strong className="mono-cell">
                     {inspectorDetection.brightness ? `${parseFloat(inspectorDetection.brightness).toFixed(1)} K` : 'N/A'}
@@ -332,20 +333,20 @@ export function DetectionExplorerView({
                 </div>
               </div>
 
-              <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+              <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>SATELLITE & SENSOR</span>
                 <span style={{ color: 'var(--ice-blue)', fontWeight: 600 }}>
                   {inspectorDetection.source} ({inspectorDetection.instrument || 'VIIRS'}) &bull; Day/Night: {inspectorDetection.daynight || 'D'}
                 </span>
               </div>
 
-              <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+              <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>ACQUISITION TIMESTAMP (UTC)</span>
                 <span className="mono-cell">{inspectorDetection.acq_date} {inspectorDetection.acq_time}</span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>DATA PROVENANCE</span>
                   <ProvenanceBadge provenance={inspectorDetection.data_provenance} />
                   {inspectorDetection.data_provenance === 'PROTOTYPE_LABELLED' && (
@@ -359,20 +360,20 @@ export function DetectionExplorerView({
                     </div>
                   )}
                 </div>
-                <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                   <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>ALERT LEVEL</span>
                   <StatusBadge status={inspectorDetection.alert_level || 'LOW'} type="severity" />
                 </div>
               </div>
 
-              <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+              <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>MODEL VERSION</span>
                 <span className="mono-cell" style={{ color: 'var(--text-secondary)' }}>
                   {inspectorDetection.model_version || '2.0.0-scientific-prototype'}
                 </span>
               </div>
 
-              <div style={{ padding: '8px 10px', background: 'rgba(11, 23, 38, 0.5)', borderRadius: '6px' }}>
+              <div style={{ padding: '10px 12px', background: 'var(--glass-nested)', borderRadius: '8px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10.5px' }}>VERIFICATION STATUS</span>
                 <StatusBadge status="REQUIRES_VERIFICATION" type="verification" />
               </div>

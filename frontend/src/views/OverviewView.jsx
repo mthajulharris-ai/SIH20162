@@ -152,31 +152,17 @@ export function OverviewView({
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-          gap: '16px',
+          gap: '18px',
         }}
       >
         {/* CARD 1: ACTIVE HOTSPOTS */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="overview-kpi-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 ACTIVE HOTSPOTS
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
+              <div className="overview-kpi-val" style={{ color: '#FFFFFF' }}>
                 {typeof activeHotspots === 'number' ? activeHotspots.toLocaleString() : activeHotspots}
               </div>
             </div>
@@ -190,6 +176,7 @@ export function OverviewView({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
               <Flame size={20} style={{ color: '#EF4444' }} />
@@ -203,27 +190,13 @@ export function OverviewView({
         </div>
 
         {/* CARD 2: INDUSTRIAL FIRES */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="overview-kpi-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 INDUSTRIAL FIRES
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
+              <div className="overview-kpi-val" style={{ color: '#FFFFFF' }}>
                 {typeof indFires === 'number' ? indFires.toLocaleString() : indFires}
               </div>
             </div>
@@ -237,6 +210,7 @@ export function OverviewView({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
               <Factory size={20} style={{ color: '#38BDF8' }} />
@@ -250,27 +224,13 @@ export function OverviewView({
         </div>
 
         {/* CARD 3: FOREST FIRES */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="overview-kpi-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 FOREST FIRES
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
+              <div className="overview-kpi-val" style={{ color: '#FFFFFF' }}>
                 {typeof forestFires === 'number' ? forestFires.toLocaleString() : forestFires}
               </div>
             </div>
@@ -284,6 +244,7 @@ export function OverviewView({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
               <Trees size={20} style={{ color: '#EAB308' }} />
@@ -297,27 +258,13 @@ export function OverviewView({
         </div>
 
         {/* CARD 4: AI CONFIDENCE */}
-        <div
-          style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '16px 20px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
-            position: 'relative',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="overview-kpi-card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--text-secondary)', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
                 AI CONFIDENCE
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '6px' }}>
+              <div className="overview-kpi-val" style={{ color: '#38BDF8' }}>
                 {avgConf.includes('%') ? avgConf : `${avgConf}%`}
               </div>
             </div>
@@ -331,6 +278,7 @@ export function OverviewView({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.1)',
               }}
             >
               <Cpu size={20} style={{ color: '#10B981' }} />
@@ -372,10 +320,12 @@ export function OverviewView({
           {/* CARD 1: GLOBAL VIEW (3D Earth Globe + Map Controls + Legend) */}
           <div
             style={{
-              background: 'radial-gradient(circle at center, #0B1726 0%, #030712 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '12px',
-              boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
+              background: 'radial-gradient(circle at center, rgba(16, 30, 48, 0.7) 0%, rgba(5, 11, 20, 0.85) 100%)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '14px',
+              boxShadow: 'var(--card-shadow), var(--glass-inner-highlight)',
               overflow: 'hidden',
               position: 'relative',
               flex: 1,
@@ -428,11 +378,11 @@ export function OverviewView({
                     width: 7,
                     height: 7,
                     borderRadius: '50%',
-                    background: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444',
-                    boxShadow: satelliteStatus?.status === 'LIVE' ? '0 0 6px #10B981' : 'none',
+                    background: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : '#EF4444',
+                    boxShadow: satelliteStatus?.status === 'LIVE' ? '0 0 6px #10B981' : satelliteStatus?.status === 'STANDBY' ? '0 0 6px #38BDF8' : 'none',
                   }}
                 />
-                <span>{satelliteStatus?.status === 'LIVE' ? '● LIVE SATELLITE DATA' : satelliteStatus?.status === 'DEGRADED' ? '● DATA CONNECTION DEGRADED' : '● SATELLITE DATA OFFLINE'}</span>
+                <span>{satelliteStatus?.status === 'LIVE' ? '● LIVE SATELLITE DATA' : satelliteStatus?.status === 'DEGRADED' ? '● DATA CONNECTION DEGRADED' : satelliteStatus?.status === 'STANDBY' ? '● SATELLITE STANDBY (AWAITING SYNC)' : '● SATELLITE DATA OFFLINE'}</span>
               </div>
             </div>
 
@@ -543,24 +493,26 @@ export function OverviewView({
           {/* CARD 2: SATELLITE DATA STATUS (DIRECTLY BELOW GLOBAL VIEW) */}
           <div
             style={{
-              background: 'rgba(11, 23, 38, 0.85)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '14px',
+              padding: '18px 22px',
+              boxShadow: 'var(--glass-shadow)',
+              boxSizing: 'border-box',
               flexShrink: 0,
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Satellite size={18} style={{ color: '#38BDF8' }} />
-                <span style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   Satellite Data Status
                 </span>
               </div>
-              <span style={{ fontSize: '10.5px', color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444', fontWeight: 700 }}>
-                &bull; {satelliteStatus?.status === 'LIVE' ? 'Live NRT' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded' : 'Offline'}
+              <span style={{ fontSize: '11px', color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : '#EF4444', fontWeight: 600 }}>
+                &bull; {satelliteStatus?.status === 'LIVE' ? 'Live NRT' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded' : satelliteStatus?.status === 'STANDBY' ? 'Standby (Key Ready)' : 'Offline'}
               </span>
             </div>
 
@@ -572,36 +524,36 @@ export function OverviewView({
                 fontSize: '12.5px',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Source:</span>
-                <strong style={{ color: '#10B981' }}>{satelliteStatus?.source || 'NASA FIRMS'}</strong>
+                <strong style={{ color: '#10B981', fontWeight: 600 }}>{satelliteStatus?.source || 'NASA FIRMS'}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '10px 14px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Sensors:</span>
-                <strong style={{ color: '#FFFFFF' }}>VIIRS &bull; MODIS</strong>
+                <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>VIIRS &bull; MODIS</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Last Update:</span>
-                <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
+                <strong style={{ color: '#38BDF8', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {satelliteStatus?.last_updated ? new Date(satelliteStatus.last_updated).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + ' UTC' : 'Live Sync'}
                 </strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Data Age:</span>
-                <strong style={{ color: '#38BDF8', fontFamily: 'monospace' }}>
+                <strong style={{ color: '#38BDF8', fontWeight: 600, fontFamily: 'var(--font-mono)' }}>
                   {satelliteStatus?.data_age_seconds !== undefined && satelliteStatus?.data_age_seconds !== null
                     ? (satelliteStatus.data_age_seconds < 60 ? `${satelliteStatus.data_age_seconds}s` : `${Math.floor(satelliteStatus.data_age_seconds / 60)}m`)
                     : '12s'}
                 </strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Detection Count:</span>
-                <strong style={{ color: '#FFFFFF' }}>{(satelliteStatus?.detections ?? activeHotspots).toLocaleString()}</strong>
+                <strong style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{(satelliteStatus?.detections ?? activeHotspots).toLocaleString()}</strong>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 32, 50, 0.45)', padding: '8px 12px', borderRadius: '8px', border: '1px solid rgba(56, 189, 248, 0.1)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Status:</span>
-                <strong style={{ color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444' }}>
-                  {satelliteStatus?.status === 'LIVE' ? 'Receiving Data' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded Cache' : 'Offline'}
+                <strong style={{ color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : '#EF4444', fontWeight: 600 }}>
+                  {satelliteStatus?.status === 'LIVE' ? 'Receiving Data' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded Cache' : satelliteStatus?.status === 'STANDBY' ? 'Standby (Key Ready)' : 'Offline'}
                 </strong>
               </div>
             </div>
@@ -613,19 +565,21 @@ export function OverviewView({
           {/* 1. RECENT ALERTS */}
           <div
             style={{
-              background: 'rgba(11, 23, 38, 0.85)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-              borderRadius: '12px',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '14px',
               padding: '18px 20px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              boxShadow: 'var(--glass-shadow)',
+              boxSizing: 'border-box',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
               <div>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   RECENT ALERTS
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -647,6 +601,7 @@ export function OverviewView({
                     gap: '4px',
                     padding: '4px 8px',
                     borderRadius: '6px',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   <span>View stream</span>
@@ -664,29 +619,31 @@ export function OverviewView({
                     key={alert.id}
                     onClick={() => onNavigate && onNavigate('alerts')}
                     style={{
-                      background: 'rgba(15, 32, 50, 0.45)',
-                      border: '1px solid rgba(56, 189, 248, 0.12)',
-                      borderRadius: '8px',
+                      background: 'var(--glass-nested)',
+                      border: '1px solid var(--glass-border-subtle)',
+                      borderRadius: '9px',
                       padding: '10px 14px',
                       cursor: 'pointer',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
                       display: 'flex',
                       flexDirection: 'column',
                       gap: '4px',
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
-                      e.currentTarget.style.background = 'rgba(15, 32, 50, 0.7)';
+                      e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                      e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                      e.currentTarget.style.transform = 'translateY(-1.5px)';
                     }}
                     onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.12)';
-                      e.currentTarget.style.background = 'rgba(15, 32, 50, 0.45)';
+                      e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                      e.currentTarget.style.background = 'var(--glass-nested)';
+                      e.currentTarget.style.transform = 'none';
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <Flame size={14} style={{ color: alert.level === 'CRITICAL' ? '#EF4444' : '#F97316' }} />
-                        <span style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)' }}>
                           {alert.title}
                         </span>
                       </div>
@@ -725,15 +682,17 @@ export function OverviewView({
           {/* 2. QUICK ACCESS */}
           <div
             style={{
-              background: 'rgba(11, 23, 38, 0.85)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(56, 189, 248, 0.22)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '14px',
+              padding: '18px 20px',
+              boxShadow: 'var(--glass-shadow)',
+              boxSizing: 'border-box',
             }}
           >
-            <div style={{ fontSize: '12px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '12px' }}>
               QUICK ACCESS
             </div>
             <div
@@ -746,21 +705,30 @@ export function OverviewView({
               {/* View GIS Map */}
               <button
                 onClick={() => onNavigate && onNavigate('gis-investigation')}
-                className="btn-secondary"
                 style={{
-                  padding: '10px 12px',
+                  padding: '12px 14px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   justifyContent: 'flex-start',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#F8FAFC',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  background: 'rgba(15, 32, 50, 0.5)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '9px',
+                  border: '1px solid var(--glass-border-subtle)',
+                  background: 'var(--glass-nested)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                  e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                  e.currentTarget.style.background = 'var(--glass-nested)';
+                  e.currentTarget.style.transform = 'none';
                 }}
               >
                 <Map size={15} style={{ color: '#38BDF8' }} />
@@ -770,21 +738,30 @@ export function OverviewView({
               {/* Check Alerts */}
               <button
                 onClick={() => onNavigate && onNavigate('alerts')}
-                className="btn-secondary"
                 style={{
-                  padding: '10px 12px',
+                  padding: '12px 14px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   justifyContent: 'flex-start',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#F8FAFC',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  background: 'rgba(15, 32, 50, 0.5)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '9px',
+                  border: '1px solid var(--glass-border-subtle)',
+                  background: 'var(--glass-nested)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                  e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                  e.currentTarget.style.background = 'var(--glass-nested)';
+                  e.currentTarget.style.transform = 'none';
                 }}
               >
                 <ShieldAlert size={15} style={{ color: '#EF4444' }} />
@@ -794,21 +771,30 @@ export function OverviewView({
               {/* View Analytics */}
               <button
                 onClick={() => onNavigate && onNavigate('analytics')}
-                className="btn-secondary"
                 style={{
-                  padding: '10px 12px',
+                  padding: '12px 14px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   justifyContent: 'flex-start',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#F8FAFC',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  background: 'rgba(15, 32, 50, 0.5)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '9px',
+                  border: '1px solid var(--glass-border-subtle)',
+                  background: 'var(--glass-nested)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                  e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                  e.currentTarget.style.background = 'var(--glass-nested)';
+                  e.currentTarget.style.transform = 'none';
                 }}
               >
                 <BarChart3 size={15} style={{ color: '#10B981' }} />
@@ -818,21 +804,30 @@ export function OverviewView({
               {/* Detection Explorer */}
               <button
                 onClick={() => onNavigate && onNavigate('detection-explorer')}
-                className="btn-secondary"
                 style={{
-                  padding: '10px 12px',
+                  padding: '12px 14px',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '8px',
                   justifyContent: 'flex-start',
                   fontSize: '12px',
                   fontWeight: 600,
-                  color: '#F8FAFC',
-                  borderRadius: '8px',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
-                  background: 'rgba(15, 32, 50, 0.5)',
+                  color: 'var(--text-primary)',
+                  borderRadius: '9px',
+                  border: '1px solid var(--glass-border-subtle)',
+                  background: 'var(--glass-nested)',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                  e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                  e.currentTarget.style.transform = 'translateY(-2px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                  e.currentTarget.style.background = 'var(--glass-nested)';
+                  e.currentTarget.style.transform = 'none';
                 }}
               >
                 <Crosshair size={15} style={{ color: '#F59E0B' }} />
@@ -844,12 +839,14 @@ export function OverviewView({
           {/* 3. SATELLITE DATA COMPACT NAVIGATION CARD */}
           <div
             style={{
-              background: 'linear-gradient(135deg, rgba(14, 28, 48, 0.9) 0%, rgba(8, 18, 32, 0.95) 100%)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+              background: 'var(--glass-surface)',
+              backdropFilter: 'var(--glass-blur)',
+              WebkitBackdropFilter: 'var(--glass-blur)',
+              border: '1px solid var(--glass-border)',
+              borderRadius: '14px',
+              padding: '18px 20px',
+              boxShadow: 'var(--glass-shadow)',
+              boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -862,8 +859,8 @@ export function OverviewView({
                   width: '42px',
                   height: '42px',
                   borderRadius: '10px',
-                  background: 'rgba(56, 189, 248, 0.12)',
-                  border: '1px solid rgba(56, 189, 248, 0.35)',
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid var(--glass-border-subtle)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -874,10 +871,10 @@ export function OverviewView({
                 <Satellite size={20} />
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   SATELLITE DATA
                 </div>
-                <div style={{ fontSize: '12.5px', color: '#CBD5E1', marginTop: '3px' }}>
+                <div style={{ fontSize: '12.5px', color: 'var(--text-secondary)', marginTop: '3px' }}>
                   Upload &amp; analyze observations
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
