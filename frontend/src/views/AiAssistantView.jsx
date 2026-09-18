@@ -688,6 +688,3 @@ export function AiAssistantView({ detections = [] }) {
     </div>
   );
 }
-
-  );
-}

@@ -17,7 +17,6 @@ import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 import { AiAssistantModal } from './components/AiAssistantModal';
 import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
-import { Sparkles } from 'lucide-react';
 import { FloatingAiButton } from './components/FloatingAiButton';
 
 import {
@@ -48,10 +47,10 @@ export function App() {
   ];
 
   const getInitialTab = () => {
-    const hash = window.location.hash.replace('#', '').trim();
+    const hash = window.location.hash.replace(/^#[/]?/, '').trim();
     if (hash === 'dashboard') return 'overview';
     if (validTabs.includes(hash)) return hash;
-    return 'earth-intel';
+    return 'overview';
   };
 
   const [currentTab, setCurrentTab] = useState(getInitialTab);
@@ -59,7 +58,7 @@ export function App() {
   // Synchronize with URL hash
   useEffect(() => {
     const onHashChange = () => {
-      const hash = window.location.hash.replace('#', '').trim();
+      const hash = window.location.hash.replace(/^#[/]?/, '').trim();
       if (hash === 'dashboard') {
         setCurrentTab('overview');
         return;
@@ -418,35 +417,6 @@ export function App() {
           onFocusDetection={handleFocusDetection}
         />
 
-        {/* Floating Copilot Launcher Button */}
-        {!isChatbotOpen && (
-          <button
-            onClick={() => setIsChatbotOpen(true)}
-            style={{
-              position: 'fixed',
-              bottom: 24,
-              right: 24,
-              zIndex: 999,
-              background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-              border: '1px solid rgba(56, 189, 248, 0.5)',
-              borderRadius: '24px',
-              padding: '10px 18px',
-              color: '#FFFFFF',
-              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(56, 189, 248, 0.35)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              fontSize: '12.5px',
-              fontWeight: 700,
-              cursor: 'pointer',
-              letterSpacing: '0.03em',
-            }}
-            title="Open SATRA AI Satellite Copilot"
-          >
-            <Sparkles size={16} style={{ color: '#38BDF8' }} />
-            <span>SATRA AI Copilot</span>
-          </button>
-        )}
       </main>
 
       {/* Single persistent floating "Ask SATRA" access point — fixed to the
