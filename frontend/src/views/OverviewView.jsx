@@ -11,6 +11,8 @@ import {
   ShieldAlert,
   BarChart3,
   Crosshair,
+  Target,
+  Layers,
 } from 'lucide-react';
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { uploadAndAnalyzeSatelliteFile, getSatelliteStatus } from '../services/api';
