@@ -116,6 +116,7 @@ export function GisInvestigationView({
   onSelectDetection,
   onFocusDetection,
   onRefresh,
+  onNavigate,
 }) {
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -649,7 +650,30 @@ out center 35;`;
         </div>
 
         {/* Source indicator & Target HUD */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '6px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('investigate')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(3, 105, 161, 0.3) 100%)',
+                border: '1px solid rgba(56, 189, 248, 0.4)',
+                color: '#38BDF8',
+                fontSize: '11.5px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              title="Open Deep Thermal Event Intelligence View"
+            >
+              <span>Deep Event Intel</span>
+              <ChevronRight size={13} />
+            </button>
+          )}
           <div
             style={{
               display: 'flex',

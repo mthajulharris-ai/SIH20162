@@ -1,16 +1,18 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  Route,
-  Search,
-  Radio,
-  ShieldAlert,
-  History,
-  BarChart3,
   Globe,
-  Settings,
-  LogOut,
+  Flame,
+  Crosshair,
+  ShieldAlert,
+  BarChart3,
+  Map,
+  Satellite,
   Sparkles,
+  Settings,
+  Radio,
+  Cpu,
+  LogOut,
 } from 'lucide-react';
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {
@@ -18,15 +20,26 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
   const statusColor = isOnline ? 'var(--success)' : 'var(--critical-red)';
   const statusText = isOnline ? 'CONNECTED' : 'DISCONNECTED';
 
+  // Map integrated sub-modules to their parent navigation item
+  const activeTabMapping = {
+    'path-intel': 'earth-intel',
+    'investigate': 'gis-investigation',
+    'live-monitoring': 'thermal-intel',
+    'history': 'analytics',
+  };
+  const effectiveActiveTab = activeTabMapping[currentTab] || currentTab;
+
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
-    { id: 'path-intel', num: '02', label: 'Path Intelligence', icon: Route },
-    { id: 'investigate', num: '03', label: 'Investigate', icon: Search },
-    { id: 'live-monitoring', num: '04', label: 'Live Monitoring', icon: Radio },
+    { id: 'earth-intel', num: '02', label: 'Earth Intelligence', icon: Globe },
+    { id: 'thermal-intel', num: '03', label: 'Thermal Intelligence', icon: Flame },
+    { id: 'detection-explorer', num: '04', label: 'Detection Explorer', icon: Crosshair },
     { id: 'alerts', num: '05', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
-    { id: 'history', num: '06', label: 'History', icon: History },
-    { id: 'analytics', num: '07', label: 'Analytics', icon: BarChart3 },
-    { id: 'settings', num: '08', label: 'Settings', icon: Settings },
+    { id: 'analytics', num: '06', label: 'Analytics', icon: BarChart3 },
+    { id: 'gis-investigation', num: '07', label: 'GIS Investigation', icon: Map },
+    { id: 'satellite-data', num: '08', label: 'Satellite Data', icon: Satellite },
+    { id: 'ai-assistant', num: '09', label: 'AI Assistant', icon: Sparkles },
+    { id: 'settings', num: '10', label: 'Settings', icon: Settings },
   ];
 
   return (
@@ -48,7 +61,7 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
         <div className="nav-label">Command Modules</div>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.id;
+          const isActive = effectiveActiveTab === item.id;
           return (
             <button
               key={item.id}

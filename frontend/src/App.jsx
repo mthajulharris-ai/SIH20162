@@ -49,10 +49,10 @@ export function App() {
   const isAuthenticated = !!authSession;
 
   const validTabs = [
-    'overview', 'path-intel', 'investigate', 'live-monitoring',
-    'alerts', 'history', 'analytics', 'settings',
-    'earth-intel', 'thermal-intel', 'detection-explorer',
-    'gis-investigation', 'satellite-data', 'ai-assistant', 'dashboard'
+    'overview', 'earth-intel', 'thermal-intel', 'detection-explorer',
+    'alerts', 'analytics', 'gis-investigation', 'satellite-data',
+    'ai-assistant', 'settings',
+    'path-intel', 'investigate', 'live-monitoring', 'history', 'dashboard'
   ];
 
   const normalizeTab = (rawHash) => {
@@ -246,6 +246,14 @@ export function App() {
         return 'SATRA AI Assistant';
       case 'settings':
         return 'Flight Deck Settings';
+      case 'path-intel':
+        return 'Path Intelligence';
+      case 'investigate':
+        return 'Deep Event Investigation';
+      case 'live-monitoring':
+        return 'Live Monitoring';
+      case 'history':
+        return 'Historical Detections';
       default:
         return 'SATRA Command';
     }
@@ -292,119 +300,139 @@ export function App() {
 
         <div className="content-body">
           <ErrorBoundary key={currentTab}>
-            {/* 01 Overview — Geospatial Situational Awareness */}
-          {currentTab === 'overview' && (
-            <OverviewView
-              detections={detections}
-              onNavigate={handleTabChange}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
-            />
-          )}
+            {/* 01 Overview */}
+            {currentTab === 'overview' && (
+              <OverviewView
+                analytics={analytics}
+                detections={detections}
+                recentAlerts={recentAlerts}
+                onNavigate={handleTabChange}
+                onUpdateAlertStatus={handleUpdateAlertStatus}
+                onFocusDetection={handleFocusDetection}
+                selectedDetection={selectedDetection}
+                onSelectDetection={setSelectedDetection}
+                onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
+              />
+            )}
 
-          {/* 02 Path Intelligence — Corridor Risk Analysis */}
-          {currentTab === 'path-intel' && (
-            <PathIntelligenceView
-              onNavigate={handleTabChange}
-              onSelectDetection={setSelectedDetection}
-            />
-          )}
+            {/* 02 Earth Intelligence */}
+            {currentTab === 'earth-intel' && (
+              <EarthIntelligenceView
+                detections={detections}
+                analytics={analytics}
+                selectedDetection={selectedDetection}
+                onSelectDetection={setSelectedDetection}
+                onNavigate={handleTabChange}
+              />
+            )}
 
-          {/* 03 Investigate — Deep Thermal Event Intelligence */}
-          {currentTab === 'investigate' && (
-            <InvestigateView
-              selectedDetection={selectedDetection}
-              allDetections={detections}
-              onSelectDetection={setSelectedDetection}
-            />
-          )}
+            {/* 02b Path Intelligence — Integrated Corridor Risk Analysis */}
+            {currentTab === 'path-intel' && (
+              <PathIntelligenceView
+                onNavigate={handleTabChange}
+                onSelectDetection={setSelectedDetection}
+              />
+            )}
 
-          {/* 04 Live Monitoring / Thermal Telemetry */}
-          {(currentTab === 'live-monitoring' || currentTab === 'thermal-intel') && (
-            <ThermalIntelligenceView
-              detections={detections}
-              analytics={analytics}
-              onFocusDetection={handleFocusDetection}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
-              onNavigate={handleTabChange}
-              onRefresh={loadDashboardData}
-              isBackendHealthy={isBackendHealthy}
-            />
-          )}
+            {/* 03 Thermal Intelligence (also handles live-monitoring) */}
+            {(currentTab === 'thermal-intel' || currentTab === 'live-monitoring') && (
+              <ThermalIntelligenceView
+                detections={detections}
+                analytics={analytics}
+                onFocusDetection={handleFocusDetection}
+                selectedDetection={selectedDetection}
+                onSelectDetection={setSelectedDetection}
+                onNavigate={handleTabChange}
+                onRefresh={loadDashboardData}
+                isBackendHealthy={isBackendHealthy}
+              />
+            )}
 
-          {/* 05 Alerts */}
-          {currentTab === 'alerts' && (
-            <AlertsView
-              alerts={alerts}
-              onUpdateAlertStatus={handleUpdateAlertStatus}
-              onRefresh={loadDashboardData}
-              loading={loading}
-              onFocusDetection={handleFocusDetection}
-            />
-          )}
+            {/* 04 Detection Explorer */}
+            {currentTab === 'detection-explorer' && (
+              <DetectionExplorerView
+                detections={detections}
+                onRefresh={loadDashboardData}
+                loading={loading}
+                onFocusDetection={handleFocusDetection}
+                selectedDetection={selectedDetection}
+                onSelectDetection={setSelectedDetection}
+              />
+            )}
 
-          {/* 06 History */}
-          {currentTab === 'history' && (
-            <HistoryView detections={detections} />
-          )}
+            {/* 05 Alerts */}
+            {currentTab === 'alerts' && (
+              <AlertsView
+                alerts={alerts}
+                onUpdateAlertStatus={handleUpdateAlertStatus}
+                onRefresh={loadDashboardData}
+                loading={loading}
+                onFocusDetection={handleFocusDetection}
+              />
+            )}
 
-          {/* 07 Analytics */}
-          {currentTab === 'analytics' && (
-            <AnalyticsView analytics={analytics} />
-          )}
+            {/* 06 Analytics */}
+            {currentTab === 'analytics' && (
+              <AnalyticsView analytics={analytics} onNavigate={handleTabChange} />
+            )}
 
-          {/* Legacy & Secondary Modules */}
-          {currentTab === 'earth-intel' && (
-            <EarthIntelligenceView
-              detections={detections}
-              analytics={analytics}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
-              onNavigate={handleTabChange}
-            />
-          )}
+            {/* 06b History — Historical Detections Log */}
+            {currentTab === 'history' && (
+              <HistoryView detections={detections} onNavigate={handleTabChange} />
+            )}
 
-          {/* 07 GIS Investigation */}
-          {currentTab === 'gis-investigation' && (
-            <GisInvestigationView
-              detections={detections}
-              selectedDetection={selectedDetection}
-              onSelectDetection={setSelectedDetection}
-              onFocusDetection={handleFocusDetection}
-              onRefresh={loadDashboardData}
-            />
-          )}
+            {/* 07 GIS Investigation */}
+            {currentTab === 'gis-investigation' && (
+              <GisInvestigationView
+                detections={detections}
+                selectedDetection={selectedDetection}
+                onSelectDetection={setSelectedDetection}
+                onFocusDetection={handleFocusDetection}
+                onRefresh={loadDashboardData}
+                onNavigate={handleTabChange}
+              />
+            )}
 
-          {/* 08 Satellite Data */}
-          {currentTab === 'satellite-data' && (
-            <SatelliteDataView
-              detections={detections}
-              isBackendHealthy={isBackendHealthy}
-              onRefresh={loadDashboardData}
-              onNavigate={handleTabChange}
-              onFocusDetection={handleFocusDetection}
-              onSelectDetection={setSelectedDetection}
-              onAnalysisSuccess={(newDetection) => {
-                if (newDetection) {
-                  setDetections((prev) => [newDetection, ...prev]);
-                  setSelectedDetection(newDetection);
-                }
-                loadDashboardData();
-              }}
-              onOpenUploadModal={() => setIsUploadModalOpen(true)}
-            />
-          )}
+            {/* 07b Investigate — Deep Thermal Event Intelligence */}
+            {currentTab === 'investigate' && (
+              <InvestigateView
+                selectedDetection={selectedDetection}
+                allDetections={detections}
+                onSelectDetection={setSelectedDetection}
+                onNavigate={handleTabChange}
+              />
+            )}
 
-          {/* 09 Settings */}
-          {currentTab === 'settings' && (
-            <SettingsView detections={detections} />
-          )}
+            {/* 08 Satellite Data */}
+            {currentTab === 'satellite-data' && (
+              <SatelliteDataView
+                detections={detections}
+                isBackendHealthy={isBackendHealthy}
+                onRefresh={loadDashboardData}
+                onNavigate={handleTabChange}
+                onFocusDetection={handleFocusDetection}
+                onSelectDetection={setSelectedDetection}
+                onAnalysisSuccess={(newDetection) => {
+                  if (newDetection) {
+                    setDetections((prev) => [newDetection, ...prev]);
+                    setSelectedDetection(newDetection);
+                  }
+                  loadDashboardData();
+                }}
+                onOpenUploadModal={() => setIsUploadModalOpen(true)}
+              />
+            )}
 
-          {/* AI Assistant Dedicated Workspace (if launched via view) */}
-          {currentTab === 'ai-assistant' && (
-            <AiAssistantView detections={detections} />
-          )}
+            {/* 09 AI Assistant Dedicated Workspace */}
+            {currentTab === 'ai-assistant' && (
+              <AiAssistantView detections={detections} />
+            )}
+
+            {/* 10 Settings */}
+            {currentTab === 'settings' && (
+              <SettingsView detections={detections} />
+            )}
           </ErrorBoundary>
         </div>
 
