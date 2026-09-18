@@ -33,9 +33,28 @@ export function App() {
   const [authSession, setAuthSession] = useState(() => {
     try {
       const saved = localStorage.getItem('satra_auth');
-      return saved ? JSON.parse(saved) : null;
-    } catch {
+      if (saved) return JSON.parse(saved);
+      const wasLoggedOut = localStorage.getItem('satra_logged_out') === 'true';
+      if (!wasLoggedOut) {
+        const defaultUser = {
+          email: 'admin@satra.io',
+          name: 'Flight Controller',
+          role: 'SATRA Flight Controller',
+        };
+        try {
+          localStorage.setItem('satra_auth', JSON.stringify(defaultUser));
+        } catch {
+          // ignore storage error
+        }
+        return defaultUser;
+      }
       return null;
+    } catch {
+      return {
+        email: 'admin@satra.io',
+        name: 'Flight Controller',
+        role: 'SATRA Flight Controller',
+      };
     }
   });
   const isAuthenticated = !!authSession;
@@ -79,6 +98,7 @@ export function App() {
 
   const handleLogin = (userData) => {
     try {
+      localStorage.removeItem('satra_logged_out');
       localStorage.setItem('satra_auth', JSON.stringify(userData));
     } catch (e) {
       console.warn('Failed to persist auth:', e);
@@ -90,6 +110,7 @@ export function App() {
   const handleLogout = () => {
     try {
       localStorage.removeItem('satra_auth');
+      localStorage.setItem('satra_logged_out', 'true');
     } catch (e) {
       console.warn('Failed to clear auth:', e);
     }
