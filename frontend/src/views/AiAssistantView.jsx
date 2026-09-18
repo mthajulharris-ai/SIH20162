@@ -689,5 +689,3 @@ export function AiAssistantView({ detections = [] }) {
   );
 }
 
-  );
-}

@@ -19,6 +19,7 @@ import { AiAssistantModal } from './components/AiAssistantModal';
 import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
 import { Sparkles } from 'lucide-react';
 import { FloatingAiButton } from './components/FloatingAiButton';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 import {
   getHealth,
@@ -47,11 +48,16 @@ export function App() {
     'settings', 'ai-assistant', 'dashboard'
   ];
 
+  const normalizeTab = (rawHash) => {
+    const clean = (rawHash || '').replace(/^#\/?/, '').trim().toLowerCase();
+    if (clean === 'dashboard') return 'overview';
+    return clean;
+  };
+
   const getInitialTab = () => {
-    const hash = window.location.hash.replace('#', '').trim();
-    if (hash === 'dashboard') return 'overview';
-    if (validTabs.includes(hash)) return hash;
-    return 'earth-intel';
+    const tab = normalizeTab(window.location.hash);
+    if (validTabs.includes(tab)) return tab;
+    return 'overview';
   };
 
   const [currentTab, setCurrentTab] = useState(getInitialTab);
@@ -59,13 +65,9 @@ export function App() {
   // Synchronize with URL hash
   useEffect(() => {
     const onHashChange = () => {
-      const hash = window.location.hash.replace('#', '').trim();
-      if (hash === 'dashboard') {
-        setCurrentTab('overview');
-        return;
-      }
-      if (validTabs.includes(hash) && hash !== currentTab) {
-        setCurrentTab(hash);
+      const tab = normalizeTab(window.location.hash);
+      if (validTabs.includes(tab) && tab !== currentTab) {
+        setCurrentTab(tab);
       }
     };
     window.addEventListener('hashchange', onHashChange);
@@ -75,7 +77,7 @@ export function App() {
   const handleTabChange = (tabId) => {
     const target = tabId === 'dashboard' ? 'overview' : tabId;
     setCurrentTab(target);
-    window.location.hash = target;
+    window.location.hash = `/${target}`;
   };
 
   const handleLogin = (userData) => {
@@ -95,7 +97,7 @@ export function App() {
       console.warn('Failed to clear auth:', e);
     }
     setAuthSession(null);
-    window.location.hash = 'login';
+    window.location.hash = '/login';
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
@@ -245,7 +247,8 @@ export function App() {
   ).length;
 
   // Protected Routing: unauthenticated visitors or explicit login route
-  const isLoginRoute = window.location.hash.toLowerCase() === '#login' || window.location.pathname === '/login';
+  const currentRoute = normalizeTab(window.location.hash);
+  const isLoginRoute = currentRoute === 'login' || window.location.pathname === '/login';
   if (!isAuthenticated || isLoginRoute) {
     return <LoginView onLogin={handleLogin} />;
   }
@@ -279,7 +282,8 @@ export function App() {
         />
 
         <div className="content-body">
-          {/* 01 Overview */}
+          <ErrorBoundary key={currentTab}>
+            {/* 01 Overview */}
           {currentTab === 'overview' && (
             <OverviewView
               analytics={analytics}
@@ -388,6 +392,7 @@ export function App() {
           {currentTab === 'ai-assistant' && (
             <AiAssistantView detections={detections} />
           )}
+          </ErrorBoundary>
         </div>
 
         {/* SATRA Core Pipeline Modal: Upload & AI Analysis */}

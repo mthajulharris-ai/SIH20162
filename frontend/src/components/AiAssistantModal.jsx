@@ -759,9 +759,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
           </button>
         </div>
       </div>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
+

@@ -451,6 +451,99 @@ export function OverviewView({
                 hideSidePanel={true}
                 isOverview={true}
               />
+
+              {/* Map Controls: +, -, Locate, Layers */}
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 16,
+                  right: 16,
+                  zIndex: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '4px',
+                  background: 'rgba(11, 23, 38, 0.9)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <button
+                  title="Zoom In"
+                  onClick={() => {
+                    const evt = new CustomEvent('satra-globe-zoom-in');
+                    window.dispatchEvent(evt);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
+                >
+                  +
+                </button>
+                <button
+                  title="Zoom Out"
+                  onClick={() => {
+                    const evt = new CustomEvent('satra-globe-zoom-out');
+                    window.dispatchEvent(evt);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
+                >
+                  &minus;
+                </button>
+                <button
+                  title="Locate Hotspot"
+                  onClick={() => {
+                    if (detections.length > 0) handleSelectHotspot(detections[0]);
+                  }}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+                >
+                  <Target size={14} />
+                </button>
+                <button
+                  title="Toggle Layers"
+                  onClick={() => onNavigate && onNavigate('gis-investigation')}
+                  style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
+                >
+                  <Layers size={14} />
+                </button>
+              </div>
+
+              {/* Globe Legend (Bottom Overlay) */}
+              <div
+                style={{
+                  position: 'absolute',
+                  bottom: 16,
+                  left: 16,
+                  zIndex: 15,
+                  background: 'rgba(11, 23, 38, 0.88)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '14px',
+                  fontSize: '11.5px',
+                  boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', boxShadow: '0 0 6px #EF4444' }} />
+                  <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Industrial Fire</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', boxShadow: '0 0 6px #F97316' }} />
+                  <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Forest Fire</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#38BDF8', boxShadow: '0 0 6px #38BDF8' }} />
+                  <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Thermal Source</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#A855F7', boxShadow: '0 0 6px #A855F7' }} />
+                  <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Other</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -517,182 +610,6 @@ export function OverviewView({
                 <strong style={{ color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : '#EF4444' }}>
                   {satelliteStatus?.status === 'LIVE' ? 'Receiving Data' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded Cache' : 'Offline'}
                 </strong>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ==================== RIGHT COLUMN: SATELLITE DATA SHORTCUT + RECENT DETECTIONS ==================== */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', height: '100%' }}>
-          {/* COMPACT SATELLITE DATA SHORTCUT CARD */}
-          <div
-            onClick={() => onNavigate && onNavigate('satellite-data')}
-            className="satellite-shortcut-card card-panel"
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                if (onNavigate) onNavigate('satellite-data');
-              }
-            }}
-            style={{
-              marginBottom: 0,
-              background: 'linear-gradient(135deg, rgba(14, 28, 48, 0.9) 0%, rgba(8, 18, 32, 0.95) 100%)',
-              backdropFilter: 'blur(12px)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
-              borderRadius: '12px',
-              padding: '16px 20px',
-              flexShrink: 0,
-              cursor: 'pointer',
-
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              background: 'rgba(11, 23, 38, 0.65)',
-              backdropFilter: 'blur(8px)',
-              zIndex: 10,
-            }}
-          >
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Globe size={18} style={{ color: '#38BDF8' }} />
-                <span style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.06em', color: '#FFFFFF' }}>
-                  GLOBAL VIEW
-                </span>
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Live Satellite Thermal Activity
-              </div>
-            </div>
-
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                padding: '5px 12px',
-                borderRadius: '20px',
-                fontSize: '11.5px',
-                color: '#10B981',
-                fontWeight: 600,
-              }}
-            >
-              <span
-                style={{
-                  width: 7,
-                  height: 7,
-                  borderRadius: '50%',
-                  background: '#10B981',
-                  boxShadow: '0 0 8px #10B981',
-                }}
-              />
-              <span>Live &bull; VIIRS + MODIS</span>
-            </div>
-          </div>
-
-          {/* 3D Earth Globe Centerpiece with Map Controls & Markers */}
-          <div style={{ flex: 1, minHeight: 0, position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-            <EarthGlobe3D
-              detections={detections}
-              selectedDetection={selectedDetection}
-              onSelectDetection={handleSelectHotspot}
-              hideSidePanel={true}
-              isOverview={true}
-            />
-
-            {/* Map Controls: +, -, Locate, Layers */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                zIndex: 20,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '4px',
-                background: 'rgba(11, 23, 38, 0.9)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '8px',
-                padding: '4px',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-              }}
-            >
-              <button
-                title="Zoom In"
-                onClick={() => {
-                  const evt = new CustomEvent('satra-globe-zoom-in');
-                  window.dispatchEvent(evt);
-                }}
-                style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
-              >
-                +
-              </button>
-              <button
-                title="Zoom Out"
-                onClick={() => {
-                  const evt = new CustomEvent('satra-globe-zoom-out');
-                  window.dispatchEvent(evt);
-                }}
-                style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '16px', fontWeight: 700 }}
-              >
-                &minus;
-              </button>
-              <button
-                title="Locate Hotspot"
-                onClick={() => {
-                  if (detections.length > 0) handleSelectHotspot(detections[0]);
-                }}
-                style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
-              >
-                <Target size={14} />
-              </button>
-              <button
-                title="Toggle Layers"
-                onClick={() => onNavigate && onNavigate('gis-investigation')}
-                style={{ width: 28, height: 28, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
-              >
-                <Layers size={14} />
-              </button>
-            </div>
-
-            {/* Globe Legend (Bottom Overlay) */}
-            <div
-              style={{
-                position: 'absolute',
-                bottom: 16,
-                left: 16,
-                zIndex: 15,
-                background: 'rgba(11, 23, 38, 0.88)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                borderRadius: '8px',
-                padding: '8px 14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '14px',
-                fontSize: '11.5px',
-                boxShadow: '0 4px 16px rgba(0, 0, 0, 0.5)',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', boxShadow: '0 0 6px #EF4444' }} />
-                <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Industrial Fire</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', boxShadow: '0 0 6px #F97316' }} />
-                <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Forest Fire</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#38BDF8', boxShadow: '0 0 6px #38BDF8' }} />
-                <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Thermal Source</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#A855F7', boxShadow: '0 0 6px #A855F7' }} />
-                <span style={{ color: '#F8FAFC', fontWeight: 500 }}>Other</span>
               </div>
             </div>
           </div>

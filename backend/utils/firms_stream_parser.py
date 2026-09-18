@@ -22,10 +22,17 @@ import tempfile
 from typing import Any, Dict, Generator, List, Optional, Set, Tuple
 import zipfile
 
-import ijson
+try:
+    import ijson
+except ImportError:
+    ijson = None
+
+try:
+    import shapefile
+except ImportError:
+    shapefile = None
 import numpy as np
 import pandas as pd
-import shapefile
 
 logger = logging.getLogger("backend.firms_stream_parser")
 

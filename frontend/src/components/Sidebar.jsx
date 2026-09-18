@@ -12,6 +12,7 @@ import {
   Settings,
   Radio,
   LogOut,
+  Sparkles,
 } from 'lucide-react';
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {

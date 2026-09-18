@@ -91,13 +91,18 @@ export async function getHealth(timeoutMs = 4000) {
     candidates.push(`${ENV_API_URL}/health`);
     candidates.push(`${ENV_API_URL}/api/health`);
   }
-  candidates.push(`${DIRECT_BACKEND_URL}/api/v1/health`);
+  // 1. Proxied relative endpoints (same-origin, zero CORS latency)
   candidates.push('/api/v1/health');
-  candidates.push('http://localhost:8000/api/v1/health');
-  candidates.push(`${DIRECT_BACKEND_URL}/health`);
   candidates.push('/health');
-  candidates.push('http://localhost:8000/health');
   candidates.push('/api/health');
+
+  // 2. Direct backend candidates
+  candidates.push(`${DIRECT_BACKEND_URL}/api/v1/health`);
+  candidates.push(`${DIRECT_BACKEND_URL}/health`);
+  candidates.push('http://localhost:8000/api/v1/health');
+  candidates.push('http://localhost:8000/health');
+  candidates.push('http://127.0.0.1:8000/api/v1/health');
+  candidates.push('http://127.0.0.1:8000/health');
 
   let lastError;
   const tried = new Set();
