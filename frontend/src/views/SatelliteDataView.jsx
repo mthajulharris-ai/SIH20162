@@ -269,6 +269,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       };
     }
 
+    if (st === 'STANDBY') {
+      return {
+        label: 'STANDBY',
+        color: 'cyan',
+        badge: 'READY TO SYNC',
+        subtext: 'NASA FIRMS connected & authorized',
+        statusType: 'info',
+      };
+    }
+
     if (st === 'NO DATA') {
       return {
         label: 'LIVE',
@@ -290,9 +300,18 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
   const connInfo = getConnectionStatusInfo();
 
-  const displayLastSync = satelliteStatus?.last_sync
-    ? new Date(satelliteStatus.last_sync).toUTCString().replace('GMT', 'UTC')
-    : 'STANDBY (No sync performed yet)';
+  const displayLastSync = satelliteStatus?.last_sync ? (
+    <span style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.25 }}>
+      {new Date(satelliteStatus.last_sync).toUTCString().replace('GMT', 'UTC')}
+    </span>
+  ) : (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', gap: '2px', lineHeight: 1.2 }}>
+      <span style={{ fontSize: '26px', fontWeight: 600, letterSpacing: '-0.01em' }}>STANDBY</span>
+      <span style={{ fontSize: '12px', fontWeight: 500, color: 'var(--text-secondary)', letterSpacing: 'normal' }}>
+        (No sync performed yet)
+      </span>
+    </span>
+  );
 
   const satellites = [
     {
@@ -538,7 +557,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
         SECTION 2: KPI ROW
         ======================================================================
       */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 0 }}>
+      <div className="kpi-grid satellite-kpi-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: 0 }}>
         <KpiCard
           title="NASA FIRMS Pipe"
           value={connInfo.label}
@@ -546,6 +565,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           icon={connInfo.statusType === 'success' ? CheckCircle2 : connInfo.statusType === 'warning' ? KeyRound : AlertCircle}
           accentColor={connInfo.color}
           badgeText={connInfo.badge}
+          valueStyle={{ fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.01em' }}
         />
 
         <KpiCard
@@ -559,6 +579,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           icon={Radio}
           accentColor="ice"
           badgeText="REAL_FIRMS"
+          valueStyle={{ fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.01em' }}
         />
 
         <KpiCard
@@ -572,6 +593,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           icon={Clock}
           accentColor="amber"
           badgeText="UTC SYNC"
+          valueStyle={{ fontFamily: 'var(--font-sans)', lineHeight: 1.2 }}
         />
 
         <KpiCard
@@ -581,6 +603,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           icon={Satellite}
           accentColor="cyan"
           badgeText="Operational"
+          valueStyle={{ fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.01em' }}
         />
       </div>
 
@@ -596,12 +619,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           className="card-panel satellite-upload-card"
           style={{
             marginBottom: 0,
-            background: 'rgba(11, 23, 38, 0.9)',
-            backdropFilter: 'blur(14px)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
+            background: 'var(--glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--glass-border)',
             borderRadius: '14px',
             padding: '24px 28px',
-            boxShadow: '0 10px 32px rgba(0, 0, 0, 0.45)',
+            boxShadow: 'var(--glass-shadow)',
             display: 'flex',
             flexDirection: 'column',
             height: 'auto',
@@ -960,12 +984,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           className="card-panel satellite-workflow-card"
           style={{
             marginBottom: 0,
-            background: 'rgba(11, 23, 38, 0.9)',
-            backdropFilter: 'blur(14px)',
-            border: '1px solid rgba(56, 189, 248, 0.28)',
+            background: 'var(--glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--glass-border)',
             borderRadius: '14px',
             padding: '24px 28px',
-            boxShadow: '0 10px 32px rgba(0, 0, 0, 0.45)',
+            boxShadow: 'var(--glass-shadow)',
             height: uploadCardHeight ? `${uploadCardHeight}px` : 'auto',
             maxHeight: uploadCardHeight ? `${uploadCardHeight}px` : 'none',
             boxSizing: 'border-box',
@@ -1107,11 +1132,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               className="card-panel"
               style={{
                 marginBottom: 0,
-                background: 'rgba(11, 23, 38, 0.85)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(56, 189, 248, 0.22)',
-                borderRadius: '12px',
+                background: 'var(--glass-surface)',
+                backdropFilter: 'var(--glass-blur)',
+                WebkitBackdropFilter: 'var(--glass-blur)',
+                border: '1px solid var(--glass-border)',
+                borderRadius: '14px',
                 padding: '18px 22px',
+                boxShadow: 'var(--glass-shadow)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',

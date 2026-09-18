@@ -11,6 +11,8 @@ export function KpiCard({
   trendText = null,
   trendPositive = true,
   sparklineData = null,
+  valueStyle,
+  className = '',
 }) {
   const { effectiveTheme } = useTheme();
   const isLight = effectiveTheme === 'light';
@@ -68,7 +70,7 @@ export function KpiCard({
   };
 
   return (
-    <div className="kpi-card" style={{ borderTop: `2px solid ${theme.text}` }}>
+    <div className={`kpi-card ${className}`.trim()} style={{ borderTop: `2px solid ${theme.text}` }}>
       <div className="kpi-top">
         <span className="kpi-title">{title}</span>
         {Icon && (
@@ -82,7 +84,7 @@ export function KpiCard({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
-        <div className="kpi-value">{value}</div>
+        <div className="kpi-value" style={valueStyle}>{value}</div>
         {renderSparkline()}
       </div>
 

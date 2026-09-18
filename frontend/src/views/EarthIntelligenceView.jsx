@@ -825,17 +825,18 @@ export function EarthIntelligenceView({
       */}
       <div
         style={{
-          background: 'rgba(11, 23, 38, 0.85)',
-          backdropFilter: 'blur(12px)',
-          border: '1px solid rgba(56, 189, 248, 0.22)',
-          borderRadius: '12px',
-          padding: '18px 22px',
-          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+          background: 'var(--glass-surface)',
+          backdropFilter: 'var(--glass-blur)',
+          WebkitBackdropFilter: 'var(--glass-blur)',
+          border: '1px solid var(--glass-border)',
+          borderRadius: '14px',
+          padding: '20px 24px',
+          boxShadow: 'var(--glass-shadow)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               REGION STATISTICS
             </div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -848,22 +849,16 @@ export function EarthIntelligenceView({
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
-              style={{
-                background: 'rgba(15, 32, 50, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                borderRadius: '6px',
-                color: '#FFFFFF',
-                padding: '5px 10px',
-                fontSize: '12px',
-                fontWeight: 600,
-                outline: 'none',
-                cursor: 'pointer',
-              }}
+              className="filter-input"
+              style={{ fontSize: '12px', padding: '5px 10px', height: '32px' }}
             >
-              <option value="India">India</option>
-              <option value="South Asia">South Asia (All)</option>
-              <option value="Western Industrial Corridor">Western Industrial Corridor (Gujarat/Maha)</option>
-              <option value="Eastern Mineral Belt">Eastern Mineral Belt (Odisha/WB)</option>
+              <option value="All South Asia">All South Asia</option>
+              <option value="India - North">India - North</option>
+              <option value="India - Central">India - Central</option>
+              <option value="India - South">India - South</option>
+              <option value="Pakistan">Pakistan</option>
+              <option value="Bangladesh">Bangladesh</option>
+              <option value="Nepal">Nepal</option>
             </select>
           </div>
         </div>
@@ -877,53 +872,53 @@ export function EarthIntelligenceView({
           }}
         >
           {/* Total Hotspots */}
-          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Total Hotspots
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               {regionStats.totalHotspots.toLocaleString()}
             </div>
-            <div style={{ fontSize: '11px', color: '#10B981', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: '#10B981', marginTop: '4px' }}>
               Observed in region
             </div>
           </div>
 
           {/* Industrial Fires */}
-          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Industrial Fires
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#EF4444', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 600, color: '#EF4444', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               {regionStats.industrialFires.toLocaleString()}
             </div>
-            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>
               High-risk facilities
             </div>
           </div>
 
           {/* Forest Fires */}
-          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Forest Fires
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#F59E0B', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 600, color: '#F59E0B', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               {regionStats.forestFires.toLocaleString()}
             </div>
-            <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '4px' }}>
               Vegetation perimeters
             </div>
           </div>
 
           {/* Other Sources */}
-          <div style={{ background: 'rgba(15, 32, 50, 0.45)', border: '1px solid rgba(56, 189, 248, 0.12)', borderRadius: '8px', padding: '12px 16px' }}>
+          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
               Other Sources
             </div>
-            <div style={{ fontSize: '24px', fontWeight: 800, color: '#38BDF8', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+            <div style={{ fontSize: '26px', fontWeight: 600, color: '#38BDF8', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
               {regionStats.otherSources.toLocaleString()}
             </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
               Agricultural / flares
             </div>
           </div>
@@ -945,17 +940,18 @@ export function EarthIntelligenceView({
         {/* LEFT: RECENT DETECTIONS */}
         <div
           style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+            background: 'var(--glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '14px',
+            padding: '20px 22px',
+            boxShadow: 'var(--glass-shadow)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                 RECENT DETECTIONS
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1071,17 +1067,18 @@ export function EarthIntelligenceView({
         {/* RIGHT: QUICK ANALYSIS */}
         <div
           style={{
-            background: 'rgba(11, 23, 38, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.22)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
+            background: 'var(--glass-surface)',
+            backdropFilter: 'var(--glass-blur)',
+            WebkitBackdropFilter: 'var(--glass-blur)',
+            border: '1px solid var(--glass-border)',
+            borderRadius: '14px',
+            padding: '20px 22px',
+            boxShadow: 'var(--glass-shadow)',
             display: 'flex',
             flexDirection: 'column',
           }}
         >
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '14px' }}>
+          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '14px' }}>
             QUICK ANALYSIS
           </div>
 
@@ -1097,30 +1094,32 @@ export function EarthIntelligenceView({
             <div
               onClick={handleDrawAndAnalyze}
               style={{
-                background: 'rgba(15, 32, 50, 0.5)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                borderRadius: '8px',
+                background: 'var(--glass-nested)',
+                border: '1px solid var(--glass-border-subtle)',
+                borderRadius: '10px',
                 padding: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#38BDF8';
-                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
-                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                e.currentTarget.style.background = 'var(--glass-nested)';
+                e.currentTarget.style.transform = 'none';
               }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38BDF8' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(56, 189, 248, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38BDF8' }}>
                 <Scissors size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
                   Draw &amp; Analyze
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1133,30 +1132,32 @@ export function EarthIntelligenceView({
             <div
               onClick={() => onNavigate && onNavigate('analytics')}
               style={{
-                background: 'rgba(15, 32, 50, 0.5)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                borderRadius: '8px',
+                background: 'var(--glass-nested)',
+                border: '1px solid var(--glass-border-subtle)',
+                borderRadius: '10px',
                 padding: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#38BDF8';
-                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
-                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                e.currentTarget.style.background = 'var(--glass-nested)';
+                e.currentTarget.style.transform = 'none';
               }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
                 <TrendingUp size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
                   Time Series
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1171,30 +1172,32 @@ export function EarthIntelligenceView({
                 alert(`SATRA Region Report Generated for ${selectedRegion}:\n- Active Hotspots: ${regionStats.totalHotspots}\n- Industrial Fires: ${regionStats.industrialFires}\n- Forest Fires: ${regionStats.forestFires}\n- Status: Operational`);
               }}
               style={{
-                background: 'rgba(15, 32, 50, 0.5)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                borderRadius: '8px',
+                background: 'var(--glass-nested)',
+                border: '1px solid var(--glass-border-subtle)',
+                borderRadius: '10px',
                 padding: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#38BDF8';
-                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
-                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                e.currentTarget.style.background = 'var(--glass-nested)';
+                e.currentTarget.style.transform = 'none';
               }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
                 <FileText size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
                   Region Report
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1207,30 +1210,32 @@ export function EarthIntelligenceView({
             <div
               onClick={handleExportData}
               style={{
-                background: 'rgba(15, 32, 50, 0.5)',
-                border: '1px solid rgba(56, 189, 248, 0.2)',
-                borderRadius: '8px',
+                background: 'var(--glass-nested)',
+                border: '1px solid var(--glass-border-subtle)',
+                borderRadius: '10px',
                 padding: '14px',
                 cursor: 'pointer',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
-                transition: 'all 0.2s ease',
+                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#38BDF8';
-                e.currentTarget.style.background = 'rgba(56, 189, 248, 0.12)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
+                e.currentTarget.style.background = 'var(--glass-nested-hover)';
+                e.currentTarget.style.transform = 'translateY(-2px)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
-                e.currentTarget.style.background = 'rgba(15, 32, 50, 0.5)';
+                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
+                e.currentTarget.style.background = 'var(--glass-nested)';
+                e.currentTarget.style.transform = 'none';
               }}
             >
-              <div style={{ width: 32, height: 32, borderRadius: 6, background: 'rgba(56, 189, 248, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A855F7' }}>
+              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A855F7' }}>
                 <Download size={16} />
               </div>
               <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '10px' }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
                   Export Data
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
