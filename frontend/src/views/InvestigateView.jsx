@@ -168,7 +168,16 @@ export function InvestigateView({
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h1 style={{ margin: 0, fontSize: '20px', fontWeight: 800, letterSpacing: '0.04em', fontFamily: 'var(--font-mono)', color: '#FFFFFF' }}>
+              <h1 style={{
+                margin: 0,
+                fontSize: '20px',
+                fontWeight: 600,
+                letterSpacing: '0.08em',
+                lineHeight: 1.15,
+                fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif",
+                whiteSpace: 'nowrap',
+                color: '#FFFFFF',
+              }}>
                 THERMAL EVENT #{event.id}
               </h1>
               <span style={{
