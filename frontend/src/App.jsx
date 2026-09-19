@@ -111,9 +111,11 @@ export function App() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const isChatOpen = isAiAssistantModalOpen || isChatbotOpen;
   // ONE shared real-time backend connection state used by Header + Sidebar.
-  // 'online' | 'offline'
-  const [connectionStatus, setConnectionStatus] = useState('offline');
+  // Global Application-Level System Connection State: 'checking' | 'online' | 'offline'
+  // Default to 'checking' — never default to 'offline' on initial mount or view change
+  const [connectionStatus, setConnectionStatus] = useState('checking');
   const isBackendHealthy = connectionStatus === 'online';
   const [loading, setLoading] = useState(true);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -133,21 +135,26 @@ export function App() {
     handleTabChange('earth-intel');
   };
 
-  // Lightweight real-time health probe — drives ONE shared connectionStatus
+  // Centralized real-time health probe — single source of truth for connectionStatus
   const checkBackendHealth = useCallback(async () => {
     if (isHealthCheckingRef.current) return;
     isHealthCheckingRef.current = true;
     try {
-      await getHealth();
-      setConnectionStatus('online');
-    } catch {
+      const res = await getHealth();
+      if (res && (res.status === 'online' || res.status === 'healthy' || res.status === 'ok' || res.status === 'running' || res.service)) {
+        setConnectionStatus('online');
+      } else {
+        setConnectionStatus('offline');
+      }
+    } catch (err) {
+      console.warn('[SATRA Health] Backend unreachable:', err);
       setConnectionStatus('offline');
     } finally {
       isHealthCheckingRef.current = false;
     }
   }, []);
 
-  // Fetch all backend data (does not own connection status alone — health poll does)
+  // Fetch all backend data (coordinates with global health status)
   const loadDashboardData = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -156,9 +163,12 @@ export function App() {
 
       // 1. Health check (updates shared connectionStatus)
       try {
-        await getHealth();
-        setConnectionStatus('online');
-      } catch {
+        const health = await getHealth();
+        if (health && (health.status === 'online' || health.status === 'healthy' || health.status === 'ok' || health.status === 'running' || health.service)) {
+          setConnectionStatus('online');
+        }
+      } catch (err) {
+        console.warn('[SATRA Dashboard] Backend unreachable on data load:', err);
         setConnectionStatus('offline');
       }
 
@@ -313,6 +323,8 @@ export function App() {
                 onSelectDetection={setSelectedDetection}
                 onOpenUploadModal={() => setIsUploadModalOpen(true)}
                 onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
+                connectionStatus={connectionStatus}
+                isBackendHealthy={isBackendHealthy}
               />
             )}
 
@@ -409,6 +421,7 @@ export function App() {
               <SatelliteDataView
                 detections={detections}
                 isBackendHealthy={isBackendHealthy}
+                connectionStatus={connectionStatus}
                 onRefresh={loadDashboardData}
                 onNavigate={handleTabChange}
                 onFocusDetection={handleFocusDetection}

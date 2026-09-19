@@ -33,6 +33,7 @@ import { AiClassificationSection } from '../components/AiClassificationSection';
 export function SatelliteDataView({
   detections = [],
   isBackendHealthy = true,
+  connectionStatus = 'checking',
   onRefresh,
   onOpenUploadModal,
   onNavigate,
@@ -227,17 +228,27 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
   // Determine Connection Status Display (Section 15 Specification: LIVE / DEGRADED / OFFLINE)
   const getConnectionStatusInfo = () => {
-    if (!isBackendHealthy) {
+    if (connectionStatus === 'offline') {
       return {
         label: 'OFFLINE',
         color: 'red',
-        badge: '503 ERR',
-        subtext: 'No current satellite data available',
+        badge: 'OFFLINE',
+        subtext: 'Backend service unreachable',
         statusType: 'error',
       };
     }
 
-    const st = satelliteStatus?.status || 'OFFLINE';
+    if (connectionStatus === 'checking' || connectionStatus === 'connecting') {
+      return {
+        label: 'CONNECTING...',
+        color: 'amber',
+        badge: 'CONNECTING',
+        subtext: 'Connecting to SATRA backend...',
+        statusType: 'warning',
+      };
+    }
+
+    const st = satelliteStatus?.status || (isBackendHealthy ? 'LIVE' : 'STANDBY');
 
     if (st === 'API KEY REQUIRED') {
       return {

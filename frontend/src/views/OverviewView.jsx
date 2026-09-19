@@ -105,6 +105,8 @@ export function OverviewView({
   onSelectDetection = () => {},
   onOpenUploadModal,
   onOpenAiAssistant,
+  connectionStatus = 'online',
+  isBackendHealthy = true,
 }) {
   // View Modes: '3d' (Three.js Earth) | '2d' (Leaflet Satellite GIS) | 'street' (Optional Google Street View)
   const [viewMode, setViewMode] = useState('3d');
@@ -167,11 +169,17 @@ export function OverviewView({
         const status = await getSatelliteStatus();
         if (isMounted) setSatelliteTelemetry(status);
       } catch {
-        if (isMounted) {
+        if (isMounted && active) {
           setSatelliteTelemetry({
             status: 'CONNECTED',
             active_constellations: ['VIIRS / NOAA-20', 'VIIRS / SNPP', 'MODIS Terra/Aqua'],
             sensor_resolution: '375m / 1km',
+          });
+          setSatelliteStatus((prev) => prev || {
+            status: connectionStatus === 'checking' ? 'CONNECTING' : (isBackendHealthy ? 'STANDBY' : 'OFFLINE'),
+            detections: detections.length,
+          });
+        }
           });
         }
       }
@@ -180,7 +188,7 @@ export function OverviewView({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [detections.length, connectionStatus, isBackendHealthy]);
 
   // 1. Compute dynamic counts from REAL detection records only
   const filterCounts = useMemo(() => {
@@ -208,6 +216,23 @@ export function OverviewView({
       ...prev,
       [key]: !prev[key],
     }));
+  };
+
+  // State for in-panel upload & analyze
+  const fileInputRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [lastFiles, setLastFiles] = useState(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0); // 0: Read -> 1: Locate -> 2: AI -> 3: Evidence -> 4: Risk
+  const [analysisError, setAnalysisError] = useState(null);
+  const [analysisResult, setAnalysisResult] = useState(null);
+
+  const handleSelectHotspot = (det) => {
+    if (onSelectDetection) onSelectDetection(det);
+  };
+
+  // 3. Search Logic: Supports Lat/Lon Coordinates, Detection ID, or Real Geocoding
   };
 
   // 3. Search Logic: Supports Lat/Lon Coordinates, Detection ID, or Real Geocoding
@@ -1378,33 +1403,19 @@ export function OverviewView({
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* 5. SELECTED DETECTION INTELLIGENCE PANEL & LOCAL CONTEXT     */}
-      {/* ============================================================ */}
-      {selectedDetection && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: '22px',
-            left: '22px',
-            zIndex: 1000,
-            width: '380px',
-            maxWidth: 'calc(100% - 44px)',
-            background: 'rgba(11, 23, 38, 0.94)',
-            backdropFilter: 'blur(22px)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '12px',
-            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.75)',
-            padding: '18px',
-            pointerEvents: 'auto',
-            animation: 'fadeIn 0.2s ease',
-            maxHeight: 'calc(100vh - 120px)',
-            overflowY: 'auto',
-          }}
-        >
-          {/* Card Header with Real Detection Data */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
-            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: satelliteStatus?.status === 'LIVE' ? 'rgba(16, 185, 129, 0.12)' : satelliteStatus?.status === 'DEGRADED' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(239, 68, 68, 0.12)', border: satelliteStatus?.status === 'LIVE' ? '1px solid rgba(16, 185, 129, 0.3)' : satelliteStatus?.status === 'DEGRADED' ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)', padding: '4px 10px', borderRadius: '20px', fontSize: '11px', color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : (connectionStatus === 'checking' || !satelliteStatus ? '#F59E0B' : '#EF4444'), fontWeight: 600 }}
+              >
+                <span
+                  style={{
+                    width: 7,
+                    height: 7,
+                    borderRadius: '50%',
+                    background: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : (connectionStatus === 'checking' || !satelliteStatus ? '#F59E0B' : '#EF4444'),
+                    boxShadow: satelliteStatus?.status === 'LIVE' ? '0 0 6px #10B981' : satelliteStatus?.status === 'STANDBY' ? '0 0 6px #38BDF8' : (connectionStatus === 'checking' || !satelliteStatus ? '0 0 6px #F59E0B' : 'none'),
+                  }}
+                />
+                <span>{satelliteStatus?.status === 'LIVE' ? '● LIVE SATELLITE DATA' : satelliteStatus?.status === 'DEGRADED' ? '● DATA CONNECTION DEGRADED' : satelliteStatus?.status === 'STANDBY' ? '● SATELLITE STANDBY (AWAITING SYNC)' : (connectionStatus === 'checking' || !satelliteStatus ? '● SATELLITE CONNECTING...' : '● SATELLITE DATA OFFLINE')}</span>
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <span
                   style={{
@@ -1414,6 +1425,10 @@ export function OverviewView({
                     color: selectedTaxonomy ? selectedTaxonomy.color : 'var(--soft-cyan)',
                     textTransform: 'uppercase',
                   }}
+                >
+                  {selectedTaxonomy ? selectedTaxonomy.label : 'Thermal Detection'}
+                </span>
+              </div>
                 >
                   {selectedTaxonomy ? selectedTaxonomy.label : 'Thermal Detection'}
                 </span>
@@ -1481,6 +1496,12 @@ export function OverviewView({
               <div style={{ fontSize: '12.5px', fontWeight: 800, color: selectedTaxonomy ? selectedTaxonomy.color : '#FFF', marginTop: '2px' }}>
                 {selectedTaxonomy ? selectedTaxonomy.label : (selectedDetection.predicted_class || 'Thermal Hotspot')}
               </div>
+              <div style={{ fontSize: '12.5px', fontWeight: 800, color: selectedTaxonomy ? selectedTaxonomy.color : '#FFF', marginTop: '2px' }}>
+                {selectedTaxonomy ? selectedTaxonomy.label : (selectedDetection.predicted_class || 'Thermal Hotspot')}
+              </div>
+              <span style={{ fontSize: '11px', color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : (connectionStatus === 'checking' || !satelliteStatus ? '#F59E0B' : '#EF4444'), fontWeight: 600 }}>
+                &bull; {satelliteStatus?.status === 'LIVE' ? 'Live NRT' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded' : satelliteStatus?.status === 'STANDBY' ? 'Standby (Key Ready)' : (connectionStatus === 'checking' || !satelliteStatus ? 'Connecting...' : 'Offline')}
+              </span>
             </div>
 
             <div>
@@ -1519,8 +1540,18 @@ export function OverviewView({
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 FRP
               </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                FRP
+              </div>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#F97316', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                 {selectedDetection.frp ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--glass-nested)', padding: '10px 14px', borderRadius: '9px', border: '1px solid var(--glass-border-subtle)' }}>
+                <span style={{ color: 'var(--text-muted)' }}>Status:</span>
+                <strong style={{ color: satelliteStatus?.status === 'LIVE' ? '#10B981' : satelliteStatus?.status === 'DEGRADED' ? '#F59E0B' : satelliteStatus?.status === 'STANDBY' ? '#38BDF8' : (connectionStatus === 'checking' || !satelliteStatus ? '#F59E0B' : '#EF4444'), fontWeight: 600 }}>
+                  {satelliteStatus?.status === 'LIVE' ? 'Receiving Data' : satelliteStatus?.status === 'DEGRADED' ? 'Degraded Cache' : satelliteStatus?.status === 'STANDBY' ? 'Standby (Key Ready)' : (connectionStatus === 'checking' || !satelliteStatus ? 'Connecting...' : 'Offline')}
+                </strong>
+              </div>
               </div>
             </div>
 
