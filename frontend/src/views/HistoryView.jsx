@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { History, Download, Calendar, Filter, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 
-export function HistoryView({ detections = [], onQueryHistory }) {
+export function HistoryView({ detections = [], onQueryHistory, onNavigate }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -93,6 +93,30 @@ export function HistoryView({ detections = [], onQueryHistory }) {
 
   return (
     <div>
+      {onNavigate && (
+        <div style={{ marginBottom: '14px' }}>
+          <button
+            onClick={() => onNavigate('analytics')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '7px',
+              background: 'rgba(11, 23, 38, 0.8)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              color: 'var(--soft-cyan)',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+            title="Return to Analytics"
+          >
+            <span>&larr; Analytics</span>
+          </button>
+        </div>
+      )}
+
       {/* Query Filter Toolbar */}
       <div className="filter-bar">
         {/* Search */}

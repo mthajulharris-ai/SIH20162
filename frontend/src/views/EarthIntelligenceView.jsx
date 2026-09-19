@@ -510,6 +510,30 @@ export function EarthIntelligenceView({
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('path-intel')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                background: 'rgba(56, 189, 248, 0.12)',
+                color: 'var(--soft-cyan)',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              title="Open Path Intelligence Corridor Risk Analysis"
+            >
+              <span>Path Corridor Risk</span>
+              <ArrowRight size={13} />
+            </button>
+          )}
+
           {/* TIME FILTER: Live, 24h, 7d, 30d */}
           <div
             style={{

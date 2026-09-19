@@ -14,11 +14,12 @@ import {
   Zap,
   Satellite,
   Trees,
+  ArrowRight,
 } from 'lucide-react';
 import { KpiCard } from '../components/KpiCard';
 import { StatusBadge } from '../components/StatusBadge';
 
-export function AnalyticsView({ analytics }) {
+export function AnalyticsView({ analytics, onNavigate }) {
   const total = analytics?.total_detections || 0;
   const indFires = analytics?.industrial_fire_predictions || 0;
   const forestFires = analytics?.forest_fire_predictions || 0;
@@ -41,16 +42,41 @@ export function AnalyticsView({ analytics }) {
           padding: '16px 20px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '6px',
+          gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            What is happening over time?
-          </span>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
-            Temporal Analytics & Incident Lifecycle
-          </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '11px', fontWeight: 800, padding: '3px 8px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.2)', color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              What is happening over time?
+            </span>
+            <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#F8FAFC', margin: 0 }}>
+              Temporal Analytics &amp; Incident Lifecycle
+            </h2>
+          </div>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('history')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: '8px',
+                background: 'rgba(56, 189, 248, 0.12)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: 'var(--soft-cyan)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              title="View Historical Detections Log"
+            >
+              <span>Historical Archive</span>
+              <ArrowRight size={13} />
+            </button>
+          )}
         </div>
         <p style={{ margin: 0, fontSize: '13px', color: '#94A3B8', lineHeight: 1.5 }}>
           Understand thermal detection trends, class distribution, and operational verification lifecycle over time across satellite passes.

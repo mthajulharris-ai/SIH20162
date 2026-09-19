@@ -27,6 +27,7 @@ export function InvestigateView({
   selectedDetection = null,
   allDetections = [],
   onSelectDetection,
+  onNavigate,
 }) {
   const [copySuccess, setCopySuccess] = useState(false);
   const [isRawExpanded, setIsRawExpanded] = useState(true);
@@ -197,6 +198,25 @@ export function InvestigateView({
 
         {/* Header Right Status Badges & Event Switcher */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('gis-investigation')}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: 'rgba(11, 23, 38, 0.8)',
+                border: '1px solid rgba(56, 189, 248, 0.35)',
+                color: 'var(--soft-cyan)',
+                fontWeight: 600,
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+              title="Return to GIS Investigation"
+            >
+              <span>&larr; GIS Investigation</span>
+            </button>
+          )}
+
           <div style={{
             padding: '6px 14px',
             borderRadius: '6px',

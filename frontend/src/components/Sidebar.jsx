@@ -1,22 +1,33 @@
 import React from 'react';
 import {
   LayoutDashboard,
+  Crosshair,
   ShieldAlert,
   BarChart3,
   Globe,
-  Settings,
-  LogOut,
-  Sparkles,
-  Cpu,
   Satellite,
-  Crosshair,
+  Sparkles,
+  Settings,
   Radio,
+  Cpu,
+  LogOut,
 } from 'lucide-react';
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {
   const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
   const statusColor = isOnline ? 'var(--success)' : 'var(--critical-red)';
   const statusText = isOnline ? 'CONNECTED' : 'DISCONNECTED';
+
+  // Map integrated sub-modules to their parent navigation item
+  const activeTabMapping = {
+    'path-intel': 'overview',
+    'investigate': 'gis-investigation',
+    'live-monitoring': 'overview',
+    'thermal-intel': 'overview',
+    'earth-intel': 'overview',
+    'history': 'analytics',
+  };
+  const effectiveActiveTab = activeTabMapping[currentTab] || currentTab;
 
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
@@ -48,7 +59,7 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
         <div className="nav-label">Command Modules</div>
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = currentTab === item.id;
+          const isActive = effectiveActiveTab === item.id;
           return (
             <button
               key={item.id}

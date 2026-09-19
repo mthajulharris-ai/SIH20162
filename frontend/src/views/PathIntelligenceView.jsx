@@ -361,8 +361,29 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
           </div>
         </div>
 
-        {/* Quick Presets Selector */}
+        {/* Quick Presets Selector & Return Navigation */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {onNavigate && (
+            <button
+              onClick={() => onNavigate('earth-intel')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                borderRadius: '7px',
+                border: '1px solid rgba(56, 189, 248, 0.3)',
+                background: 'rgba(11, 23, 38, 0.8)',
+                color: 'var(--soft-cyan)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+              title="Return to Earth Intelligence"
+            >
+              <span>&larr; Earth Intelligence</span>
+            </button>
+          )}
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Corridor Preset:</span>
           {PRESET_ROUTES.map((r) => (
             <button
