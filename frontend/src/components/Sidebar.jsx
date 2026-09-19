@@ -1,4 +1,6 @@
 import React from 'react';
+import satraLogoDark from '../assets/satra-logo-dark.jpg';
+import satraLogoLight from '../assets/satra-logo-light.jpg';
 import {
   LayoutDashboard,
   Crosshair,
@@ -13,10 +15,11 @@ import {
   LogOut,
 } from 'lucide-react';
 
-export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {
-  const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
-  const statusColor = isOnline ? 'var(--success)' : 'var(--critical-red)';
-  const statusText = isOnline ? 'CONNECTED' : 'DISCONNECTED';
+export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus = 'checking', onLogout }) {
+  const isChecking = connectionStatus === 'checking' || connectionStatus === 'connecting';
+  const isOnline = connectionStatus === 'online';
+  const statusColor = isOnline ? 'var(--success, #10B981)' : isChecking ? '#F59E0B' : 'var(--critical-red, #EF4444)';
+  const statusText = isOnline ? 'ONLINE' : isChecking ? 'CONNECTING...' : 'OFFLINE';
 
   // Map integrated sub-modules to their parent navigation item
   const activeTabMapping = {
@@ -44,8 +47,17 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
     <aside className="sidebar">
       {/* SATRA Master Brand Header */}
       <div className="sidebar-header">
-        <div className="brand-icon">
-          <Globe size={22} style={{ color: '#FFFFFF' }} />
+        <div className="brand-logo-frame">
+          <img
+            src={satraLogoDark}
+            alt="SATRA Logo"
+            className="brand-logo-img satra-logo-dark"
+          />
+          <img
+            src={satraLogoLight}
+            alt="SATRA Logo"
+            className="brand-logo-img satra-logo-light"
+          />
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="brand-title">SATRA</div>

@@ -105,6 +105,8 @@ export function OverviewView({
   onSelectDetection = () => {},
   onOpenUploadModal,
   onOpenAiAssistant,
+  connectionStatus = 'online',
+  isBackendHealthy = true,
 }) {
   // View Modes: '3d' (Three.js Earth) | '2d' (Leaflet Satellite GIS) | 'street' (Optional Google Street View)
   const [viewMode, setViewMode] = useState('3d');
@@ -162,21 +164,31 @@ export function OverviewView({
   // Fetch real NASA FIRMS Satellite Telemetry status
   useEffect(() => {
     let isMounted = true;
+
     const loadSatelliteTelemetry = async () => {
       try {
         const status = await getSatelliteStatus();
-        if (isMounted) setSatelliteTelemetry(status);
+
+        if (isMounted) {
+          setSatelliteTelemetry(status);
+        }
       } catch {
         if (isMounted) {
           setSatelliteTelemetry({
             status: 'CONNECTED',
-            active_constellations: ['VIIRS / NOAA-20', 'VIIRS / SNPP', 'MODIS Terra/Aqua'],
+            active_constellations: [
+              'VIIRS / NOAA-20',
+              'VIIRS / SNPP',
+              'MODIS Terra/Aqua',
+            ],
             sensor_resolution: '375m / 1km',
           });
         }
       }
     };
+
     loadSatelliteTelemetry();
+
     return () => {
       isMounted = false;
     };
