@@ -202,12 +202,28 @@ export function Header({
 
         {/* Real-Time Shared Backend Health Status Pill */}
         {(() => {
-          const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
-          const statusColor = isOnline ? '#10B981' : '#EF4444';
-          const statusBg = isOnline ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
-          const statusBorder = isOnline ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid rgba(239, 68, 68, 0.35)';
-          const headerTitle = isOnline ? 'SYSTEM ONLINE' : 'SYSTEM OFFLINE';
-          const headerSub = isOnline ? 'FastAPI Connected' : 'FastAPI Disconnected';
+          const isChecking = connectionStatus === 'checking' || connectionStatus === 'connecting';
+          const isOnline = connectionStatus === 'online';
+
+          let statusColor = '#10B981';
+          let statusBg = 'rgba(16, 185, 129, 0.12)';
+          let statusBorder = '1px solid rgba(16, 185, 129, 0.35)';
+          let headerTitle = 'SYSTEM ONLINE';
+          let headerSub = 'FastAPI Connected';
+
+          if (isChecking) {
+            statusColor = '#F59E0B';
+            statusBg = 'rgba(245, 158, 11, 0.12)';
+            statusBorder = '1px solid rgba(245, 158, 11, 0.35)';
+            headerTitle = 'SYSTEM CONNECTING...';
+            headerSub = 'Checking Connection...';
+          } else if (!isOnline) {
+            statusColor = '#EF4444';
+            statusBg = 'rgba(239, 68, 68, 0.12)';
+            statusBorder = '1px solid rgba(239, 68, 68, 0.35)';
+            headerTitle = 'SYSTEM OFFLINE';
+            headerSub = 'FastAPI Disconnected';
+          }
 
           return (
             <div
@@ -219,7 +235,12 @@ export function Header({
                 border: statusBorder,
                 borderRadius: '20px',
                 padding: '5px 12px',
-                boxShadow: isOnline ? '0 0 12px rgba(16, 185, 129, 0.2)' : '0 0 12px rgba(239, 68, 68, 0.2)',
+                boxShadow: isOnline
+                  ? '0 0 12px rgba(16, 185, 129, 0.2)'
+                  : isChecking
+                  ? '0 0 12px rgba(245, 158, 11, 0.2)'
+                  : '0 0 12px rgba(239, 68, 68, 0.2)',
+                transition: 'all 0.25s ease',
               }}
             >
               <span
@@ -229,13 +250,14 @@ export function Header({
                   borderRadius: '50%',
                   backgroundColor: statusColor,
                   boxShadow: `0 0 8px ${statusColor}`,
+                  animation: isChecking ? 'pulse 1.5s infinite' : 'none',
                 }}
               />
               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
                 <span style={{ fontSize: '11px', fontWeight: 700, color: statusColor }}>
                   {headerTitle}
                 </span>
-                <span style={{ fontSize: '9px', color: isOnline ? 'var(--text-muted)' : '#F87171' }}>
+                <span style={{ fontSize: '9px', color: isOnline ? 'var(--text-muted)' : isChecking ? '#FCD34D' : '#F87171' }}>
                   {headerSub}
                 </span>
               </div>
