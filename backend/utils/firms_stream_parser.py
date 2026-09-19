@@ -375,6 +375,9 @@ class FIRMSDataStreamer:
         """Inspects file headers / ZIP content and configures the streaming target."""
         fn_lower = self.filename.lower()
 
+        if ".crdownload" in fn_lower:
+            raise ValueError("Incomplete download file. Please wait for the download to finish and upload the completed file.")
+
         # Check if ZIP
         if fn_lower.endswith(".zip") or (self.file_path.exists() and self._is_zip_file()):
             self._setup_zip_archive()
@@ -448,7 +451,9 @@ class FIRMSDataStreamer:
                         raise ValueError(f"Security error: ZIP archive contains unsafe path traversal '{m_path}'.")
                 zf.extractall(self.temp_dir)
         except zipfile.BadZipFile:
-            raise ValueError(f"File '{self.filename}' is not a valid or readable ZIP archive.")
+            if ".crdownload" in self.filename.lower():
+                raise ValueError("Incomplete download file. Please wait for the download to finish and upload the completed file.")
+            raise ValueError("Invalid or incomplete ZIP archive.")
 
         # Candidate scan
         candidates: List[Path] = []
