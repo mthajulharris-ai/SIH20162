@@ -171,6 +171,17 @@ export function UploadAndAnalyzeModal({
 
   if (!isOpen) return null;
 
+  // Format file size for human readability
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    if (bytes < k) return `${bytes} B`;
+    const kb = bytes / k;
+    if (kb < k) return `${kb.toFixed(1)} KB`;
+    const mb = kb / k;
+    return `${mb.toFixed(2)} MB`;
+  };
+
   // Inspect and validate each selected file content
   const processFiles = async (fileList) => {
     setErrorMsg(null);
@@ -179,7 +190,6 @@ export function UploadAndAnalyzeModal({
 
     const filesArray = Array.from(fileList || []);
     if (filesArray.length === 0) {
-      setErrorMsg('Please select a satellite observation file first.');
       setUiState('IDLE');
       setSelectedFiles([]);
       setFilePreviews([]);
@@ -188,106 +198,136 @@ export function UploadAndAnalyzeModal({
 
     setUiState('VALIDATING');
 
-    const newSelectedFiles = [];
-    const newPreviews = [];
-    let hadZipFile = false;
-    let hadShapefile = false;
-
-    // Check if user uploaded Shapefile components (.shp, .shx, .dbf, .prj)
-    const shpFiles = filesArray.filter((f) => f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
-    const nonShpFiles = filesArray.filter((f) => !f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
-
-    if (shpFiles.length > 0) {
-      hadShapefile = true;
-      setValidationNotice('ESRI Shapefile dataset detected — validating components and attributes...');
-      try {
-        const valRes = await validateSatelliteDataset(shpFiles);
-        shpFiles.forEach((f) => newSelectedFiles.push(f));
-        const totalSize = shpFiles.reduce((sum, f) => sum + f.size, 0);
-        const primaryShp = shpFiles.find((f) => f.name.toLowerCase().endsWith('.shp')) || shpFiles[0];
-        newPreviews.push({
-          name: primaryShp.name,
-          identifiedFile: valRes.identified_file,
-          sizeKb: Math.round(totalSize / 1024) || 1,
-          recordCount: valRes.record_count,
-          format: valRes.format_detected || 'ESRI Shapefile',
-          previewLat: valRes.sample_preview?.latitude,
-          previewLon: valRes.sample_preview?.longitude,
-          previewBright: valRes.sample_preview?.brightness,
-          previewFrp: valRes.sample_preview?.frp,
-          isShapefile: true,
-        });
-      } catch (shpErr) {
-        setUiState('ERROR');
-        setValidationNotice(null);
-        setErrorMsg(shpErr.message || 'Failed to validate uploaded ESRI Shapefile components.');
-        setSelectedFiles([]);
-        setFilePreviews([]);
-        return;
+    try {
+      // 1. Validation check for .crdownload (incomplete Chrome downloads)
+      for (const file of filesArray) {
+        const nameLower = file.name.toLowerCase();
+        if (nameLower.includes('.crdownload')) {
+          throw new Error('Incomplete download file. Please wait for the download to finish and upload the completed file.');
+        }
       }
-    }
 
-    for (const file of nonShpFiles) {
-      const isZip = file.name.toLowerCase().endsWith('.zip');
-      if (isZip) {
-        hadZipFile = true;
-        setValidationNotice('ZIP dataset detected — scanning for satellite observation files...');
+      // 2. Validation check for supported formats & ZIP content
+      for (const file of filesArray) {
+        if (file.size === 0) {
+          throw new Error(`The selected file '${file.name}' is empty. Please select a valid satellite observation file.`);
+        }
+
+        const nameLower = file.name.toLowerCase();
+        const isZip = nameLower.endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+        const isCsv = nameLower.endsWith('.csv') || nameLower.endsWith('.txt') || nameLower.endsWith('.tsv') || file.type === 'text/csv';
+        const isJson = nameLower.endsWith('.json') || nameLower.endsWith('.geojson') || file.type === 'application/json';
+        const isShp = nameLower.endsWith('.shp') || nameLower.endsWith('.shx') || nameLower.endsWith('.dbf') || nameLower.endsWith('.prj');
+
+        if (!isZip && !isCsv && !isJson && !isShp) {
+          throw new Error('Unsupported file format. Please upload a .csv, .json, or .zip satellite observation file.');
+        }
+
+        // Validate ZIP file by actual magic bytes, never reject solely on filename containing 'Unconfirmed'
+        if (isZip) {
+          if (file.size < 4) {
+            throw new Error('Invalid or incomplete ZIP archive.');
+          }
+          const slice = await file.slice(0, 4).arrayBuffer();
+          const bytes = new Uint8Array(slice);
+          // Standard ZIP magic bytes: 'PK' (0x50, 0x4B)
+          if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) {
+            throw new Error('Invalid or incomplete ZIP archive.');
+          }
+        }
+      }
+
+      const newSelectedFiles = [];
+      const newPreviews = [];
+      let hadZipFile = false;
+      let hadShapefile = false;
+
+      // Check if user uploaded Shapefile components (.shp, .shx, .dbf, .prj)
+      const shpFiles = filesArray.filter((f) => f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
+      const nonShpFiles = filesArray.filter((f) => !f.name.toLowerCase().match(/\.(shp|shx|dbf|prj)$/));
+
+      if (shpFiles.length > 0) {
+        hadShapefile = true;
+        setValidationNotice('ESRI Shapefile dataset detected — validating components and attributes...');
         try {
-          const valRes = await validateSatelliteDataset(file);
-          newSelectedFiles.push(file);
+          const valRes = await validateSatelliteDataset(shpFiles);
+          shpFiles.forEach((f) => newSelectedFiles.push(f));
+          const totalSize = shpFiles.reduce((sum, f) => sum + f.size, 0);
+          const primaryShp = shpFiles.find((f) => f.name.toLowerCase().endsWith('.shp')) || shpFiles[0];
           newPreviews.push({
-            name: file.name,
+            name: primaryShp.name,
             identifiedFile: valRes.identified_file,
-            sizeKb: Math.round(file.size / 1024) || 1,
+            sizeKb: Math.round(totalSize / 1024) || 1,
             recordCount: valRes.record_count,
-            format: valRes.format_detected,
+            format: valRes.format_detected || 'ESRI Shapefile',
             previewLat: valRes.sample_preview?.latitude,
             previewLon: valRes.sample_preview?.longitude,
             previewBright: valRes.sample_preview?.brightness,
             previewFrp: valRes.sample_preview?.frp,
-            isZip: true,
+            isShapefile: true,
           });
-          continue;
-        } catch (zipErr) {
-          setUiState('ERROR');
-          setValidationNotice(null);
-          setErrorMsg(zipErr.message || 'No compatible NASA FIRMS / VIIRS / MODIS observation file found inside ZIP.');
-          setSelectedFiles([]);
-          setFilePreviews([]);
-          return;
+        } catch (shpErr) {
+          throw new Error(shpErr.message || 'Failed to validate uploaded ESRI Shapefile components.');
         }
       }
 
-      // If file is large (> 2MB), validate directly on backend instead of reading full text into browser RAM
-      if (file.size > 2 * 1024 * 1024) {
-        setValidationNotice(`Validating large dataset '${file.name}' with server...`);
-        try {
-          const valRes = await validateSatelliteDataset(file);
-          newSelectedFiles.push(file);
-          newPreviews.push({
-            name: file.name,
-            identifiedFile: valRes.identified_file,
-            sizeKb: Math.round(file.size / 1024) || 1,
-            recordCount: valRes.record_count,
-            format: valRes.format_detected,
-            previewLat: valRes.sample_preview?.latitude,
-            previewLon: valRes.sample_preview?.longitude,
-            previewBright: valRes.sample_preview?.brightness,
-            previewFrp: valRes.sample_preview?.frp,
-            isLarge: true,
-          });
-          continue;
-        } catch (valErr) {
-          setUiState('ERROR');
-          setValidationNotice(null);
-          setErrorMsg(valErr.message || `Failed to validate '${file.name}'.`);
-          setSelectedFiles([]);
-          setFilePreviews([]);
-          return;
+      for (const file of nonShpFiles) {
+        const isZip = file.name.toLowerCase().endsWith('.zip') || file.type === 'application/zip' || file.type === 'application/x-zip-compressed';
+        if (isZip) {
+          hadZipFile = true;
+          setValidationNotice('ZIP dataset detected — scanning for satellite observation files...');
+          try {
+            const valRes = await validateSatelliteDataset(file);
+            newSelectedFiles.push(file);
+            newPreviews.push({
+              name: file.name,
+              identifiedFile: valRes.identified_file,
+              sizeKb: Math.round(file.size / 1024) || 1,
+              recordCount: valRes.record_count,
+              format: valRes.format_detected,
+              previewLat: valRes.sample_preview?.latitude,
+              previewLon: valRes.sample_preview?.longitude,
+              previewBright: valRes.sample_preview?.brightness,
+              previewFrp: valRes.sample_preview?.frp,
+              isZip: true,
+            });
+            continue;
+          } catch (zipErr) {
+            const zMsg = zipErr.message || '';
+            if (zMsg.toLowerCase().includes('.crdownload')) {
+              throw new Error('Incomplete download file. Please wait for the download to finish and upload the completed file.');
+            }
+            if (zMsg.toLowerCase().includes('zip') || zMsg.toLowerCase().includes('badzipfile') || zMsg.toLowerCase().includes('invalid')) {
+              throw new Error('Invalid or incomplete ZIP archive.');
+            }
+            throw new Error(zMsg || 'Invalid or incomplete ZIP archive.');
+          }
         }
-      }
 
-      try {
+        // If file is large (> 2MB), validate directly on backend
+        if (file.size > 2 * 1024 * 1024) {
+          setValidationNotice(`Validating dataset '${file.name}' with server...`);
+          try {
+            const valRes = await validateSatelliteDataset(file);
+            newSelectedFiles.push(file);
+            newPreviews.push({
+              name: file.name,
+              identifiedFile: valRes.identified_file,
+              sizeKb: Math.round(file.size / 1024) || 1,
+              recordCount: valRes.record_count,
+              format: valRes.format_detected,
+              previewLat: valRes.sample_preview?.latitude,
+              previewLon: valRes.sample_preview?.longitude,
+              previewBright: valRes.sample_preview?.brightness,
+              previewFrp: valRes.sample_preview?.frp,
+              isLarge: true,
+            });
+            continue;
+          } catch (valErr) {
+            throw new Error(valErr.message || `Failed to validate '${file.name}'.`);
+          }
+        }
+
         const text = await file.text();
         const trimmed = text.trim();
 
@@ -301,7 +341,6 @@ export function UploadAndAnalyzeModal({
         let previewLon = null;
         let previewBright = null;
         let previewFrp = null;
-        let hasThermalSignal = false;
 
         // Check JSON / GeoJSON
         if (trimmed.startsWith('{') || trimmed.startsWith('[') || file.name.toLowerCase().endsWith('.json') || file.name.toLowerCase().endsWith('.geojson')) {
@@ -338,13 +377,10 @@ export function UploadAndAnalyzeModal({
             const mappedKeys = Object.keys(first).map(cleanCol).map((k) => COLUMN_ALIASES[k] || k);
             const hasLat = mappedKeys.includes('latitude');
             const hasLon = mappedKeys.includes('longitude');
-            hasThermalSignal = mappedKeys.some((k) =>
-              ['brightness', 'bright_t31', 'frp', 'confidence', 'satellite', 'instrument', 'acq_date'].includes(k)
-            );
 
-            if (!hasLat || !hasLon || !hasThermalSignal) {
+            if (!hasLat || !hasLon) {
               throw new Error(
-                `Unsupported observation format. We could not identify sufficient satellite thermal/fire observation fields in this file. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
+                `Unsupported observation format in '${file.name}'. Missing required latitude or longitude coordinates.`
               );
             }
 
@@ -362,14 +398,12 @@ export function UploadAndAnalyzeModal({
             throw new Error(`File '${file.name}' must contain a column header row and at least 1 observation row.`);
           }
 
-          // Detect delimiter: tab, semicolon, or comma
-          const firstLine = lines[0];
           let delimiter = ',';
+          const firstLine = lines[0];
           if (firstLine.includes('\t')) delimiter = '\t';
           else if (firstLine.includes(';') && !firstLine.includes(',')) delimiter = ';';
 
           const parseRow = (line) => line.split(delimiter).map((h) => h.replace(/^["']|["']$/g, '').trim());
-
           const rawHeaders = parseRow(lines[0]);
           const mappedHeaders = rawHeaders.map(cleanCol).map((k) => COLUMN_ALIASES[k] || k);
 
@@ -378,17 +412,12 @@ export function UploadAndAnalyzeModal({
           const brightIdx = mappedHeaders.indexOf('brightness');
           const frpIdx = mappedHeaders.indexOf('frp');
 
-          const hasThermal = mappedHeaders.some((k) =>
-            ['brightness', 'bright_t31', 'frp', 'confidence', 'satellite', 'instrument', 'acq_date', 'daynight', 'scan'].includes(k)
-          );
-
-          if (latIdx === -1 || lonIdx === -1 || !hasThermal) {
+          if (latIdx === -1 || lonIdx === -1) {
             const missing = [];
             if (latIdx === -1) missing.push('latitude');
             if (lonIdx === -1) missing.push('longitude');
-            if (!hasThermal) missing.push('thermal observation signal (brightness/FRP)');
             throw new Error(
-              `Unsupported observation format in '${file.name}'. Missing required fields: ${missing.join(', ')}. Please upload a NASA FIRMS, MODIS, VIIRS-compatible CSV or JSON file.`
+              `Unsupported observation format in '${file.name}'. Missing required fields: ${missing.join(', ')}.`
             );
           }
 
@@ -426,22 +455,21 @@ export function UploadAndAnalyzeModal({
           previewBright,
           previewFrp,
         });
-      } catch (err) {
-        setUiState('ERROR');
-        setValidationNotice(null);
-        setErrorMsg(err.message);
-        setSelectedFiles([]);
-        setFilePreviews([]);
-        return;
       }
-    }
 
-    setSelectedFiles(newSelectedFiles);
-    setFilePreviews(newPreviews);
-    setUiState('READY');
-    setErrorMsg(null);
-    if (hadZipFile || hadShapefile) {
-      setValidationNotice('Satellite observation data found — ready for AI analysis.');
+      setSelectedFiles(newSelectedFiles);
+      setFilePreviews(newPreviews);
+      setUiState('READY');
+      setErrorMsg(null);
+      if (hadZipFile || hadShapefile) {
+        setValidationNotice('Satellite observation data found — ready for AI analysis.');
+      }
+    } catch (err) {
+      setUiState('ERROR');
+      setValidationNotice(null);
+      setErrorMsg(err.message || 'File validation failed.');
+      setSelectedFiles([]);
+      setFilePreviews([]);
     }
   };
 
@@ -449,11 +477,6 @@ export function UploadAndAnalyzeModal({
     if (e.target.files && e.target.files.length > 0) {
       setUiState('FILE_SELECTED');
       processFiles(e.target.files);
-    } else {
-      if (selectedFiles.length === 0) {
-        setErrorMsg('Please select a satellite observation file first.');
-        setUiState('IDLE');
-      }
     }
   };
 
@@ -463,11 +486,6 @@ export function UploadAndAnalyzeModal({
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       setUiState('FILE_SELECTED');
       processFiles(e.dataTransfer.files);
-    } else {
-      if (selectedFiles.length === 0) {
-        setErrorMsg('Please select a satellite observation file first.');
-        setUiState('IDLE');
-      }
     }
   };
 
@@ -493,9 +511,10 @@ export function UploadAndAnalyzeModal({
     await processFiles([file]);
     setActiveTab('upload');
   };
+
   // Execute Core AI Analysis Pipeline
   const handleExecuteAnalysis = async () => {
-    // 1. Strict guard: NEVER run analysis without an actual valid selected file
+    // Strict guard: NEVER run analysis without an actual valid selected file
     if (activeTab === 'upload' && (!selectedFiles || selectedFiles.length === 0 || uiState !== 'READY')) {
       setErrorMsg('Please select a satellite observation file first.');
       setUiState('IDLE');
@@ -579,52 +598,8 @@ export function UploadAndAnalyzeModal({
           throw new Error('Please select or upload at least one valid satellite observation file before executing AI analysis.');
         }
 
-        // Asynchronous batch job workflow: splits observations into 1,000-record batches
-        const startJobRes = await startSatelliteAnalysisJob(selectedFiles);
-        const jobId = startJobRes.job_id;
-
-        setJobProgress({
-          currentBatch: 0,
-          totalBatches: startJobRes.total_batches || 1,
-          processedRecords: 0,
-          totalRecords: startJobRes.total_records || 0,
-          progressPercent: 0,
-          statusMessage: 'Starting batch analysis...',
-        });
-
-        let isDone = false;
-        let finalResult = null;
-        let pollCount = 0;
-        const maxPolls = 3600; // 30 minutes safety timeout for 1M+ observation datasets
-        const pollIntervalMs = 500;
-
-        while (!isDone && pollCount < maxPolls) {
-          await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
-          pollCount++;
-
-          const jobStatus = await getSatelliteAnalysisJobStatus(jobId);
-          setJobProgress({
-            currentBatch: jobStatus.current_batch || 0,
-            totalBatches: jobStatus.total_batches || 1,
-            processedRecords: jobStatus.processed_records || 0,
-            totalRecords: jobStatus.total_records || 0,
-            progressPercent: jobStatus.progress_percent || 0,
-            statusMessage: jobStatus.status_message || 'Analyzing satellite observations in batches...',
-          });
-
-          if (jobStatus.status === 'COMPLETED') {
-            isDone = true;
-            finalResult = jobStatus.result;
-          } else if (jobStatus.status === 'FAILED') {
-            throw new Error(jobStatus.error || 'AI batch analysis failed.');
-          }
-        }
-
-        if (!finalResult) {
-          throw new Error('AI analysis timed out. The batch processing job took longer than expected.');
-        }
-
-        result = finalResult;
+        // Direct Core Pipeline Analysis via existing POST /api/v1/inference/upload-and-analyze
+        result = await uploadAndAnalyzeSatelliteFile(selectedFiles);
       }
 
       setAnalysisResult(result);
@@ -777,7 +752,10 @@ export function UploadAndAnalyzeModal({
               }}
             >
               <button
-                onClick={() => setActiveTab('upload')}
+                onClick={() => {
+                  setActiveTab('upload');
+                  fileInputRef.current?.click();
+                }}
                 style={{
                   flex: 1,
                   padding: '8px 14px',
@@ -847,98 +825,207 @@ export function UploadAndAnalyzeModal({
           {/* TAB 1: UPLOAD SATELLITE FILE */}
           {!analysisResult && activeTab === 'upload' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {/* Drag & Drop Box */}
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setIsDragging(true);
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
+                accept=".csv,.json,.zip,text/csv,application/json,application/zip,application/x-zip-compressed,.txt,.geojson,.shp,.shx,.dbf,.prj"
+                onChange={handleFileChange}
+                onClick={(e) => {
+                  e.target.value = null;
                 }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={handleDrop}
-                onClick={() => {
-                  if (selectedFiles.length === 0) {
-                    setErrorMsg('Please select a satellite observation file first.');
-                  }
-                  fileInputRef.current?.click();
-                }}
-                style={{
-                  border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.35)'}`,
-                  background: isDragging ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.55)',
-                  borderRadius: '12px',
-                  padding: '32px 24px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  textAlign: 'center',
-                }}
-              >
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  style={{ display: 'none' }}
-                  multiple
-                  accept=".csv,.txt,.json,.geojson,.zip,.shp,.shx,.dbf,.prj"
-                  onChange={handleFileChange}
-                  onCancel={() => {
-                    if (selectedFiles.length === 0) {
-                      setErrorMsg('Please select a satellite observation file first.');
-                    }
-                  }}
-                />
+              />
 
+              {/* State A: No file selected yet -> Empty Upload Dropzone */}
+              {selectedFiles.length === 0 ? (
                 <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setIsDragging(true);
+                  }}
+                  onDragLeave={() => setIsDragging(false)}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
                   style={{
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '50%',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    border: '1px solid rgba(56, 189, 248, 0.35)',
+                    border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.35)'}`,
+                    background: isDragging ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.55)',
+                    borderRadius: '12px',
+                    padding: '32px 24px',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: 'var(--primary-cyan)',
-                    marginBottom: '10px',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    textAlign: 'center',
                   }}
                 >
-                  <UploadCloud size={24} />
-                </div>
+                  <div
+                    style={{
+                      width: '50px',
+                      height: '50px',
+                      borderRadius: '50%',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'var(--primary-cyan)',
+                      marginBottom: '10px',
+                    }}
+                  >
+                    <UploadCloud size={24} />
+                  </div>
 
-                <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF' }}>
-                  Upload Satellite Observation Data
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
-                  Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, Shapefile, or ZIP dataset.
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                  Filename does not matter &mdash; SATRA AI automatically scans archives, validates headers, and extracts observation data.
-                </div>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                    Upload Satellite Observation Data
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
+                    Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, Shapefile, or ZIP dataset.
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Click to browse local files or drag and drop files here.
+                  </div>
 
-                {/* Supported formats pill list */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Supported formats:
-                  </span>
-                  {['CSV', 'JSON', 'ZIP DATASETS', 'ESRI SHAPEFILE (.SHP)', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
+                  {/* Supported formats pill list */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Supported formats:
+                    </span>
+                    {['CSV', 'JSON', 'ZIP DATASETS', 'ESRI SHAPEFILE (.SHP)', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
+                      <span
+                        key={fmt}
+                        style={{
+                          fontSize: '10.5px',
+                          padding: '2px 8px',
+                          borderRadius: '4px',
+                          background: 'rgba(56, 189, 248, 0.1)',
+                          border: '1px solid rgba(56, 189, 248, 0.25)',
+                          color: 'var(--primary-cyan)',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {fmt}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                /* State B: FILE SELECTED -> Replaces empty upload state as required by Section 6 */
+                <div
+                  style={{
+                    border: '1px solid rgba(56, 189, 248, 0.4)',
+                    background: 'rgba(15, 32, 50, 0.8)',
+                    borderRadius: '12px',
+                    padding: '22px 24px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '14px',
+                    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(56, 189, 248, 0.08)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <span
-                      key={fmt}
                       style={{
-                        fontSize: '10.5px',
-                        padding: '2px 8px',
-                        borderRadius: '4px',
-                        background: 'rgba(56, 189, 248, 0.1)',
-                        border: '1px solid rgba(56, 189, 248, 0.25)',
+                        fontSize: '11px',
+                        fontWeight: 800,
+                        letterSpacing: '0.08em',
                         color: 'var(--primary-cyan)',
-                        fontFamily: 'var(--font-mono)',
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
                       }}
                     >
-                      {fmt}
+                      <FileText size={14} />
+                      FILE SELECTED
                     </span>
-                  ))}
+                    <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                      {formatFileSize(selectedFiles[0]?.size || 0)}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginTop: '2px' }}>
+                    <div
+                      style={{
+                        width: '46px',
+                        height: '46px',
+                        borderRadius: '10px',
+                        background: 'rgba(56, 189, 248, 0.15)',
+                        border: '1px solid rgba(56, 189, 248, 0.35)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: 'var(--primary-cyan)',
+                        flexShrink: 0,
+                      }}
+                    >
+                      <FileText size={22} />
+                    </div>
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div
+                        style={{
+                          fontSize: '15px',
+                          fontWeight: 700,
+                          color: '#FFFFFF',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                        title={selectedFiles[0]?.name}
+                      >
+                        {selectedFiles[0]?.name}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
+                        Size: {formatFileSize(selectedFiles[0]?.size || 0)}
+                        {filePreviews[0]?.format ? ` • Format: ${filePreviews[0].format}` : ''}
+                        {filePreviews[0]?.recordCount ? ` • ${filePreviews[0].recordCount.toLocaleString()} observations detected` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#86EFAC', fontSize: '13px', fontWeight: 600 }}>
+                    <CheckCircle2 size={16} style={{ color: 'var(--success)' }} />
+                    <span>✓ Ready for SATRA AI Analysis</span>
+                  </div>
+
+                  {/* Action buttons inside the card */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-secondary"
+                      style={{ padding: '8px 18px', fontSize: '12px', fontWeight: 600, cursor: 'pointer' }}
+                      disabled={isProcessing}
+                    >
+                      CHANGE FILE
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleExecuteAnalysis}
+                      className="btn-primary"
+                      disabled={isProcessing || !hasValidFile}
+                      style={{
+                        padding: '8px 22px',
+                        fontSize: '12.5px',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: '#0284C7',
+                        boxShadow: '0 0 16px rgba(2, 132, 199, 0.4)',
+                        cursor: isProcessing || !hasValidFile ? 'not-allowed' : 'pointer',
+                        opacity: isProcessing || !hasValidFile ? 0.6 : 1,
+                      }}
+                    >
+                      <Zap size={14} />
+                      <span>{isProcessing ? 'Analyzing with SATRA AI...' : 'ANALYZE WITH SATRA AI'}</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Dynamic Status / ZIP Scanning Notice */}
               {validationNotice && (
@@ -1059,8 +1146,8 @@ export function UploadAndAnalyzeModal({
                 </div>
               )}
 
-              {/* Selected Files List with Badges */}
-              {filePreviews.length > 0 && (
+              {/* Selected Files List with Badges (when multiple files uploaded) */}
+              {filePreviews.length > 1 && (
                 <div
                   style={{
                     background: 'rgba(15, 32, 50, 0.75)',
@@ -1968,7 +2055,7 @@ export function UploadAndAnalyzeModal({
                     <Zap size={14} />
                     <span>
                       {isProcessing
-                        ? `Batch ${jobProgress.currentBatch} / ${jobProgress.totalBatches} (${jobProgress.progressPercent.toFixed(0)}%)...`
+                        ? 'Analyzing with SATRA AI...'
                         : 'ANALYZE WITH SATRA AI'}
                     </span>
                   </button>

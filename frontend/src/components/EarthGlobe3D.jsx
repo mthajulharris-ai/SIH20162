@@ -53,23 +53,23 @@ function latLngToVector3(lat, lng, radius) {
  * Persistent Thermal Source  -> Purple (#A855F7)
  * Other                      -> Yellow (#FACC15)
  */
-function getClassificationHex(predictedClass) {
+function getClassificationHex(predictedClass, palette = 'thermal') {
   const c = (predictedClass || '').toLowerCase();
-  if (c.includes('industrial')) return 0xef4444;
+  if (c.includes('industrial')) return 0xef4444; // Red
   if (
     c.includes('forest') ||
     c.includes('wildfire') ||
     c.includes('vegetation') ||
     c.includes('bushfire')
   ) {
-    return 0x10b981;
+    return 0x10b981; // Green
   }
-  if (c.includes('persistent')) return 0xa855f7;
-  return 0xfacc15;
+  if (c.includes('persistent')) return 0xa855f7; // Purple
+  return 0xfacc15; // Yellow
 }
 
-function getClassificationCss(predictedClass) {
-  return `#${getClassificationHex(predictedClass).toString(16).padStart(6, '0')}`;
+function getClassificationCss(predictedClass, palette = 'thermal') {
+  return `#${getClassificationHex(predictedClass, palette).toString(16).padStart(6, '0')}`;
 }
 
 /**
@@ -326,9 +326,9 @@ function createBlueDigitalTextureFromImage(image, renderer) {
 }
 
 // Camera Distance Presets (Smooth, wide zoom range without clipping into Earth radius 100)
-const CAMERA_DIST_GLOBAL = 245;    // State 1: Global full Earth overview
-const CAMERA_DIST_REGIONAL = 190;  // State 2: Regional view
-const CAMERA_DIST_DETECTION = 150; // State 3: Controlled close observation (Altitude ~50)
+const CAMERA_DIST_GLOBAL = 285;    // State 1: Global full Earth overview (full globe comfortably visible)
+const CAMERA_DIST_REGIONAL = 210;  // State 2: Regional view
+const CAMERA_DIST_DETECTION = 160; // State 3: Controlled close observation (Altitude ~60)
 const CAMERA_DIST_MIN = 118;       // Smooth close zoom without clipping Earth surface
 const CAMERA_DIST_MAX = 520;       // Spacious distant orbit view
 
@@ -345,6 +345,10 @@ export function EarthGlobe3D({
   hideModeSelector = false,
   hideFloatingFeed = false,
   focusTrigger = null,
+  resetTrigger = null,
+  zoomInTrigger = null,
+  zoomOutTrigger = null,
+  palette = 'thermal',
 }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
@@ -504,7 +508,7 @@ export function EarthGlobe3D({
 
     const maxAnisotropy = renderer.capabilities.getMaxAnisotropy ? renderer.capabilities.getMaxAnisotropy() : 4;
 
-    const initialIsBlueStyle = isEarthIntelligence || earthModeRef.current === 'thermal';
+    const initialIsBlueStyle = earthModeRef.current === 'thermal';
     const earthMat = new THREE.MeshStandardMaterial({
       map: initialIsBlueStyle ? fallbackBlueTex : fallbackTex,
       roughness: initialIsBlueStyle ? 0.48 : 0.78,
@@ -537,7 +541,7 @@ export function EarthGlobe3D({
         }
 
         // Apply active mode texture immediately
-        if (isEarthIntelligence || earthModeRef.current === 'thermal') {
+        if (earthModeRef.current === 'thermal') {
           earthMat.map = blueDigitalTexRef.current || fallbackBlueTex;
           earthMat.color.setHex(0x38bdf8);
           earthMat.emissive.setHex(0x021f3f);
@@ -567,7 +571,7 @@ export function EarthGlobe3D({
       depthWrite: false,
     });
     const cloudsMesh = new THREE.Mesh(cloudsGeo, cloudsMat);
-    cloudsMesh.visible = !isEarthIntelligence && earthModeRef.current !== 'thermal';
+    cloudsMesh.visible = earthModeRef.current !== 'thermal';
     earthGroup.add(cloudsMesh);
     cloudsMeshRef.current = cloudsMesh;
 
@@ -597,7 +601,7 @@ export function EarthGlobe3D({
           depthWrite: false,
         });
         const nightMesh = new THREE.Mesh(new THREE.SphereGeometry(earthRadius + 0.15, 64, 64), nightMat);
-        nightMesh.visible = !isEarthIntelligence && earthModeRef.current !== 'thermal';
+        nightMesh.visible = earthModeRef.current !== 'thermal';
         earthGroup.add(nightMesh);
         nightMeshRef.current = nightMesh;
       },
@@ -748,11 +752,13 @@ export function EarthGlobe3D({
       }
     };
 
-    container.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-    container.addEventListener('wheel', onWheel, { passive: false });
-    container.addEventListener('click', onClick);
+    if (!isOverview) {
+      container.addEventListener('pointerdown', onPointerDown);
+      window.addEventListener('pointermove', onPointerMove);
+      window.addEventListener('pointerup', onPointerUp);
+      container.addEventListener('wheel', onWheel, { passive: false });
+      container.addEventListener('click', onClick);
+    }
 
     // 12. Resize Observer
     const resizeObserver = new ResizeObserver((entries) => {
@@ -881,11 +887,13 @@ export function EarthGlobe3D({
     // Cleanup on unmount
     return () => {
       cancelAnimationFrame(animFrameIdRef.current);
-      container.removeEventListener('pointerdown', onPointerDown);
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-      container.removeEventListener('wheel', onWheel);
-      container.removeEventListener('click', onClick);
+      if (!isOverview) {
+        container.removeEventListener('pointerdown', onPointerDown);
+        window.removeEventListener('pointermove', onPointerMove);
+        window.removeEventListener('pointerup', onPointerUp);
+        container.removeEventListener('wheel', onWheel);
+        container.removeEventListener('click', onClick);
+      }
       resizeObserver.disconnect();
 
       if (rendererRef.current && rendererRef.current.domElement) {
@@ -907,19 +915,6 @@ export function EarthGlobe3D({
   useEffect(() => {
     if (!earthMatRef.current) return;
     const earthMat = earthMatRef.current;
-
-    if (isEarthIntelligence) {
-      // In Earth Intelligence, Earth remains blue holographic across all visualization modes
-      earthMat.map = blueDigitalTexRef.current || fallbackBlueTexRef.current;
-      earthMat.color.setHex(0x38bdf8);
-      earthMat.emissive.setHex(0x021f3f);
-      earthMat.roughness = 0.48;
-      earthMat.metalness = 0.28;
-      earthMat.needsUpdate = true;
-      if (cloudsMeshRef.current) cloudsMeshRef.current.visible = false;
-      if (nightMeshRef.current) nightMeshRef.current.visible = false;
-      return;
-    }
 
     if (earthMode === 'normal') {
       earthMat.map = daymapTexRef.current || fallbackTexRef.current;
@@ -993,7 +988,7 @@ export function EarthGlobe3D({
         Math.abs(parseFloat(selectedDetection.latitude) - lat) < 0.0001 &&
         Math.abs(parseFloat(selectedDetection.longitude) - lon) < 0.0001;
 
-      const classColor = getClassificationHex(d.predicted_class);
+      const classColor = getClassificationHex(d.predicted_class, palette);
 
       // Marker Container positioned at exact lat/lon
       const markerRoot = new THREE.Group();
@@ -1091,7 +1086,7 @@ export function EarthGlobe3D({
 
       group.add(markerRoot);
     });
-  }, [detections, selectedDetection]);
+  }, [detections, selectedDetection, palette]);
 
   // Smooth Globe Rotation & Controlled Zoom on Selected Detection
   useEffect(() => {
@@ -1188,6 +1183,24 @@ export function EarthGlobe3D({
       window.removeEventListener('satra-globe-zoom-out', onZoomOut);
     };
   }, []);
+
+  // Dedicated Reset Trigger
+  useEffect(() => {
+    if (!resetTrigger) return;
+    handleResetView();
+  }, [resetTrigger, handleResetView]);
+
+  // Dedicated Zoom In Trigger
+  useEffect(() => {
+    if (!zoomInTrigger) return;
+    handleZoomIn();
+  }, [zoomInTrigger]);
+
+  // Dedicated Zoom Out Trigger
+  useEffect(() => {
+    if (!zoomOutTrigger) return;
+    handleZoomOut();
+  }, [zoomOutTrigger]);
 
   // Copy coordinates helper
   const handleCopyCoords = (lat, lon) => {
@@ -1562,7 +1575,7 @@ export function EarthGlobe3D({
       )}
 
       {/* Detection Hover Information Card (interaction only — no blinking) */}
-      {hoveredDetection && (
+      {!isOverview && hoveredDetection && (
         <div
           style={{
             position: 'fixed',
@@ -1717,8 +1730,9 @@ export function EarthGlobe3D({
       */}
 
       {/* Right-side Vertical Controls Pill */}
-      <div
-        style={{
+      {!isOverview && !isEarthIntelligence && (
+        <div
+          style={{
           position: 'absolute',
           top: '50%',
           right: 16,
@@ -1845,6 +1859,7 @@ export function EarthGlobe3D({
           <Globe size={15} />
         </button>
       </div>
+      )}
 
       {/* Bottom-right Coordinate Telemetry (Reference Match) */}
       {!isOverview && !isEarthIntelligence && (
