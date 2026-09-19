@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import satraLogoDark from '../assets/satra-logo-dark.jpg';
+import satraLogoLight from '../assets/satra-logo-light.jpg';
 import {
   RefreshCw,
   Search,
@@ -74,22 +76,17 @@ export function Header({
     <header className="top-header">
       {/* Left: SATRA Identity */}
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <div
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: '9px',
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(2, 132, 199, 0.4) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.45)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#38BDF8',
-            boxShadow: '0 0 14px rgba(56, 189, 248, 0.25)',
-            flexShrink: 0,
-          }}
-        >
-          <Globe size={20} />
+        <div className="header-logo-frame">
+          <img
+            src={satraLogoDark}
+            alt="SATRA Logo"
+            className="header-logo-img satra-logo-dark"
+          />
+          <img
+            src={satraLogoLight}
+            alt="SATRA Logo"
+            className="header-logo-img satra-logo-light"
+          />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

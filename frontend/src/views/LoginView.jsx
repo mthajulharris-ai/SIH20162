@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Lock, Eye, EyeOff, AlertCircle, Shield } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import satraLogoDark from '../assets/satra-logo-dark.jpg';
+import satraLogoLight from '../assets/satra-logo-light.jpg';
 import './LoginView.css';
 
 export function LoginView({ onLogin }) {
-  const [username, setUsername] = useState('admin@sentrix.edu');
-  const [password, setPassword] = useState('password123');
+  const [username, setUsername] = useState('operator@satra.intel');
+  const [password, setPassword] = useState('satra2026');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -83,15 +85,18 @@ export function LoginView({ onLogin }) {
           3. SENTRIX LOGIN CARD (Centered Glassmorphism)
           ================================================================== */}
       <div className="sentrix-login-wrapper">
-        <main className="sentrix-login-card" aria-label="SENTRIX System Authentication">
-          {/* Card Header & Branding */}
-          <header className="sentrix-card-header">
-            <div className="sentrix-emblem-badge" aria-hidden="true">
-              <Shield className="sentrix-emblem-icon" size={22} />
+        <main className="sentrix-login-card" aria-label="SATRA System Authentication">
+          {/* Card Header & SATRA Branding */}
+          <header className="satra-login-card-header">
+            <div className="satra-login-logo-wrapper">
+              <img
+                src={satraLogoDark}
+                alt="SATRA — Satellite Thermal Risk Analysis"
+                className="satra-login-logo"
+              />
             </div>
-            <h1 className="sentrix-brand-title">SENTRIX</h1>
-            <p className="sentrix-brand-tagline">
-              Smart College Entrance Substance Screening & Safety Alert System
+            <p className="satra-login-tagline">
+              AI Satellite Intelligence & Autonomous Thermal Monitoring
             </p>
           </header>
 
