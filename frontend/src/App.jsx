@@ -299,6 +299,19 @@ export function App() {
               onNavigate={handleTabChange}
               selectedDetection={selectedDetection}
               onSelectDetection={setSelectedDetection}
+              onFocusDetection={handleFocusDetection}
+            />
+          )}
+
+          {/* 02 Detection Explorer */}
+          {currentTab === 'detection-explorer' && (
+            <DetectionExplorerView
+              detections={detections}
+              onRefresh={loadDashboardData}
+              loading={loading}
+              selectedDetection={selectedDetection}
+              onSelectDetection={setSelectedDetection}
+              onFocusDetection={handleFocusDetection}
             />
           )}
 

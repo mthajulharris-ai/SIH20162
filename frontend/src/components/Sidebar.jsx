@@ -1,16 +1,16 @@
 import React from 'react';
 import {
   LayoutDashboard,
-  Route,
-  Search,
-  Radio,
   ShieldAlert,
-  History,
   BarChart3,
   Globe,
   Settings,
   LogOut,
   Sparkles,
+  Cpu,
+  Satellite,
+  Crosshair,
+  Radio,
 } from 'lucide-react';
 
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus, onLogout }) {
@@ -20,12 +20,12 @@ export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHe
 
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
-    { id: 'path-intel', num: '02', label: 'Path Intelligence', icon: Route },
-    { id: 'investigate', num: '03', label: 'Investigate', icon: Search },
-    { id: 'live-monitoring', num: '04', label: 'Live Monitoring', icon: Radio },
-    { id: 'alerts', num: '05', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
-    { id: 'history', num: '06', label: 'History', icon: History },
-    { id: 'analytics', num: '07', label: 'Analytics', icon: BarChart3 },
+    { id: 'detection-explorer', num: '02', label: 'Detection Explorer', icon: Crosshair },
+    { id: 'alerts', num: '03', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
+    { id: 'analytics', num: '04', label: 'Analytics', icon: BarChart3 },
+    { id: 'gis-investigation', num: '05', label: 'GIS Investigation', icon: Globe },
+    { id: 'satellite-data', num: '06', label: 'Satellite Data', icon: Satellite },
+    { id: 'ai-assistant', num: '07', label: 'AI Assistant', icon: Sparkles },
     { id: 'settings', num: '08', label: 'Settings', icon: Settings },
   ];
 

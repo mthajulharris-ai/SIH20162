@@ -48,10 +48,10 @@ function latLngToVector3(lat, lng, radius) {
 
 /**
  * Classification-driven hotspot palette (SATRA thermal taxonomy).
- * Industrial Fire            -> Red
- * Forest Fire                -> Orange
- * Persistent Thermal Source  -> Yellow
- * Other                      -> Cyan / Blue
+ * Industrial Fire            -> Red (#EF4444)
+ * Forest Fire                -> Green (#10B981)
+ * Persistent Thermal Source  -> Purple (#A855F7)
+ * Other                      -> Yellow (#FACC15)
  */
 function getClassificationHex(predictedClass) {
   const c = (predictedClass || '').toLowerCase();
@@ -62,10 +62,10 @@ function getClassificationHex(predictedClass) {
     c.includes('vegetation') ||
     c.includes('bushfire')
   ) {
-    return 0xf97316;
+    return 0x10b981;
   }
-  if (c.includes('persistent')) return 0xfacc15;
-  return 0x38bdf8;
+  if (c.includes('persistent')) return 0xa855f7;
+  return 0xfacc15;
 }
 
 function getClassificationCss(predictedClass) {
