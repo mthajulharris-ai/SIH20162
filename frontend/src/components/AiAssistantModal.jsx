@@ -10,8 +10,9 @@ import {
   Radio,
   ExternalLink,
   ChevronRight,
-  Maximize2,
-  Minimize2,
+  ChevronDown,
+  Check,
+  Search,
   RefreshCw,
   Cpu,
   Mic,
@@ -22,13 +23,273 @@ import {
 } from 'lucide-react';
 import { sendChatMessage } from '../services/api';
 import {
+  LANGUAGE_OPTIONS,
   MULTILINGUAL_SUGGESTED_QUESTIONS,
   startVoiceRecognition,
   speakText,
   stopSpeaking,
 } from '../services/speech';
 
+export const GREETINGS_BY_LANG = {
+  en: "Hello! 👋\n\nI am SATRA AI Assistant — your Satellite Intelligence Copilot.\n\nHow would you like to interact with me?",
+  ta: "வணக்கம்! 👋\n\nநான் SATRA AI Assistant — உங்கள் Satellite Intelligence Copilot.\n\nநான் உங்களுக்கு எப்படி உதவலாம்?",
+  tanglish: "Vanakkam! 👋\n\nNaan SATRA AI Assistant — ungaloda Satellite Intelligence Copilot.\n\nUngalukku naan epdi help pannanum?",
+  hi: "नमस्ते! 👋\n\nमैं SATRA AI Assistant — आपका Satellite Intelligence Copilot हूँ।\n\nमैं आपकी कैसे सहायता कर सकता हूँ?",
+  te: "నమస్కారం! 👋\n\nనేను SATRA AI Assistant — మీ Satellite Intelligence Copilot.\n\nనేను మీకు ఎలా సహాయం చేయగలను?",
+  kn: "ನಮಸ್ಕಾರ! 👋\n\nನಾನು SATRA AI Assistant — ನಿಮ್ಮ Satellite Intelligence Copilot.\n\nನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?",
+  ml: "നമസ്കാരം! 👋\n\nഞാൻ SATRA AI Assistant — നിങ്ങളുടെ Satellite Intelligence Copilot.\n\nഎനിക്ക് നിങ്ങളെ എങ്ങനെ സഹായിക്കാനാകും?",
+  mr: "नमस्कार! 👋\n\nमी SATRA AI Assistant — तुमचा Satellite Intelligence Copilot आहे।\n\nमी तुम्हाला कशी मदत करू शकतो?",
+  gu: "નમસ્તે! 👋\n\nહું SATRA AI Assistant — તમારો Satellite Intelligence Copilot છું.\n\nહું તમને કેવી રીતે મદદ કરી શકું?",
+  bn: "নমস্কার! 👋\n\nআমি SATRA AI Assistant — আপনার Satellite Intelligence Copilot।\n\nআমি আপনাকে কীভাবে সাহায্য করতে পারি?",
+  pa: "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! 👋\n\nਮੈਂ SATRA AI Assistant ਹਾਂ — ਤੁਹਾਡਾ Satellite Intelligence Copilot।\n\nਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?",
+  or: "ନମସ୍କାର! 👋\n\nମୁଁ SATRA AI Assistant — ଆପଣଙ୍କ Satellite Intelligence Copilot।\n\nମୁଁ ଆପଣଙ୍କୁ କିପରି ସାହାଯ୍ୟ କରିପାରିବି?",
+  as: "নমস্কাৰ! 👋\n\nমই SATRA AI Assistant — আপোনাৰ Satellite Intelligence Copilot।\n\nমই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?",
+  ur: "سلام! 👋\n\nمیں SATRA AI Assistant ہوں — آپ کا Satellite Intelligence Copilot۔\n\nمیں آپ کی کیا مدد کر سکتا ہوں؟",
+  raj: "खम्मा घणी! 👋\n\nम्हे SATRA AI Assistant हाँ — आपरो Satellite Intelligence Copilot।\n\nम्हे आपरी काईं मदद कर सकाँ?",
+  auto: "Hello! 👋\n\nI am SATRA AI Assistant — your Satellite Intelligence Copilot.\n\nHow would you like to interact with me?",
+};
+
+export function PreferredLanguageSelector({
+  preferredLanguage,
+  onSelectLanguage,
+  isOpen,
+  onToggle,
+  onClose,
+}) {
+  const [search, setSearch] = useState('');
+  const dropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isOpen, onClose]);
+
+  const activeOption =
+    LANGUAGE_OPTIONS.find((l) => l.id === preferredLanguage) || LANGUAGE_OPTIONS[0];
+  const activeLabel =
+    activeOption.native && activeOption.native !== activeOption.label
+      ? `${activeOption.native} (${activeOption.label})`
+      : activeOption.label;
+
+  const filtered = LANGUAGE_OPTIONS.filter((lang) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase().trim();
+    return (
+      lang.label.toLowerCase().includes(q) ||
+      (lang.native && lang.native.toLowerCase().includes(q)) ||
+      lang.id.toLowerCase().includes(q)
+    );
+  });
+
+  return (
+    <div ref={dropdownRef} style={{ position: 'relative', width: '100%', marginTop: '12px' }}>
+      <div
+        style={{
+          fontSize: '11px',
+          fontWeight: 600,
+          color: 'var(--text-muted)',
+          marginBottom: '6px',
+          letterSpacing: '0.04em',
+        }}
+      >
+        Preferred Language
+      </div>
+
+      {/* Single clickable dropdown field */}
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-label="Select preferred language"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '9px 12px',
+          borderRadius: '8px',
+          background: 'rgba(11, 23, 38, 0.85)',
+          border: isOpen
+            ? '1px solid var(--primary-cyan)'
+            : '1px solid rgba(69, 200, 245, 0.35)',
+          boxShadow: isOpen
+            ? '0 0 12px rgba(69, 200, 245, 0.25)'
+            : '0 2px 6px rgba(0, 0, 0, 0.2)',
+          color: 'var(--text-heading)',
+          fontSize: '12.5px',
+          cursor: 'pointer',
+          transition: 'all 0.18s ease',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.borderColor = 'var(--primary-cyan)';
+          e.currentTarget.style.boxShadow = '0 0 10px rgba(69, 200, 245, 0.25)';
+        }}
+        onMouseLeave={(e) => {
+          if (!isOpen) {
+            e.currentTarget.style.borderColor = 'rgba(69, 200, 245, 0.35)';
+            e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.2)';
+          }
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '14px' }}>{activeOption.flag || '🌐'}</span>
+          <span style={{ fontWeight: 600 }}>{activeLabel}</span>
+        </div>
+        <ChevronDown
+          size={14}
+          style={{
+            color: 'var(--primary-cyan)',
+            transform: isOpen ? 'rotate(180deg)' : 'none',
+            transition: 'transform 0.2s ease',
+          }}
+        />
+      </button>
+
+      {/* Floating Popover / Dropdown Menu */}
+      {isOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'calc(100% + 6px)',
+            left: 0,
+            right: 0,
+            maxHeight: '260px',
+            background: '#0B1726',
+            border: '1px solid rgba(69, 200, 245, 0.45)',
+            borderRadius: '10px',
+            boxShadow: '0 14px 36px rgba(0, 0, 0, 0.85), 0 0 18px rgba(69, 200, 245, 0.22)',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+          }}
+        >
+          {/* Search Field */}
+          <div
+            style={{
+              padding: '8px 10px',
+              borderBottom: '1px solid rgba(69, 200, 245, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(15, 23, 42, 0.7)',
+            }}
+          >
+            <Search size={13} style={{ color: 'var(--primary-cyan)', flexShrink: 0 }} />
+            <input
+              type="text"
+              placeholder="Search language..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoFocus
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                fontSize: '12px',
+                color: '#FFFFFF',
+              }}
+            />
+          </div>
+
+          {/* Scrollable Language List */}
+          <div
+            style={{
+              overflowY: 'auto',
+              flex: 1,
+              padding: '4px',
+              maxHeight: '210px',
+            }}
+          >
+            {filtered.map((lang) => {
+              const isSelected = lang.id === preferredLanguage;
+              const display =
+                lang.native && lang.native !== lang.label
+                  ? `${lang.native} (${lang.label})`
+                  : lang.label;
+              return (
+                <button
+                  key={lang.id}
+                  type="button"
+                  onClick={() => {
+                    onSelectLanguage(lang.id);
+                    setSearch('');
+                  }}
+                  style={{
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '7px 10px',
+                    borderRadius: '6px',
+                    border: 'none',
+                    background: isSelected ? 'rgba(69, 200, 245, 0.18)' : 'transparent',
+                    color: isSelected ? 'var(--primary-cyan)' : 'var(--text-secondary)',
+                    fontSize: '12px',
+                    fontWeight: isSelected ? 600 : 400,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    transition: 'all 0.12s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)';
+                      e.currentTarget.style.color = '#FFFFFF';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px' }}>{lang.flag || '🌐'}</span>
+                    <span>{display}</span>
+                  </div>
+                  {isSelected && <Check size={13} style={{ color: 'var(--primary-cyan)' }} />}
+                </button>
+              );
+            })}
+            {filtered.length === 0 && (
+              <div
+                style={{
+                  padding: '12px',
+                  textAlign: 'center',
+                  fontSize: '11.5px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                No matching languages
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
+  const [preferredLanguage, setPreferredLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('satra_preferred_language') || 'en';
+    } catch {
+      return 'en';
+    }
+  });
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem('satra_chat_history');
@@ -41,12 +302,13 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     } catch (e) {
       console.warn('Unable to load chat history:', e);
     }
+    const initialLang = localStorage.getItem('satra_preferred_language') || 'en';
     return [
       {
         id: 'welcome',
         role: 'assistant',
-        content:
-          "Hello! I'm SATRA AI Assistant.\n\nI can help you understand fire detections, satellite observations, thermal anomalies, alerts and SATRA analytics.\n\nPick one of the suggested questions below or ask SATRA anything.",
+        isWelcome: true,
+        content: GREETINGS_BY_LANG[initialLang] || GREETINGS_BY_LANG.en,
         sources: ['SATRA Operational Guidelines'],
         timestamp: new Date().toISOString(),
       },
@@ -55,7 +317,6 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
 
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
   const [detectedLanguage, setDetectedLanguage] = useState('auto');
   const [isListening, setIsListening] = useState(false);
   const [listeningStatus, setListeningStatus] = useState('');
@@ -65,6 +326,34 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceTranscriptRef = useRef('');
+  const voiceInterimRef = useRef('');
+  const isVoiceSubmittingRef = useRef(false);
+
+  // When user selects a preferred language
+  const handleSelectLanguage = (langId) => {
+    setPreferredLanguage(langId);
+    try {
+      localStorage.setItem('satra_preferred_language', langId);
+    } catch (e) {
+      console.warn('Unable to save preferred language:', e);
+    }
+    setIsLangDropdownOpen(false);
+
+    // If chat has only the welcome greeting, update its text naturally to the selected language
+    if (messages.length <= 1) {
+      setMessages([
+        {
+          id: 'welcome_' + Date.now(),
+          role: 'assistant',
+          isWelcome: true,
+          content: GREETINGS_BY_LANG[langId] || GREETINGS_BY_LANG.en,
+          sources: ['SATRA Operational Guidelines'],
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+  };
 
   // Persist messages
   useEffect(() => {
@@ -104,8 +393,11 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
   if (!isOpen) return null;
 
   const handleSendMessage = async (textToSend) => {
-    const query = (textToSend || inputMessage).trim();
-    if (!query || isLoading) return;
+    const query = (typeof textToSend === 'string' ? textToSend : inputMessage).trim();
+    if (!query || isLoading) {
+      isVoiceSubmittingRef.current = false;
+      return;
+    }
 
     if (isListening) {
       try {
@@ -116,6 +408,9 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
       setIsListening(false);
       setListeningStatus('');
     }
+    voiceTranscriptRef.current = '';
+    voiceInterimRef.current = '';
+    isVoiceSubmittingRef.current = false;
 
     const userMsgId = 'user_' + Date.now();
     const newUserMsg = {
@@ -137,7 +432,9 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
         content: m.content,
       }));
 
-      const res = await sendChatMessage(query, historyPayload, 'auto');
+      // Pass user's preferredLanguage as default/preference;
+      // the backend RAG pipeline strictly prioritizes current user message language
+      const res = await sendChatMessage(query, historyPayload, preferredLanguage || 'auto');
       if (res.language) {
         setDetectedLanguage(res.language);
       }
@@ -165,45 +462,59 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
+      isVoiceSubmittingRef.current = false;
     }
   };
 
   const toggleVoiceRecognition = () => {
     if (isListening) {
+      setIsListening(false);
+      setListeningStatus('');
       try {
         recognitionRef.current?.stop();
       } catch {
         // no-op
       }
-      setIsListening(false);
-      setListeningStatus('');
       return;
     }
 
+    // Reset voice transcript accumulator before starting a new recording
+    voiceTranscriptRef.current = '';
+    isVoiceSubmittingRef.current = false;
     setSpeechError(null);
     setIsListening(true);
     setListeningStatus('Listening...');
+    setInputMessage('');
+
+    // Dynamic recognition language selection
+    const activeSpeechLang =
+      preferredLanguage && preferredLanguage !== 'auto'
+        ? preferredLanguage
+        : (detectedLanguage && detectedLanguage !== 'auto' ? detectedLanguage : 'en');
 
     recognitionRef.current = startVoiceRecognition({
-      language: detectedLanguage || 'auto',
+      language: activeSpeechLang,
       onStart: () => {
         setListeningStatus('Recording...');
       },
-      onResult: ({ finalTranscript, interimTranscript }) => {
-        if (interimTranscript) {
-          setListeningStatus('Processing voice...');
-          setInputMessage(interimTranscript);
+      onResult: ({ finalTranscript, interimTranscript, currentDisplayTranscript }) => {
+        // Always store latest available complete transcript
+        const latest = (finalTranscript || currentDisplayTranscript || '').trim();
+        if (latest) {
+          voiceTranscriptRef.current = latest;
         }
-        if (finalTranscript) {
-          setInputMessage(finalTranscript);
-          setIsListening(false);
-          setListeningStatus('');
-          handleSendMessage(finalTranscript);
+
+        // Live visual display in input box (do NOT submit yet)
+        if (currentDisplayTranscript) {
+          setInputMessage(currentDisplayTranscript);
+          setListeningStatus(interimTranscript ? 'Listening...' : 'Processing voice...');
         }
       },
       onError: (err) => {
         setIsListening(false);
         setListeningStatus('');
+        voiceTranscriptRef.current = '';
+        isVoiceSubmittingRef.current = false;
         if (err.error === 'not-allowed') {
           setSpeechError('Microphone permission denied. Please allow microphone access in your browser.');
         } else if (err.error === 'no-speech') {
@@ -215,9 +526,22 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
         }
         setTimeout(() => setSpeechError(null), 6000);
       },
-      onEnd: () => {
+      onEnd: ({ finalTranscript: engineFinal } = {}) => {
         setIsListening(false);
         setListeningStatus('');
+
+        // ALWAYS compute the latest local transcript synchronously
+        const latestTranscript = (engineFinal || voiceTranscriptRef.current || '').trim();
+
+        // Clear voice transcript ref immediately so it CANNOT be reused by the next recording
+        voiceTranscriptRef.current = '';
+
+        // Submit exactly ONCE if non-empty
+        if (latestTranscript && !isVoiceSubmittingRef.current) {
+          isVoiceSubmittingRef.current = true;
+          setInputMessage(latestTranscript);
+          handleSendMessage(latestTranscript);
+        }
       },
     });
   };
@@ -251,8 +575,8 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     const welcome = {
       id: 'welcome_' + Date.now(),
       role: 'assistant',
-      content:
-        "Hello! I'm SATRA AI Assistant.\n\nI can help you understand fire detections, satellite observations, thermal anomalies, alerts and SATRA analytics.\n\nPick one of the suggested questions below or ask SATRA anything.",
+      isWelcome: true,
+      content: GREETINGS_BY_LANG[preferredLanguage] || GREETINGS_BY_LANG.en,
       sources: ['SATRA Operational Guidelines'],
       timestamp: new Date().toISOString(),
     };
@@ -425,7 +749,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
           top: 0,
           right: 0,
           bottom: 0,
-          width: isExpanded ? 'min(94vw, 860px)' : 'min(88vw, 420px)',
+          width: 'min(88vw, 420px)',
           height: '100%',
           maxHeight: '100%',
           display: 'flex',
@@ -441,15 +765,16 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
           transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
-        {/* Assistant Header */}
+        {/* Assistant Header - Section 1: Compact, Clean, Professional */}
         <div
           style={{
-            padding: '14px 18px',
+            padding: '12px 16px',
             background: 'var(--panel-header-bg)',
             borderBottom: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            flexShrink: 0,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -464,28 +789,34 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--primary-cyan)',
+                flexShrink: 0,
               }}
             >
               <Bot size={18} />
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '14.5px', fontWeight: 700, color: 'var(--text-heading)' }}>
-                SATRA AI Assistant
-              </span>
-              <span
-                style={{
-                  fontSize: '10px',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  background: 'rgba(34, 197, 94, 0.15)',
-                  color: '#22c55e',
-                  border: '1px solid rgba(34, 197, 94, 0.3)',
-                  fontWeight: 600,
-                  fontFamily: 'var(--font-mono)',
-                  letterSpacing: '0.04em',
-                }}
-              >
-                ONLINE
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '0.02em' }}>
+                  SATRA AI Assistant
+                </span>
+                <span
+                  style={{
+                    fontSize: '9.5px',
+                    padding: '1.5px 6px',
+                    borderRadius: '4px',
+                    background: 'rgba(34, 197, 94, 0.15)',
+                    color: '#22c55e',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  ONLINE
+                </span>
+              </div>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.01em' }}>
+                Satellite Intelligence Copilot
               </span>
             </div>
           </div>
@@ -498,14 +829,6 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
               style={{ padding: '6px' }}
             >
               <Trash2 size={14} />
-            </button>
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="satra-icon-btn"
-              title={isExpanded ? 'Restore window size' : 'Maximize window'}
-              style={{ padding: '6px' }}
-            >
-              {isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
             </button>
             <button
               onClick={onClose}
@@ -663,8 +986,19 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
 
                       {renderFormattedContent(m.content)}
 
-                      {/* Sources Section */}
-                      {m.sources && m.sources.length > 0 && (
+                      {/* Initial Greeting & Preferred Language UI (Sections 2, 3, 22, 24, 25) */}
+                      {(m.isWelcome || messages[0]?.id === m.id) && (
+                        <PreferredLanguageSelector
+                          preferredLanguage={preferredLanguage}
+                          onSelectLanguage={handleSelectLanguage}
+                          isOpen={isLangDropdownOpen}
+                          onToggle={() => setIsLangDropdownOpen((prev) => !prev)}
+                          onClose={() => setIsLangDropdownOpen(false)}
+                        />
+                      )}
+
+                      {/* Sources Section - only for subsequent responses with sources */}
+                      {!m.isWelcome && messages[0]?.id !== m.id && m.sources && m.sources.length > 0 && (
                         <div
                           style={{
                             marginTop: '10px',
@@ -769,6 +1103,52 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
               gap: '6px',
             }}
           >
+            {/* Subtle compact preference indicator when conversation is active (Section 22) */}
+            {messages.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: '4px',
+                  marginBottom: '2px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Preferred:</span>
+                  <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>
+                    {(() => {
+                      const opt =
+                        LANGUAGE_OPTIONS.find((l) => l.id === preferredLanguage) ||
+                        LANGUAGE_OPTIONS[0];
+                      return `${opt.flag || '🌐'} ${
+                        opt.native && opt.native !== opt.label
+                          ? `${opt.native} (${opt.label})`
+                          : opt.label
+                      }`;
+                    })()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLangDropdownOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-cyan)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
             <div
               style={{
                 fontSize: '10.5px',
@@ -793,7 +1173,13 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                 scrollbarWidth: 'none',
               }}
             >
-              {(MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] || MULTILINGUAL_SUGGESTED_QUESTIONS.auto || MULTILINGUAL_SUGGESTED_QUESTIONS.en).slice(0, 5).map((q, qIdx) => (
+              {(
+                MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS[preferredLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS.en
+              )
+                .slice(0, 5)
+                .map((q, qIdx) => (
                 <button
                   key={qIdx}
                   onClick={() => handleSendMessage(q)}
@@ -911,15 +1297,24 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
             ref={inputRef}
             type="text"
             className="satra-search-input"
-            placeholder={
-              detectedLanguage === 'ta'
-                ? 'SATRA AI-யிடம் கேளுங்கள்...'
-                : detectedLanguage === 'hi'
-                ? 'SATRA AI से पूछें...'
-                : detectedLanguage === 'tanglish'
-                ? 'SATRA AI kitta kelunga...'
-                : 'Ask SATRA anything...'
-            }
+            placeholder={(() => {
+              const lang =
+                detectedLanguage && detectedLanguage !== 'auto'
+                  ? detectedLanguage
+                  : preferredLanguage;
+              if (lang === 'ta') return 'SATRA AI-யிடம் கேளுங்கள்...';
+              if (lang === 'tanglish') return 'SATRA AI kitta kelunga...';
+              if (lang === 'hi') return 'SATRA AI से पूछें...';
+              if (lang === 'te') return 'SATRA AI ని అడగండి...';
+              if (lang === 'kn') return 'SATRA AI ಅನ್ನು ಕೇಳಿ...';
+              if (lang === 'ml') return 'SATRA AI-യോട് ചോദിക്കൂ...';
+              if (lang === 'mr') return 'SATRA AI ला विचारा...';
+              if (lang === 'gu') return 'SATRA AI ને પૂછો...';
+              if (lang === 'bn') return 'SATRA AI কে জিজ্ঞাসা করুন...';
+              if (lang === 'pa') return 'SATRA AI ਨੂੰ ਪੁੱਛੋ...';
+              if (lang === 'ur') return 'SATRA AI سے پوچھیں...';
+              return 'Ask SATRA anything...';
+            })()}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}

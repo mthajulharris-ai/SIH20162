@@ -8,10 +8,15 @@ import json
 from pathlib import Path
 from typing import List, Tuple, Optional
 import numpy as np
-import faiss
+try:
+    import faiss
+except ImportError:
+    faiss = None
+
 
 from .config import RAGConfig
 from .chunker import DocumentChunk
+
 
 
 class FAISSVectorStore:
@@ -26,9 +31,10 @@ class FAISSVectorStore:
 
     def _load(self):
         """Load FAISS index and metadata from disk if present."""
-        if self.index_path.exists() and self.metadata_path.exists():
+        if faiss is not None and self.index_path.exists() and self.metadata_path.exists():
             try:
                 self.index = faiss.read_index(str(self.index_path))
+
                 with open(self.metadata_path, 'r', encoding='utf-8') as f:
                     raw_data = json.load(f)
                     self.chunks = [DocumentChunk(**item) for item in raw_data]

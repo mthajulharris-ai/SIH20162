@@ -295,7 +295,7 @@ export function App() {
           onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
-          onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
+          onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
         />
 
         <div className="content-body">
@@ -453,24 +453,29 @@ export function App() {
 
         {/* Global AI Assistant Expandable Workspace / Slide-Over Panel */}
         <AiAssistantModal
-          isOpen={isAiAssistantModalOpen}
-          onClose={() => setIsAiAssistantModalOpen(false)}
+          isOpen={isAiAssistantModalOpen || isChatbotOpen}
+          onClose={() => {
+            setIsAiAssistantModalOpen(false);
+            setIsChatbotOpen(false);
+          }}
         />
 
         {/* SATRA AI Satellite Copilot Chatbot Modal (Section 14) */}
-        <SatraAiChatbotModal
-          isOpen={isChatbotOpen}
-          onClose={() => setIsChatbotOpen(false)}
-          onFocusDetection={handleFocusDetection}
-        />
+        {isChatbotOpen && (
+          <SatraAiChatbotModal
+            isOpen={isChatbotOpen}
+            onClose={() => setIsChatbotOpen(false)}
+            onFocusDetection={handleFocusDetection}
+          />
+        )}
 
       </main>
 
       {/* Single persistent floating "Ask SATRA" access point — fixed to the
           viewport (bottom: 24px / right: 24px) on every page. The ONLY
           floating AI Assistant entry; no duplicate chatbot cards. */}
-      {!isChatbotOpen && (
-        <FloatingAiButton onClick={() => setIsChatbotOpen(true)} />
+      {!isChatbotOpen && !isAiAssistantModalOpen && (
+        <FloatingAiButton onClick={() => setIsAiAssistantModalOpen(true)} />
       )}
     </div>
   );

@@ -5,63 +5,132 @@
  */
 
 export const LANGUAGE_OPTIONS = [
-  { id: 'auto', label: 'Auto Detect', code: 'auto' },
-  { id: 'en', label: 'English', code: 'en-US' },
-  { id: 'ta', label: 'Tamil (தமிழ்)', code: 'ta-IN' },
-  { id: 'tanglish', label: 'Tanglish', code: 'ta-IN' },
-  { id: 'hi', label: 'Hindi (हिन्दी)', code: 'hi-IN' },
+  { id: 'en', label: 'English', native: 'English', code: 'en-IN', flag: '🌐' },
+  { id: 'ta', label: 'Tamil', native: 'தமிழ்', code: 'ta-IN', flag: '🇮🇳' },
+  { id: 'te', label: 'Telugu', native: 'తెలుగు', code: 'te-IN', flag: '🇮🇳' },
+  { id: 'kn', label: 'Kannada', native: 'ಕನ್ನಡ', code: 'kn-IN', flag: '🇮🇳' },
+  { id: 'ml', label: 'Malayalam', native: 'മലയാളം', code: 'ml-IN', flag: '🇮🇳' },
+  { id: 'hi', label: 'Hindi', native: 'हिन्दी', code: 'hi-IN', flag: '🇮🇳' },
+  { id: 'mr', label: 'Marathi', native: 'मराठी', code: 'mr-IN', flag: '🇮🇳' },
+  { id: 'gu', label: 'Gujarati', native: 'ગુજરાતી', code: 'gu-IN', flag: '🇮🇳' },
+  { id: 'bn', label: 'Bengali', native: 'বাংলা', code: 'bn-IN', flag: '🇮🇳' },
+  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ', code: 'pa-IN', flag: '🇮🇳' },
+  { id: 'or', label: 'Odia', native: 'ଓଡ଼ିଆ', code: 'or-IN', flag: '🇮🇳' },
+  { id: 'as', label: 'Assamese', native: 'অসমীয়া', code: 'as-IN', flag: '🇮🇳' },
+  { id: 'ur', label: 'Urdu', native: 'اردو', code: 'ur-IN', flag: '🇮🇳' },
+  { id: 'raj', label: 'Rajasthani', native: 'राजस्थानी', code: 'hi-IN', flag: '🇮🇳' },
+  { id: 'tanglish', label: 'Tanglish', native: 'Tamil (Latin)', code: 'ta-IN', flag: '🇮🇳' },
+  { id: 'auto', label: 'Auto Detect', native: 'Auto Detect', code: 'auto', flag: '🌐' },
 ];
 
 export const MULTILINGUAL_SUGGESTED_QUESTIONS = {
   auto: [
-    'Explain NASA FIRMS',
+    'What is NASA FIRMS?',
     'How does SATRA classify fires?',
+    'What is FRP?',
     "Show today's fire detections",
     'What is a persistent thermal source?',
-    'Explain this detection',
-    'Why is FRP used in fire detection?',
     'What does the confidence score mean?',
-    'Show recent fire alerts',
   ],
   en: [
-    'Explain NASA FIRMS',
+    'What is NASA FIRMS?',
     'How does SATRA classify fires?',
+    'What is FRP?',
     "Show today's fire detections",
     'What is a persistent thermal source?',
-    'Explain this detection',
-    'Why is FRP used in fire detection?',
     'What does the confidence score mean?',
-    'Show recent fire alerts',
   ],
   ta: [
     'NASA FIRMS என்றால் என்ன?',
-    'SATRA என்ன AI மாதிரியைப் பயன்படுத்துகிறது?',
-    'இன்றைய தீ கண்டறிதல்களைக் காட்டு',
+    'SATRA தீயை எப்படி வகைப்படுத்துகிறது?',
     'FRP என்றால் என்ன?',
+    'இன்றைய தீ கண்டறிதல்களைக் காட்டு',
     'நான்கு வகைப்பாடுகள் என்ன?',
-    'SATRA ஒரு கண்டறிதலின் சரியான இடத்தை எவ்வாறு அடையாளம் காண்கிறது?',
-    'RAG என்றால் என்ன?',
-    'சமீபத்திய விழிப்பூட்டல்கள்',
+    'தொடர்ச்சியான வெப்ப ஆதாரம் என்றால் என்ன?',
   ],
   tanglish: [
     'NASA FIRMS na enna?',
-    'SATRA enna AI model use pannuthu?',
-    'Innaiku ethana fire?',
+    'SATRA epdi fires classify pannuthu?',
     'FRP na enna?',
+    'Innaiku ethana fire?',
     'Naalu classification classes enna?',
-    'SATRA epdi exact location kandupidikkuthu?',
-    'RAG na enna?',
     'Recent fire alerts kaatu',
   ],
   hi: [
     'NASA FIRMS क्या है?',
-    'सैट्रा कौन सा एआई मॉडल उपयोग करता है?',
-    'आज के आग के मामलों को दिखाओ',
+    'SATRA आग को कैसे वर्गीकृत करता है?',
     'FRP क्या है?',
+    'आज के आग के मामलों को दिखाओ',
     'चार वर्गीकरण श्रेणियां क्या हैं?',
-    'सैट्रा किसी पहचान के सटीक स्थान की पहचान कैसे करता है?',
-    'RAG क्या है?',
-    'हालिया अलर्ट दिखाएं',
+    'सैट्रा कौन सा एआई मॉडल उपयोग करता है?',
+  ],
+  te: [
+    'NASA FIRMS అంటే ఏమిటి?',
+    'SATRA మంటలను ఎలా వర్గీకరిస్తుంది?',
+    'FRP అంటే ఏమిటి?',
+    'ఈరోజు మంటలను చూపించు',
+    'నాలుగు వర్గీకరణలు ఏమిటి?',
+    'నిరంతర థర్మల్ మూలం అంటే ఏమిటి?',
+  ],
+  kn: [
+    'NASA FIRMS ಎಂದರೇನು?',
+    'SATRA ಬೆಂಕಿಯನ್ನು ಹೇಗೆ ವರ್ಗೀಕರಿಸುತ್ತದೆ?',
+    'FRP ಎಂದರೇನು?',
+    'ಇಂದಿನ ಬೆಂಕಿ ಪತ್ತೆಗಳನ್ನು ತೋರಿಸಿ',
+    'ನಾಲ್ಕು ವರ್ಗೀಕರಣಗಳು ಯಾವುವು?',
+  ],
+  ml: [
+    'NASA FIRMS എന്താണ്?',
+    'SATRA തീപിടുത്തങ്ങളെ എങ്ങനെ തരംതിരിക്കുന്നു?',
+    'FRP എന്താണ്?',
+    'ഇന്നത്തെ തീപിടുത്തങ്ങൾ കാണിക്കുക',
+    'നാല് വർഗ്ഗീകരണങ്ങൾ ഏവ?',
+  ],
+  mr: [
+    'NASA FIRMS म्हणजे काय?',
+    'SATRA आगीचे वर्गीकरण कसे करते?',
+    'FRP म्हणजे काय?',
+    'आजच्या आगी दाखवा',
+    'चार वर्गीकरण वर्ग कोणते आहेत?',
+  ],
+  gu: [
+    'NASA FIRMS શું છે?',
+    'SATRA આગનું વર્ગીકરણ કેવી રીતે કરે છે?',
+    'FRP શું છે?',
+    'આજની આગ બતાવો',
+    'ચાર વર્ગીકરણ શ્રેણીઓ કઈ છે?',
+  ],
+  bn: [
+    'NASA FIRMS কী?',
+    'SATRA কীভাবে আগুন শ্রেণিবদ্ধ করে?',
+    'FRP কী?',
+    'আজকের আগুন সনাক্তকরণ দেখাও',
+    'চারটি শ্রেণিবিভাগ কী কী?',
+  ],
+  pa: [
+    'NASA FIRMS ਕੀ ਹੈ?',
+    'SATRA ਅੱਗ ਨੂੰ ਕਿਵੇਂ ਸ਼੍ਰੇਣੀਬੱਧ ਕਰਦਾ ਹੈ?',
+    'FRP ਕੀ ਹੈ?',
+    'ਅੱਜ ਦੀਆਂ ਅੱਗਾਂ ਦਿਖਾਓ',
+    'ਚਾਰ ਵਰਗੀਕਰਨ ਸ਼੍ਰੇਣੀਆਂ ਕੀ ਹਨ?',
+  ],
+  or: [
+    'NASA FIRMS କଣ?',
+    'SATRA ଅଗ୍ନିକୁ କିପରି ବର୍ଗୀକରଣ କରେ?',
+    'FRP କଣ?',
+    'ଆଜିର ଅଗ୍ନିକାଣ୍ଡ ଦେଖାନ୍ତୁ',
+  ],
+  ur: [
+    'NASA FIRMS کیا ہے؟',
+    'SATRA آگ کی درجہ بندی کیسے کرتا ہے؟',
+    'FRP کیا ہے؟',
+    'آج کی آگ کی نشاندہی دکھائیں',
+  ],
+  raj: [
+    'NASA FIRMS कांई है?',
+    'SATRA आग नै कियां छांटै है?',
+    'FRP कांई है?',
+    'आज री आग दिखावो',
   ],
 };
 
@@ -88,6 +157,25 @@ export function stripMarkdownForSpeech(text) {
     .trim();
 }
 
+// Standard Indic SpeechRecognition Language Mapping
+export const SPEECH_LANG_MAP = {
+  en: 'en-IN',
+  ta: 'ta-IN',
+  te: 'te-IN',
+  hi: 'hi-IN',
+  kn: 'kn-IN',
+  ml: 'ml-IN',
+  mr: 'mr-IN',
+  gu: 'gu-IN',
+  bn: 'bn-IN',
+  pa: 'pa-IN',
+  or: 'or-IN',
+  as: 'as-IN',
+  ur: 'ur-IN',
+  raj: 'hi-IN',
+  tanglish: 'ta-IN',
+};
+
 /**
  * Creates and starts a browser SpeechRecognition session.
  */
@@ -110,35 +198,60 @@ export function startVoiceRecognition({
   recognition.interimResults = true;
   recognition.maxAlternatives = 1;
 
-  // Language mapping
-  if (language === 'ta') {
-    recognition.lang = 'ta-IN';
-  } else if (language === 'hi') {
-    recognition.lang = 'hi-IN';
-  } else if (language === 'tanglish') {
-    recognition.lang = 'ta-IN';
-  } else if (language === 'en') {
-    recognition.lang = 'en-US';
-  } else {
-    recognition.lang = navigator.language || 'en-US';
+  // Dynamic language mapping
+  const langKey = (language || '').toLowerCase().trim();
+  let targetLangCode = SPEECH_LANG_MAP[langKey];
+
+  if (!targetLangCode) {
+    const matchedOpt = LANGUAGE_OPTIONS.find(
+      (opt) => opt.id === langKey || (opt.code && opt.code.toLowerCase() === langKey)
+    );
+    if (matchedOpt && matchedOpt.code && matchedOpt.code !== 'auto') {
+      targetLangCode = matchedOpt.code;
+    } else if (langKey && langKey !== 'auto' && /^[a-z]{2,3}(-[A-Z]{2,4})?$/i.test(langKey)) {
+      targetLangCode = langKey;
+    } else {
+      targetLangCode = navigator.language || 'en-IN';
+    }
   }
 
+  // Gracefully assign language code with fallback
+  try {
+    recognition.lang = targetLangCode;
+  } catch (err) {
+    console.warn('[SATRA SpeechRecognition] Could not assign recognition.lang =', targetLangCode, err);
+    recognition.lang = 'en-IN';
+  }
+
+  let finalTranscript = '';
+  let lastInterim = '';
+
   recognition.onstart = () => {
+    finalTranscript = '';
+    lastInterim = '';
     onStart && onStart();
   };
 
   recognition.onresult = (event) => {
     let interimTranscript = '';
-    let finalTranscript = '';
-    for (let i = event.resultIndex; i < event.results.length; ++i) {
-      const trans = event.results[i][0].transcript;
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const text = event.results[i][0]?.transcript || '';
       if (event.results[i].isFinal) {
-        finalTranscript += trans;
+        finalTranscript += text + ' ';
       } else {
-        interimTranscript += trans;
+        interimTranscript += text;
       }
     }
-    onResult && onResult({ finalTranscript, interimTranscript });
+
+    lastInterim = interimTranscript;
+    const currentDisplayTranscript = (finalTranscript + interimTranscript).trim();
+
+    onResult && onResult({
+      finalTranscript: finalTranscript.trim(),
+      interimTranscript: interimTranscript.trim(),
+      currentDisplayTranscript,
+    });
   };
 
   recognition.onerror = (event) => {
@@ -147,7 +260,11 @@ export function startVoiceRecognition({
   };
 
   recognition.onend = () => {
-    onEnd && onEnd();
+    let latestTranscript = finalTranscript.trim();
+    if (!latestTranscript && lastInterim.trim()) {
+      latestTranscript = lastInterim.trim();
+    }
+    onEnd && onEnd({ finalTranscript: latestTranscript });
   };
 
   try {
@@ -155,6 +272,18 @@ export function startVoiceRecognition({
     return recognition;
   } catch (err) {
     console.error('[SATRA SpeechRecognition Start Failed]', err);
+    // If it failed because of an unsupported language, retry once with en-IN fallback
+    if (recognition.lang !== 'en-IN') {
+      try {
+        console.warn('[SATRA SpeechRecognition] Retrying with en-IN fallback');
+        recognition.lang = 'en-IN';
+        recognition.start();
+        return recognition;
+      } catch (retryErr) {
+        onError && onError({ error: 'start-failed', message: retryErr.message });
+        return null;
+      }
+    }
     onError && onError({ error: 'start-failed', message: err.message });
     return null;
   }

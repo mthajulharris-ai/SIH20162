@@ -7,9 +7,17 @@ and response localization across English, Tamil (தமிழ்), Tanglish, and
 import re
 from typing import Dict, Any, Optional
 
-# Unicode Ranges
+# Unicode Ranges for Indic and Arabic/Urdu scripts
 TAMIL_PATTERN = re.compile(r'[\u0B80-\u0BFF]')
-HINDI_PATTERN = re.compile(r'[\u0900-\u097F]')
+TELUGU_PATTERN = re.compile(r'[\u0C00-\u0C7F]')
+KANNADA_PATTERN = re.compile(r'[\u0C80-\u0CFF]')
+MALAYALAM_PATTERN = re.compile(r'[\u0D00-\u0D7F]')
+DEVANAGARI_PATTERN = re.compile(r'[\u0900-\u097F]')
+GUJARATI_PATTERN = re.compile(r'[\u0A80-\u0AFF]')
+BENGALI_ASSAMESE_PATTERN = re.compile(r'[\u0980-\u09FF]')
+GURMUKHI_PUNJABI_PATTERN = re.compile(r'[\u0A00-\u0A7F]')
+ODIA_PATTERN = re.compile(r'[\u0B00-\u0B7F]')
+URDU_ARABIC_PATTERN = re.compile(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]')
 
 # Phonetic / Colloquial Lexical Patterns for Romanized Text
 TANGLISH_MARKERS = [
@@ -18,34 +26,80 @@ TANGLISH_MARKERS = [
     r'\baagum\b', r'\bpannum\b', r'\bpannuthu\b', r'\bkandupidikkuthu\b',
     r'\bsolvathu\b', r'\benakku\b', r'\bungalukku\b', r'\bsolunga\b',
     r'\bnaalu\b', r'\bvagaipaadu\b', r'\bperum\b', r'\binnaiku\b', r'\bkaatunga\b',
+    r'\bpannirukkinga\b', r'\baaguthu\b', r'\bkitta\b', r'\bpaththi\b', r'\bpathi\b',
+    r'\btheriyum\b', r'\bkelunga\b',
 ]
 
 HINGLISH_MARKERS = [
     r'\bkya hai\b', r'\bkaise\b', r'\bbatao\b', r'\bhota hai\b', r'\bhoti hai\b',
-    r'\bpehechan\b', r'\bkahan\b', r'\bkyun\b', r'\bkaisi\b', r'\bkaun sa\b',
-    r'\bkaun si\b', r'\baag\b', r'\bdikhao\b', r'\baaj\b', r'\bchaar\b',
-    r'\bkarega\b', r'\bkarta hai\b',
+    r'\bpehechan\b', r'\bpehchan\b', r'\bkahan\b', r'\bkyun\b', r'\bkaisi\b',
+    r'\bkaun sa\b', r'\bkaun si\b', r'\baag\b', r'\bdikhao\b', r'\baaj\b',
+    r'\bchaar\b', r'\bkarega\b', r'\bkarta hai\b', r'\biska\b', r'\buska\b',
+    r'\bkari\b', r'\bkare\b', r'\bbataiye\b', r'\bmadad\b', r'\bkuch\b',
+]
+
+ROMAN_TELUGU_MARKERS = [
+    r'\bante enti\b', r'\bante emiti\b', r'\bela\b', r'\bcheppandi\b',
+    r'\bunnadi\b', r'\benti\b', r'\bemiti\b', r'\bcheyali\b', r'\bchupinchandi\b',
+    r'\bivvala\b', r'\benni\b', r'\bela pani\b',
+]
+
+# Specific lexical distinctions for Devanagari script languages
+MARATHI_DEVANAGARI_MARKERS = [
+    "आहे", "नाही", "म्हणजे", "काय", "कसे", "दाखवा", "सांगा", "करतो", "करा", "आजचे", "आगीचे"
+]
+
+RAJASTHANI_DEVANAGARI_MARKERS = [
+    "कांई", "हैसी", "छै", "म्हैं", "म्हाने", "बतावो", "किया", "कियाँ", "घणी"
+]
+
+ASSAMESE_MARKERS = [
+    "অসমীয়া", "কেনেকৈ", "কিদৰে", "মই", "আপোনাৰ", "কৰিব"
 ]
 
 
 def detect_language(text: str) -> str:
     """
-    Detects the language of user input.
-    Returns: 'ta' (Tamil), 'hi' (Hindi), 'tanglish' (Tamil in Latin script), or 'en' (English).
+    Detects language or style of the input text.
+    Returns language codes:
+    'ta', 'te', 'kn', 'ml', 'hi', 'mr', 'gu', 'bn', 'pa', 'or', 'as', 'ur', 'raj', 'tanglish', or 'en'.
+    Returns 'neutral' if the text has no strong language indicator (e.g. short greeting 'hello', numbers).
     """
     if not text or not text.strip():
-        return "en"
+        return "neutral"
 
     clean_text = text.strip()
+    clean_lower = clean_text.lower()
 
-    # 1. Native script detection (Highest confidence)
+    # 1. Native script detection (highest confidence)
     if TAMIL_PATTERN.search(clean_text):
         return "ta"
-    if HINDI_PATTERN.search(clean_text):
+    if TELUGU_PATTERN.search(clean_text):
+        return "te"
+    if KANNADA_PATTERN.search(clean_text):
+        return "kn"
+    if MALAYALAM_PATTERN.search(clean_text):
+        return "ml"
+    if GUJARATI_PATTERN.search(clean_text):
+        return "gu"
+    if GURMUKHI_PUNJABI_PATTERN.search(clean_text):
+        return "pa"
+    if ODIA_PATTERN.search(clean_text):
+        return "or"
+    if URDU_ARABIC_PATTERN.search(clean_text):
+        return "ur"
+    if BENGALI_ASSAMESE_PATTERN.search(clean_text):
+        if any(marker in clean_text for marker in ASSAMESE_MARKERS):
+            return "as"
+        return "bn"
+    if DEVANAGARI_PATTERN.search(clean_text):
+        if any(marker in clean_text for marker in MARATHI_DEVANAGARI_MARKERS):
+            return "mr"
+        if any(marker in clean_text for marker in RAJASTHANI_DEVANAGARI_MARKERS):
+            return "raj"
         return "hi"
 
-    # 2. Romanized / Phonetic detection
-    clean_lower = clean_text.lower()
+    # 2. Romanized / Transliterated text detection
     for marker in TANGLISH_MARKERS:
         if re.search(marker, clean_lower):
             return "tanglish"
@@ -54,7 +108,73 @@ def detect_language(text: str) -> str:
         if re.search(marker, clean_lower):
             return "hi"
 
+    for marker in ROMAN_TELUGU_MARKERS:
+        if re.search(marker, clean_lower):
+            return "te"
+
+    # 3. Check for neutral/short ambiguous messages that shouldn't override user preference
+    ambiguous_words = {"hi", "hello", "hey", "help", "ok", "yes", "no", "thanks", "test"}
+    words = clean_lower.split()
+    if len(words) <= 2 and any(w in ambiguous_words for w in words):
+        return "neutral"
+
+    # 4. Check for clear English indicators
+    english_query_cues = [
+        "what is", "what are", "how does", "how do", "how many", "why is", "why was",
+        "tell me", "explain", "show me", "which is", "which are", "where is", "details of",
+        "status of", "difference between", "can you", "could you"
+    ]
+    if any(cue in clean_lower for cue in english_query_cues):
+        return "en"
+
+    # Default to English if standard ASCII
     return "en"
+
+
+def resolve_response_language(
+    message: str,
+    preferred_language: str = "auto",
+    history: Optional[Any] = None,
+) -> str:
+    """
+    Resolves response language strictly honoring the required priority:
+    1. Current user message language/style (strong signal)
+    2. Current voice transcript language/style (passed via message)
+    3. Current conversation language (from history if message is neutral)
+    4. Selected Preferred Language (preference fallback)
+    5. English fallback ('en')
+    """
+    detected = detect_language(message)
+
+    # 1 & 2: If current message/voice has a strong language signal, that signal WINS unconditionally
+    if detected and detected != "neutral":
+        return detected
+
+    # 4: If message is neutral (e.g. "hello", "hi"), use Preferred Language if specified
+    pref = (preferred_language or "").strip().lower()
+    valid_prefs = {
+        "en", "ta", "tanglish", "te", "kn", "ml", "hi", "mr",
+        "gu", "bn", "pa", "or", "as", "ur", "raj"
+    }
+    if pref in valid_prefs:
+        return pref
+
+    # 3: Check conversation history if current message is neutral and pref is auto
+    if history and isinstance(history, list) and len(history) > 0:
+        for item in reversed(history):
+            content = ""
+            if isinstance(item, dict):
+                content = item.get("content", "")
+            elif hasattr(item, "content"):
+                content = getattr(item, "content", "")
+            if content:
+                hist_det = detect_language(content)
+                if hist_det and hist_det != "neutral":
+                    return hist_det
+
+    # 5: Default English fallback
+    return "en"
+
 
 
 # Semantic mapping dictionary to translate multilingual user intent into English technical search concepts
@@ -65,6 +185,17 @@ MULTILINGUAL_QUERY_MAP = [
             "nasa firms என்றால் என்ன", "nasa firms என்ன", "nasa firms பற்றி",
             "nasa firms na enna", "firms na enna", "nasa firms enna",
             "nasa firms क्या है", "nasa firms kya hai", "firms kya hai",
+            "nasa firms అంటే ఏమిటి", "nasa firms enti", "nasa firms ante enti",
+            "nasa firms ಎಂದರೇನು", "nasa firms enu",
+            "nasa firms എന്താണ്", "nasa firms enthanu",
+            "nasa firms म्हणजे काय", "nasa firms काय आहे",
+            "nasa firms શું છે", "nasa firms shu che",
+            "nasa firms কী", "nasa firms ki",
+            "nasa firms ਕੀ ਹੈ", "nasa firms ki hai",
+            "nasa firms କଣ", "nasa firms kana",
+            "nasa firms কি", "nasa firms کیا ہے",
+            "nasa firms kya hai aur iska data", "nasa firms என்ன use பண்ணுது",
+            "nasa firms na enna? idhu epdi work aaguthu",
         ],
         "What is NASA FIRMS satellite constellation overview sensors VIIRS MODIS?"
     ),
@@ -75,6 +206,14 @@ MULTILINGUAL_QUERY_MAP = [
             "தீ கதிர்வீச்சு சக்தி", "தீ ஆற்றல்",
             "frp na enna", "frp enna", "thee kadirveechu sakthi",
             "frp क्या है", "frp kya hai", "fire radiative power kya hai", "अग्नि विकिरण शक्ति",
+            "frp అంటే ఏమిటి", "frp ante enti", "frp emiti",
+            "frp ಎಂದರೇನು", "frp enu",
+            "frp എന്താണ്", "frp enthanu",
+            "frp म्हणजे काय", "frp काय आहे",
+            "frp શું છે", "frp shu che",
+            "frp কী", "frp ki",
+            "frp ਕੀ ਹੈ", "frp ki hai",
+            "frp କଣ", "frp کیا ہے",
         ],
         "What is Fire Radiative Power FRP thermal physics brightness temperature?"
     ),
@@ -85,6 +224,16 @@ MULTILINGUAL_QUERY_MAP = [
             "satra enna ai model use pannuthu", "satra enna model use pannuthu", "ai model enna",
             "सैट्रा कौन सा एआई मॉडल उपयोग करता है", "satra kaun sa ai model use karta hai",
             "satra ka ai model kya hai", "konsa model use karta hai",
+            "satra ఏ ai మోడల్ ఉపయోగిస్తుంది", "satra ela classify chestundi",
+            "satra ಯಾವ ai ಮಾದರಿಯನ್ನು ಬಳಸುತ್ತದೆ",
+            "satra ഏത് ai മോഡലാണ് ഉപയോഗിക്കുന്നത്",
+            "satra कोणते ai मॉडेल वापरते",
+            "satra કયો ai મોડેલ વાપરે છે",
+            "satra কোন ai মডেল ব্যবহার করে",
+            "satra ਕਿਹੜਾ ai ਮਾਡਲ ਵਰਤਦਾ ਹੈ",
+            "satra କେଉଁ ai ମଡେଲ ବ୍ୟବହାର କରେ",
+            "satra epdi fires classify pannuthu", "satra aag ko kaise vargikrit karta hai",
+            "satra mantalanu ela vargikaristundi",
         ],
         "What AI machine learning model does SATRA use soft-voting ensemble Random Forest LightGBM XGBoost?"
     ),
@@ -96,6 +245,14 @@ MULTILINGUAL_QUERY_MAP = [
             "classification classes enna", "naalu classes enna",
             "चार वर्गीकरण श्रेणियां क्या हैं", "4 वर्गीकरण श्रेणियां",
             "chaar classification classes kya hain", "4 classes kya hain",
+            "నాలుగు వర్గీకరణలు ఏమిటి", "4 వర్గీకరణలు ఏమిటి",
+            "ನಾಲ್ಕು ವರ್ಗೀಕರಣಗಳು ಯಾವುವು",
+            "നാല് വർഗ്ഗീകരണങ്ങൾ ഏവ",
+            "चार वर्गीकरण वर्ग कोणते आहेत",
+            "ચાર વર્ગીકરણ શ્રેણીઓ કઈ છે",
+            "চারটি শ্রেণিবিভাগ কী কী",
+            "ਚਾਰ ਵਰਗੀਕਰਨ ਸ਼੍ਰੇਣੀਆਂ ਕੀ ਹਨ",
+            "ଚାରୋଟି ବର୍ଗୀକରଣ କଣ",
         ],
         "What are the four classification classes 0 Industrial Fire 1 Forest Fire 2 Persistent Thermal Source 3 Other taxonomy?"
     ),
@@ -108,6 +265,9 @@ MULTILINGUAL_QUERY_MAP = [
             "exact location epdi identify pannuthu", "location epdi kandupidikkuthu",
             "सैट्रा किसी पहचान के सटीक स्थान की पहचान कैसे करता है", "सटीक स्थान की पहचान कैसे करता है",
             "satra exact location kaise identify karta hai", "location kaise identify karta hai",
+            "satra ఖచ్చితమైన స్థానాన్ని ఎలా గుర్తిస్తుంది",
+            "satra ನಿಖರವಾದ ಸ್ಥಳವನ್ನು ಹೇಗೆ ಗುರುತಿಸುತ್ತದೆ",
+            "satra കൃത്യമായ സ്ഥാനം എങ്ങനെ തിരിച്ചറിയുന്നു",
         ],
         "How does SATRA identify the exact location of a detection coordinates latitude longitude GIS buffer?"
     ),
@@ -117,6 +277,15 @@ MULTILINGUAL_QUERY_MAP = [
             "rag என்றால் என்ன", "rag என்ன", "rag பற்றி சொல்லுங்கள்",
             "rag na enna", "rag enna", "rag pathi sollu",
             "rag क्या है", "rag kya hai", "rag ke baare mein batao",
+            "rag అంటే ఏమిటి", "rag ante enti",
+            "rag ಎಂದರೇನು",
+            "rag എന്താണ്",
+            "rag म्हणजे काय",
+            "rag શું છે",
+            "rag কী",
+            "rag ਕੀ ਹੈ",
+            "rag କଣ",
+            "rag کیا ہے",
         ],
         "What is RAG Retrieval-Augmented Generation architecture vector search FAISS?"
     ),
@@ -126,6 +295,13 @@ MULTILINGUAL_QUERY_MAP = [
             "இன்றைய தீ கண்டறிதல்களைக் காட்டு", "இன்றைய தீ", "இன்று எத்தனை தீ",
             "innaiku fire detections kaatu", "innaiku ethana fire", "today fires enna",
             "आज के आग के मामलों को दिखाओ", "आज कितनी आग लगी", "aaj kitne fire hue",
+            "ఈరోజు మంటలను చూపించు", "ఈరోజు ఎన్ని మంటలు",
+            "ಇಂದಿನ ಬೆಂಕಿಯನ್ನು ತೋರಿಸಿ",
+            "ഇന്നത്തെ തീപിടുത്തങ്ങൾ കാണിക്കുക",
+            "आजच्या आगी दाखवा",
+            "આજની આગ બતાવો",
+            "আজকের আগুন দেখাও",
+            "ਅੱਜ ਦੀਆਂ ਅੱਗਾਂ ਦਿਖਾਓ",
         ],
         "Show today's fire detections how many fires detected today"
     ),
@@ -135,6 +311,13 @@ MULTILINGUAL_QUERY_MAP = [
             "சமீபத்திய விழிப்பூட்டல்கள்", "விழிப்பூட்டல்களைக் காட்டு",
             "recent alerts kaatu", "alerts kaatu", "recent alerts enna",
             "हालिया अलर्ट दिखाएं", "अलर्ट दिखाओ", "recent alerts kya hain",
+            "ఇటీవలి హెచ్చరికలు", "హెచ్చరికలను చూపించు",
+            "ಇತ್ತೀಚಿನ ಎಚ್ಚರಿಕೆಗಳು",
+            "സമീപകാല മുന്നറിയിപ്പുകൾ",
+            "अलीकडील अलर्ट दाखवा",
+            "તાજેતરની ચેતવણીઓ",
+            "সাম্প্রতিক সতর্কতা",
+            "ਹਾਲੀਆ ਚਿਤਾਵਨੀਆਂ",
         ],
         "Show recent fire alerts unresolved critical high alerts"
     ),
@@ -144,10 +327,18 @@ MULTILINGUAL_QUERY_MAP = [
             "தொடர்ச்சியான வெப்ப ஆதாரம் என்றால் என்ன", "தொடர்ச்சியான வெப்பம்",
             "persistent thermal source na enna", "persistent source na enna",
             "लगातार थर्मल स्रोत क्या है", "persistent thermal source kya hai",
+            "నిరంతర థర్మల్ మూలం అంటే ఏమిటి",
+            "ಸ್ಥಿರ ಉಷ್ಣ ಮೂಲ ಎಂದರೇನು",
+            "സ്ഥിരമായ താപ സ്രോതസ്സ് എന്താണ്",
+            "सतत थर्मल स्त्रोत म्हणजे काय",
+            "સતત થર્મલ સ્ત્રોત શું છે",
+            "ধারাবাহিক তাপীয় উৎস কী",
+            "ਲਗਾਤਾਰ ਥਰਮਲ ਸਰੋਤ ਕੀ ਹੈ",
         ],
         "What is a persistent thermal source flare stack refinery recurrence?"
     ),
 ]
+
 
 
 def normalize_multilingual_query(query: str) -> str:
@@ -205,6 +396,60 @@ def normalize_multilingual_query(query: str) -> str:
         "कितने": "how many",
         "आज": "today",
         "कल": "yesterday",
+        # Telugu
+        "మంటలు": "fire",
+        "ఉపగ్రహం": "satellite",
+        "అంటే ఏమిటి": "what is",
+        "ఎలా": "how",
+        "ఎన్ని": "how many",
+        "ఈరోజు": "today",
+        "హెచ్చరిక": "alert",
+        "మోడల్": "model",
+        "వర్గీకరణ": "classification",
+        # Kannada
+        "ಬೆಂಕಿ": "fire",
+        "ಉಪಗ್ರಹ": "satellite",
+        "ಎಂದರೇನು": "what is",
+        "ಹೇಗೆ": "how",
+        "ಎಷ್ಟು": "how many",
+        "ಇಂದು": "today",
+        "ಎಚ್ಚರಿಕೆ": "alert",
+        "ಮಾದರಿ": "model",
+        # Malayalam
+        "തീ": "fire",
+        "ഉപഗ്രഹം": "satellite",
+        "എന്താണ്": "what is",
+        "എങ്ങനെ": "how",
+        "എത്ര": "how many",
+        "ഇന്ന്": "today",
+        "മുന്നറിയിപ്പ്": "alert",
+        # Marathi
+        "म्हणजे काय": "what is",
+        "कसे": "how",
+        "किती": "how many",
+        # Gujarati
+        "શું છે": "what is",
+        "કેવી રીતે": "how",
+        "કેટલા": "how many",
+        "આજે": "today",
+        # Bengali
+        "কী": "what is",
+        "আগুন": "fire",
+        "কীভাবে": "how",
+        "কত": "how many",
+        # Punjabi
+        "ਕੀ ਹੈ": "what is",
+        "ਅੱਗ": "fire",
+        "ਕਿਵੇਂ": "how",
+        "ਕਿੰਨੇ": "how many",
+        # Odia
+        "କଣ": "what is",
+        "ନିଆଁ": "fire",
+        "କିପରି": "how",
+        # Urdu
+        "کیا ہے": "what is",
+        "آگ": "fire",
+        "کیسے": "how",
     }
 
     normalized = q_lower
@@ -218,75 +463,202 @@ def normalize_multilingual_query(query: str) -> str:
 # Domain-Specific Localized Response Synthesis
 # ==============================================================================
 
+# Language labels for prefix and citations
+LANG_LABELS = {
+    "ta": ("SATRA AI உதவியாளர் (தமிழ்)", "வணக்கம்! நான் SATRA AI Assistant — உங்கள் Satellite Intelligence Copilot."),
+    "tanglish": ("SATRA AI Assistant (Tanglish)", "Vanakkam! Naan SATRA AI Assistant — ungaloda Satellite Intelligence Copilot."),
+    "hi": ("SATRA AI सहायक (हिन्दी)", "नमस्ते! मैं SATRA AI Assistant — आपका Satellite Intelligence Copilot हूँ।"),
+    "te": ("SATRA AI సహాయకుడు (తెలుగు)", "నమస్కారం! నేను SATRA AI Assistant — మీ Satellite Intelligence Copilot."),
+    "kn": ("SATRA AI ಸಹಾಯಕ (ಕನ್ನಡ)", "ನಮಸ್ಕಾರ! ನಾನು SATRA AI Assistant — ನಿಮ್ಮ Satellite Intelligence Copilot."),
+    "ml": ("SATRA AI അസിസ്റ്റന്റ് (മലയാളം)", "നമസ്കാരം! ഞാൻ SATRA AI Assistant — നിങ്ങളുടെ Satellite Intelligence Copilot."),
+    "mr": ("SATRA AI सहाय्यक (मराठी)", "नमस्कार! मी SATRA AI Assistant — आपला Satellite Intelligence Copilot आहे."),
+    "gu": ("SATRA AI સહાયક (ગુજરાતી)", "નમસ્તે! હું SATRA AI Assistant — આપનો Satellite Intelligence Copilot છું."),
+    "bn": ("SATRA AI সহকারী (বাংলা)", "নমস্কার! আমি SATRA AI Assistant — আপনার Satellite Intelligence Copilot।"),
+    "pa": ("SATRA AI ਸਹਾਇਕ (ਪੰਜਾਬੀ)", "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ SATRA AI Assistant — ਤੁਹਾਡਾ Satellite Intelligence Copilot ਹਾਂ।"),
+    "or": ("SATRA AI ସହାୟକ (ଓଡ଼ିଆ)", "ନମସ୍କାର! ମୁଁ SATRA AI Assistant — ଆପଣଙ୍କ Satellite Intelligence Copilot."),
+    "as": ("SATRA AI সহায়ক (অসমীয়া)", "নমস্কাৰ! মই SATRA AI Assistant — আপোনাৰ Satellite Intelligence Copilot।"),
+    "ur": ("SATRA AI اسسٹنٹ (اردو)", "السلام علیکم! میں SATRA AI Assistant ہوں — آپ کا Satellite Intelligence Copilot۔"),
+    "raj": ("SATRA AI सहायक (राजस्थानी)", "खम्मा घणी! म्हैं SATRA AI Assistant — आपरो Satellite Intelligence Copilot हूँ।"),
+}
+
+SCOPE_MESSAGES = {
+    "ta": (
+        "நான் SATRA AI உதவியாளர். நான் தொழில்துறை தீ கண்டறிதல், வெப்ப முரண்பாடுகள், "
+        "செயற்கைக்கோள் தரவு, தீ வகைப்பாடு, விழிப்பூட்டல்கள், GIS பகுப்பாய்வு மற்றும் "
+        "SATRA அமைப்பு தகவல்களில் மட்டுமே பதிலளிக்க பிரத்யேகமாக வடிவமைக்கப்பட்டுள்ளேன்."
+    ),
+    "tanglish": (
+        "Naan SATRA AI Assistant. Naan industrial fire detection, thermal anomalies, "
+        "satellite data, fire classification, alerts, GIS analysis, matrum "
+        "SATRA system information-la mattumae answer panna train aagirukken."
+    ),
+    "hi": (
+        "मैं SATRA AI सहायक हूँ। मैं विशेष रूप से औद्योगिक आग का पता लगाने, थर्मल विसंगतियों, "
+        "उपग्रह डेटा, अग्नि वर्गीकरण, अलर्ट, जीआईएस विश्लेषण और SATRA सिस्टम की जानकारी के लिए प्रशिक्षित हूँ।"
+    ),
+    "te": (
+        "నేను SATRA AI అసిస్టెంట్‌ని. నేను పారిశ్రామిక అగ్ని గుర్తింపు, థర్మల్ క్రమరాహిత్యాలు, "
+        "శాటిలైట్ డేటా, అగ్ని వర్గీకరణ, హెచ్చరికలు, GIS విశ్లేషణ మరియు SATRA సిస్టమ్ సమాచారంలో ప్రత్యేకత కలిగి ఉన్నాను."
+    ),
+    "kn": (
+        "ನಾನು SATRA AI ಸಹಾಯಕ. ನಾನು ಕೈಗಾರಿಕಾ ಬೆಂಕಿ ಪತ್ತೆ, ಉಷ್ಣ ವೈಪರೀತ್ಯಗಳು, "
+        "ಉಪಗ್ರಹ ಡೇಟಾ, ಬೆಂಕಿ ವರ್ಗೀಕರಣ, ಎಚ್ಚರಿಕೆಗಳು, GIS ವಿಶ್ಲೇಷಣೆ ಮತ್ತು SATRA ಸಿಸ್ಟಮ್ ಮಾಹಿತಿಯಲ್ಲಿ ಪರಿಣತಿ ಹೊಂದಿದ್ದೇನೆ."
+    ),
+    "ml": (
+        "ഞാൻ SATRA AI അസിസ്റ്റന്റാണ്. വ്യവസായ തീപിടുത്തങ്ങൾ കണ്ടെത്തൽ, താപ വ്യതിയാനങ്ങൾ, "
+        "ഉപഗ്രഹ ഡാറ്റ, തീപിടുത്ത വർഗ്ഗീകരണം, അലേർട്ടുകൾ, GIS വിശകലനം, SATRA സിസ്റ്റം വിവരങ്ങൾ എന്നിവയിൽ ഞാൻ പ്രത്യേകം പരിശീലനം നേടിയിട്ടുണ്ട്."
+    ),
+    "mr": (
+        "मी SATRA AI सहाय्यक आहे. मी औद्योगिक आग ओळखणे, थर्मल विसंगती, उपग्रह डेटा, "
+        "आग वर्गीकरण, अलर्ट, GIS विश्लेषण आणि SATRA प्रणाली माहितीमध्ये विशेष प्रशिक्षित आहे."
+    ),
+    "gu": (
+        "હું SATRA AI સહાયક છું. હું ઔદ્યોગિક આગ શોધ, થર્મલ વિસંગતતાઓ, સેટેલાઇટ ડેટા, "
+        "આગ વર્ગીકરણ, ચેતવણીઓ, GIS વિશ્લેષણ અને SATRA સિસ્ટમ માહિતીમાં વિશિષ્ટ છું."
+    ),
+    "bn": (
+        "আমি SATRA AI সহকারী। আমি শিল্প এলাকার আগুন সনাক্তকরণ, তাপীয় অসঙ্গতি, "
+        "উপগ্রহ তথ্য, আগুন শ্রেণিবিন্যাস, সতর্কতা, GIS বিশ্লেষণ এবং SATRA সিস্টেম তথ্যে বিশেষজ্ঞ।"
+    ),
+    "pa": (
+        "ਮੈਂ SATRA AI ਸਹਾਇਕ ਹਾਂ। ਮੈਂ ਉਦਯੋਗਿਕ ਅੱਗ ਦੀ ਪਛਾਣ, ਥਰਮਲ ਅਸੰਗਤੀਆਂ, ਉਪਗ੍ਰਹਿ ਡੇਟਾ, "
+        "ਅੱਗ ਵਰਗੀਕਰਨ, ਚਿਤਾਵਨੀਆਂ, GIS ਵਿਸ਼ਲੇਸ਼ਣ ਅਤੇ SATRA ਸਿਸਟਮ ਜਾਣਕਾਰੀ ਵਿੱਚ ਵਿਸ਼ੇਸ਼ ਹਾਂ।"
+    ),
+    "or": (
+        "ମୁଁ SATRA AI ସହାୟକ। ମୁଁ ଶିଳ୍ପ ଅଗ୍ନିକାଣ୍ଡ ଚିହ୍ନଟ, ଥର୍ମାଲ ବିସଙ୍ଗତି, ଉପଗ୍ରହ ଡାଟା, "
+        "ଅଗ୍ନି ବର୍ଗୀକରଣ, ଆଲର୍ଟ, GIS ବିଶ୍ଳେଷଣ ଏବଂ SATRA ସିଷ୍ଟମ ସୂଚନାରେ ବିଶେଷଜ୍ଞ।"
+    ),
+    "ur": (
+        "میں SATRA AI اسسٹنٹ ہوں۔ میں صنعتی آگ کا پتہ لگانے، تھرمل بے ضابطگیوں، "
+        "سیٹلائٹ ڈیٹا، آگ کی درجہ بندی، الرٹس، GIS تجزیہ اور SATRA سسٹم کی معلومات میں مہارت رکھتا ہوں۔"
+    ),
+}
+
+GREETING_RESPONSES = {
+    "ta": (
+        "வணக்கம்! 👋\n\nநான் **SATRA AI Assistant** — உங்கள் Satellite Intelligence Copilot.\n\n"
+        "நான் உங்களுக்கு எப்படி உதவலாம்?\n\n"
+        "### நான் உதவக்கூடிய பகுதிகள்:\n"
+        "- **நேரடி அவதானிப்புகள் & விழிப்பூட்டல்கள்**: \"*இன்றைய தீ கண்டறிதல்களைக் காட்டு*\", \"*சமீபத்திய விழிப்பூட்டல்கள்*\"\n"
+        "- **குறிப்பிட்ட ஹாட்ஸ்பாட் விளக்கம்**: \"*இந்த கண்டறிதல் ஏன் தொழில்துறை தீ என வகைப்படுத்தப்பட்டது?*\"\n"
+        "- **NASA FIRMS தரவுகள்**: \"*NASA FIRMS என்றால் என்ன?*\", \"*VIIRS vs MODIS வேறுபாடு என்ன?*\", \"*FRP என்றால் என்ன?*\"\n"
+        "- **மெஷின் லேர்னிங்**: \"*SATRA என்ன AI மாதிரியைப் பயன்படுத்துகிறது?*\", \"*நான்கு வகைப்பாடுகள் என்ன?*\"\n"
+        "- **GIS & இருப்பிடம்**: \"*SATRA ஒரு கண்டறிதலின் சரியான இடத்தை எவ்வாறு அடையாளம் காண்கிறது?*\""
+    ),
+    "tanglish": (
+        "Vanakkam! 👋\n\nNaan **SATRA AI Assistant** — ungaloda Satellite Intelligence Copilot.\n\n"
+        "Naan ungalukku epdi help panna mudiyum?\n\n"
+        "### Ennala ungalukku ithilam assist panna mudiyum:\n"
+        "- **Live Telemetry & Data**: \"*Innaiku ethana fire detect aachu?*\", \"*Recent fire alerts kaatu*\"\n"
+        "- **Hotspot Explanations**: \"*Intha detection-ah yen industrial fire-nu classify pannuchu?*\"\n"
+        "- **NASA FIRMS Telemetry**: \"*NASA FIRMS na enna?*\", \"*VIIRS vs MODIS difference enna?*\", \"*FRP na enna?*\"\n"
+        "- **Machine Learning**: \"*SATRA enna AI model use pannuthu?*\", \"*Naalu classification classes enna?*\"\n"
+        "- **GIS & Location**: \"*SATRA epdi exact location kandupidikkuthu?*\""
+    ),
+    "hi": (
+        "नमस्ते! 👋\n\nमैं **SATRA AI Assistant** — आपका Satellite Intelligence Copilot हूँ।\n\n"
+        "मैं आपकी कैसे सहायता कर सकता हूँ?\n\n"
+        "### मैं निम्नलिखित में आपकी सहायता कर सकता हूँ:\n"
+        "- **लाइव टेलीमेट्री और डेटा**: \"*आज के आग के मामलों को दिखाओ*\", \"*हालिया अलर्ट दिखाएं*\"\n"
+        "- **विशिष्ट हॉटस्पॉट विश्लेषण**: \"*इस डिटेक्शन को औद्योगिक आग के रूप में क्यों वर्गीकृत किया गया?*\"\n"
+        "- **NASA FIRMS टेलीमेट्री**: \"*NASA FIRMS क्या है?*\", \"*VIIRS और MODIS में क्या अंतर है?*\", \"*FRP क्या है?*\"\n"
+        "- **मशीन लर्निंग मॉडल**: \"*सैट्रा कौन सा एआई मॉडल उपयोग करता है?*\", \"*चार वर्गीकरण श्रेणियां क्या हैं?*\"\n"
+        "- **जीआईएस और स्थान**: \"*सैट्रा किसी पहचान के सटीक स्थान की पहचान कैसे करता है?*\""
+    ),
+    "te": (
+        "నమస్కారం! 👋\n\nనేను **SATRA AI Assistant** — మీ Satellite Intelligence Copilot.\n\n"
+        "నేను మీకు ఎలా సహాయం చేయగలను?\n\n"
+        "### నేను మీకు సహాయపడే అంశాలు:\n"
+        "- **లైవ్ టెలిమెట్రీ & హెచ్చరికలు**: \"*ఈరోజు గుర్తించిన మంటలను చూపించు*\", \"*ఇటీవలి హెచ్చరికలు*\"\n"
+        "- **హాట్‌స్పాట్ వివరణ**: \"*ఈ డిటెక్షన్ ఎందుకు పారిశ్రామిక అగ్నిగా వర్గీకరించబడింది?*\"\n"
+        "- **NASA FIRMS టెలిమెట్రీ**: \"*NASA FIRMS అంటే ఏమిటి?*\", \"*FRP అంటే ఏమిటి?*\"\n"
+        "- **మెషిన్ లెర్నింగ్ మోడల్**: \"*SATRA ఏ AI మోడల్‌ను ఉపయోగిస్తుంది?*\", \"*నాలుగు వర్గీకరణలు ఏమిటి?*\""
+    ),
+    "kn": (
+        "ನಮಸ್ಕಾರ! 👋\n\nನಾನು **SATRA AI Assistant** — ನಿಮ್ಮ Satellite Intelligence Copilot.\n\n"
+        "ನಾನು ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಬಹುದು?\n\n"
+        "### ನಾನು ನಿಮಗೆ ಸಹಾಯ ಮಾಡಬಹುದಾದ ವಿಷಯಗಳು:\n"
+        "- **ಲೈವ್ ಟೆಲಿಮೆಟ್ರಿ ಮತ್ತು ಎಚ್ಚರಿಕೆಗಳು**: \"*ಇಂದಿನ ಬೆಂಕಿ ಪತ್ತೆಗಳನ್ನು ತೋರಿಸಿ*\", \"*ಇತ್ತೀಚಿನ ಎಚ್ಚರಿಕೆಗಳು*\"\n"
+        "- **ಹಾಟ್‌ಸ್ಪಾಟ್ ವಿವರಣೆ**: \"*ಈ ಪತ್ತೆಯನ್ನು ಕೈಗಾರಿಕಾ ಬೆಂಕಿ ಎಂದು ಏಕೆ ವರ್ಗೀಕರಿಸಲಾಗಿದೆ?*\"\n"
+        "- **NASA FIRMS ಟೆಲಿಮೆಟ್ರಿ**: \"*NASA FIRMS ಎಂದರೇನು?*\", \"*FRP ಎಂದರೇನು?*\"\n"
+        "- **ಮೆಷಿನ್ ಲರ್ನಿಂಗ್**: \"*SATRA ಯಾವ AI ಮಾದರಿಯನ್ನು ಬಳಸುತ್ತದೆ?*\""
+    ),
+    "ml": (
+        "നമസ്കാരം! 👋\n\nഞാൻ **SATRA AI Assistant** — നിങ്ങളുടെ Satellite Intelligence Copilot.\n\n"
+        "ഞാൻ നിങ്ങളെ എങ്ങനെ സഹായിക്കും?\n\n"
+        "### എനിക്ക് സഹായിക്കാൻ കഴിയുന്ന മേഖലകൾ:\n"
+        "- **തത്സമയ ഡാറ്റയും അലേർട്ടുകളും**: \"*ഇന്നത്തെ തീപിടുത്തങ്ങൾ കാണിക്കുക*\", \"*സമീപകാല മുന്നറിയിപ്പുകൾ*\"\n"
+        "- **ഹോട്ട്‌സ്‌പോട്ട് വിശകലനം**: \"*എന്തുകൊണ്ടാണ് ഇത് വ്യാവസായിക തീപിടുത്തമായി തരംതിരിച്ചത്?*\"\n"
+        "- **NASA FIRMS വിവരങ്ങൾ**: \"*NASA FIRMS എന്താണ്?*\", \"*FRP എന്താണ്?*\"\n"
+        "- **മെഷീൻ ലേണിംഗ്**: \"*SATRA ഏത് AI മോഡലാണ് ഉപയോഗിക്കുന്നത്?*\""
+    ),
+    "mr": (
+        "नमस्कार! 👋\n\nमी **SATRA AI Assistant** — आपला Satellite Intelligence Copilot आहे.\n\n"
+        "मी आपली काय मदत करू शकतो?\n\n"
+        "### मी खालील विषयांमध्ये मदत करू शकतो:\n"
+        "- **थेट टेलीमेट्री आणि अलर्ट**: \"*आजच्या आगी दाखवा*\", \"*अलीकडील अलर्ट दाखवा*\"\n"
+        "- **हॉटस्पॉट विश्लेषण**: \"*या डिटेक्शनला औद्योगिक आग म्हणून का वर्गीकृत केले?*\"\n"
+        "- **NASA FIRMS माहिती**: \"*NASA FIRMS म्हणजे काय?*\", \"*FRP म्हणजे काय?*\"\n"
+        "- **मशीन लर्निंग**: \"*SATRA कोणते AI मॉडेल वापरते?*\""
+    ),
+    "gu": (
+        "નમસ્તે! 👋\n\nહું **SATRA AI Assistant** — આપનો Satellite Intelligence Copilot છું.\n\n"
+        "હું આપને કેવી રીતે મદદ કરી શકું?\n\n"
+        "### હું નીચેના વિષયોમાં મદદ કરી શકું છું:\n"
+        "- **લાઈવ ટેલિમેટ્રી અને ચેતવણીઓ**: \"*આજની આગ બતાવો*\", \"*તાજેતરની ચેતવણીઓ*\"\n"
+        "- **હોટસ્પોટ વિશ્લેષણ**: \"*આ ડિટેક્શનને ઔદ્યોગિક આગ તરીકે કેમ વર્ગીકૃત કરવામાં આવી?*\"\n"
+        "- **NASA FIRMS માહિતી**: \"*NASA FIRMS શું છે?*\", \"*FRP શું છે?*\""
+    ),
+    "bn": (
+        "নমস্কার! 👋\n\nআমি **SATRA AI Assistant** — আপনার Satellite Intelligence Copilot।\n\n"
+        "আমি আপনাকে কীভাবে সাহায্য করতে পারি?\n\n"
+        "### আমি যে ক্ষেত্রগুলিতে সাহায্য করতে পারি:\n"
+        "- **লাইভ টেলিমেট্রি এবং সতর্কতা**: \"*আজকের আগুন সনাক্তকরণ দেখাও*\", \"*সাম্প্রতিক সতর্কতা*\"\n"
+        "- **হটস্পট বিশ্লেষণ**: \"*কেন এই সনাক্তকরণটিকে শিল্প আগুন হিসেবে শ্রেণীবদ্ধ করা হলো?*\"\n"
+        "- **NASA FIRMS তথ্য**: \"*NASA FIRMS কী?*\", \"*FRP কী?*\""
+    ),
+    "pa": (
+        "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! 👋\n\nਮੈਂ **SATRA AI Assistant** — ਤੁਹਾਡਾ Satellite Intelligence Copilot ਹਾਂ।\n\n"
+        "ਮੈਂ ਤੁਹਾਡੀ ਕਿਵੇਂ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ?\n\n"
+        "### ਮੈਂ ਹੇਠ ਲਿਖੇ ਵਿਸ਼ਿਆਂ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ:\n"
+        "- **ਲਾਈਵ ਟੈਲੀਮੈਟਰੀ ਅਤੇ ਚਿਤਾਵਨੀਆਂ**: \"*ਅੱਜ ਦੀਆਂ ਅੱਗਾਂ ਦਿਖਾਓ*\", \"*ਹਾਲੀਆ ਚਿਤਾਵਨੀਆਂ*\"\n"
+        "- **ਹੌਟਸਪੌਟ ਵਿਸ਼ਲੇਸ਼ਣ**: \"*ਇਸ ਖੋਜ ਨੂੰ ਉਦਯੋਗਿਕ ਅੱਗ ਵਜੋਂ ਕਿਉਂ ਸ਼੍ਰੇਣੀਬੱਧ ਕੀਤਾ ਗਿਆ?*\"\n"
+        "- **NASA FIRMS ਜਾਣਕਾਰੀ**: \"*NASA FIRMS ਕੀ ਹੈ?*\", \"*FRP ਕੀ ਹੈ?*\""
+    ),
+    "ur": (
+        "السلام علیکم! 👋\n\nمیں **SATRA AI Assistant** ہوں — آپ کا Satellite Intelligence Copilot۔\n\n"
+        "میں آپ کی کس طرح مدد کر سکتا ہوں؟\n\n"
+        "### میں درج ذیل میں آپ کی مدد کر سکتا ہوں:\n"
+        "- **لائیو ٹیلی میٹری اور الرٹس**: \"*آج کی آگ کی نشاندہی دکھائیں*\", \"*حالیہ الرٹس*\"\n"
+        "- **ہاٹ سپاٹ تجزیہ**: \"*اس کھوج کو صنعتی آگ کے طور پر کیوں درجہ بند کیا گیا؟*\"\n"
+        "- **NASA FIRMS معلومات**: \"*NASA FIRMS کیا ہے؟*\", \"*FRP کیا ہے؟*\""
+    ),
+}
+
+
 def localize_response(english_response: str, target_lang: str, original_query: str = "") -> str:
     """
-    Localizes a grounded English response into the requested language (Tamil, Tanglish, Hindi, or English).
-    Preserves all technical keywords (NASA FIRMS, VIIRS, MODIS, FRP, RAG, GIS, Random Forest, etc.)
+    Localizes a grounded English response into the requested language.
+    Preserves all technical keywords (NASA FIRMS, VIIRS, MODIS, FRP, RAG, GIS, Random Forest, LightGBM, XGBoost, etc.)
     """
-    if target_lang == "en" or not target_lang:
+    if target_lang == "en" or not target_lang or target_lang == "neutral":
         return english_response
 
     # Scope / Unrelated response
     if "specialized in industrial fire detection" in english_response.lower():
-        if target_lang == "ta":
-            return (
-                "நான் SATRA AI உதவியாளர். நான் தொழில்துறை தீ கண்டறிதல், வெப்ப முரண்பாடுகள், "
-                "செயற்கைக்கோள் தரவு, தீ வகைப்பாடு, விழிப்பூட்டல்கள், GIS பகுப்பாய்வு மற்றும் "
-                "SATRA அமைப்பு தகவல்களில் மட்டுமே பதிலளிக்க பிரத்யேகமாக வடிவமைக்கப்பட்டுள்ளேன்."
-            )
-        elif target_lang == "tanglish":
-            return (
-                "Naan SATRA AI Assistant. Naan industrial fire detection, thermal anomalies, "
-                "satellite data, fire classification, alerts, GIS analysis, matrum "
-                "SATRA system information-la mattumae answer panna train aagirukken."
-            )
-        elif target_lang == "hi":
-            return (
-                "मैं SATRA AI सहायक हूँ। मैं विशेष रूप से औद्योगिक आग का पता लगाने, थर्मल विसंगतियों, "
-                "उपग्रह डेटा, अग्नि वर्गीकरण, अलर्ट, जीआईएस विश्लेषण और SATRA सिस्टम की जानकारी के लिए प्रशिक्षित हूँ।"
-            )
+        if target_lang in SCOPE_MESSAGES:
+            return SCOPE_MESSAGES[target_lang]
 
     # Greeting response
-    if "hello! i am the **satra domain ai assistant**" in english_response.lower():
-        if target_lang == "ta":
-            return (
-                "வணக்கம்! நான் **தொழில்துறை தீ கண்டறிதல் மற்றும் தொடர்ச்சியான வெப்ப மூல கண்காணிப்பு தளத்திற்கான (SATRA)** "
-                "பிரத்யேக AI உதவியாளர்.\n\n"
-                "### நான் உங்களுக்கு பின்வருவனவற்றில் உதவ முடியும்:\n"
-                "- **நேரடி அவதானிப்புகள் & விழிப்பூட்டல்கள்**: \"*இன்றைய தீ கண்டறிதல்களைக் காட்டு*\", \"*சமீபத்திய விழிப்பூட்டல்கள்*\"\n"
-                "- **குறிப்பிட்ட ஹாட்ஸ்பாட் விளக்கம்**: \"*இந்த கண்டறிதல் ஏன் தொழில்துறை தீ என வகைப்படுத்தப்பட்டது?*\"\n"
-                "- **NASA FIRMS தரவுகள்**: \"*NASA FIRMS என்றால் என்ன?*\", \"*VIIRS vs MODIS வேறுபாடு என்ன?*\", \"*FRP என்றால் என்ன?*\"\n"
-                "- **மெஷின் லேர்னிங்**: \"*SATRA என்ன AI மாதிரியைப் பயன்படுத்துகிறது?*\", \"*நான்கு வகைப்பாடுகள் என்ன?*\"\n"
-                "- **GIS & இருப்பிடம்**: \"*SATRA ஒரு கண்டறிதலின் சரியான இடத்தை எவ்வாறு அடையாளம் காண்கிறது?*\"\n\n"
-                "உங்களின் கேள்வியை தட்டச்சு செய்யவும் அல்லது மைக்ரோஃபோன் மூலம் பேசவும்."
-            )
-        elif target_lang == "tanglish":
-            return (
-                "Vanakkam! Naan industrial fire detection matrum persistent thermal source monitoring platform-kaga create panna **SATRA Domain AI Assistant**.\n\n"
-                "### Ennala ungalukku ithilam assist panna mudiyum:\n"
-                "- **Live Telemetry & Data**: \"*Innaiku ethana fire detect aachu?*\", \"*Recent fire alerts kaatu*\"\n"
-                "- **Hotspot Explanations**: \"*Intha detection-ah yen industrial fire-nu classify pannuchu?*\"\n"
-                "- **NASA FIRMS Telemetry**: \"*NASA FIRMS na enna?*\", \"*VIIRS vs MODIS difference enna?*\", \"*FRP na enna?*\"\n"
-                "- **Machine Learning**: \"*SATRA enna AI model use pannuthu?*\", \"*Naalu classification classes enna?*\"\n"
-                "- **GIS & Location**: \"*SATRA epdi exact location kandupidikkuthu?*\"\n\n"
-                "Suggested questions-la select pannunga illana mic button use panni pesalam."
-            )
-        elif target_lang == "hi":
-            return (
-                "नमस्ते! मैं औद्योगिक आग का पता लगाने और लगातार थर्मल स्रोत निगरानी मंच के लिए **SATRA AI सहायक** हूँ।\n\n"
-                "### मैं निम्नलिखित में आपकी सहायता कर सकता हूँ:\n"
-                "- **लाइव टेलीमेट्री और डेटा**: \"*आज के आग के मामलों को दिखाओ*\", \"*हालिया अलर्ट दिखाएं*\"\n"
-                "- **विशिष्ट हॉटस्पॉट विश्लेषण**: \"*इस डिटेक्शन को औद्योगिक आग के रूप में क्यों वर्गीकृत किया गया?*\"\n"
-                "- **NASA FIRMS टेलीमेट्री**: \"*NASA FIRMS क्या है?*\", \"*VIIRS और MODIS में क्या अंतर है?*\", \"*FRP क्या है?*\"\n"
-                "- **मशीन लर्निंग मॉडल**: \"*सैट्रा कौन सा एआई मॉडल उपयोग करता है?*\", \"*चार वर्गीकरण श्रेणियां क्या हैं?*\"\n"
-                "- **जीआईएस और स्थान**: \"*सैट्रा किसी पहचान के सटीक स्थान की पहचान कैसे करता है?*\"\n\n"
-                "एक प्रश्न टाइप करें या माइक्रोफ़ोन बटन दबाकर बोलें।"
-            )
+    if "hello! i am the **satra domain ai assistant**" in english_response.lower() or "how would you like to interact with me" in english_response.lower():
+        if target_lang in GREETING_RESPONSES:
+            return GREETING_RESPONSES[target_lang]
 
     q_norm = normalize_multilingual_query(original_query).lower()
+    q_raw_lower = original_query.lower()
 
     # Topic 1: NASA FIRMS
-    if "nasa firms" in q_norm or "firms" in q_norm:
+    if "nasa firms" in q_norm or "firms" in q_norm or "nasa firms" in q_raw_lower:
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (NASA FIRMS கண்ணோட்டம்):**\n\n"
@@ -329,9 +701,85 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "### दिन बनाम रात के अवलोकन:\n"
                 "रात के समय सौर विकिरण न होने के कारण औद्योगिक भट्टियों और फ्लेयर स्टैक की पहचान अधिक स्पष्टता से होती है।"
             )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (NASA FIRMS అవలోకనం):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ఉపగ్రహాల ద్వారా చురుకైన అగ్ని మరియు "
+                "థర్మల్ క్రమరాహిత్యాలను (thermal anomalies) పర్యవేక్షిస్తుంది మరియు ఉపగ్రహం దాటిన 3 గంటలలోపు Near Real-Time (NRT) డేటాను అందిస్తుంది.\n\n"
+                "### SATRA లో ఉపయోగించే సెన్సార్లు:\n"
+                "- **VIIRS (Visible Infrared Imaging Radiometer Suite)** (S-NPP, NOAA-20, NOAA-21 పై):\n"
+                "  - **Spatial Resolution**: 375 మీటర్ల పిక్సెల్ రిజల్యూషన్. చిన్న పారిశ్రామిక ఫ్లేర్ స్టాక్స్ మరియు ఫ్యాక్టరీ మంటలను గుర్తిస్తుంది.\n"
+                "- **MODIS (Moderate Resolution Imaging Spectroradiometer)** (Terra మరియు Aqua పై):\n"
+                "  - **Spatial Resolution**: 1 కి.మీ నామినల్ ఛానెల్‌లు. 20 సంవత్సరాలకు పైగా చారిత్రక డేటా ఆధారంగా దీర్ఘకాలిక Persistent Thermal Sources ను ట్రాక్ చేస్తుంది.\n\n"
+                "### పగలు మరియు రాత్రి పరిశీలనలు:\n"
+                "రాత్రి సమయ పరిశీలనలలో (Night Passes) సౌర పరావర్తనం లేకపోవడం వల్ల ఫ్లేర్ స్టాక్‌లు మరియు బ్లాస్ట్ ఫర్నేస్‌లను మరింత స్పష్టంగా గుర్తించవచ్చు."
+            )
+        elif target_lang == "kn":
+            return (
+                "**SATRA ಜ್ಞಾನ ತಳಹದಿಯಿಂದ (NASA FIRMS ವಿವರಣೆ):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ಉಪಗ್ರಹಗಳ ಮೂಲಕ ಸಕ್ರಿಯ ಬೆಂಕಿ ಮತ್ತು "
+                "ಉಷ್ಣ ವೈಪರೀತ್ಯಗಳನ್ನು (thermal anomalies) ಪತ್ತೆಹಚ್ಚುತ್ತದೆ ಮತ್ತು 3 ಗಂಟೆಗಳ ಒಳಗೆ Near Real-Time (NRT) ಡೇಟಾವನ್ನು ಒದಗಿಸುತ್ತದೆ.\n\n"
+                "### SATRA ನಲ್ಲಿ ಬಳಸಲಾಗುವ ಸೆನ್ಸರ್‌ಗಳು:\n"
+                "- **VIIRS (Visible Infrared Imaging Radiometer Suite)** (S-NPP, NOAA-20, NOAA-21 ಉಪಗ್ರಹಗಳಲ್ಲಿ): 375m ರೆಸಲ್ಯೂಶನ್.\n"
+                "- **MODIS (Moderate Resolution Imaging Spectroradiometer)** (Terra ಮತ್ತು Aqua ಉಪಗ್ರಹಗಳಲ್ಲಿ): 1 km ರೆಸಲ್ಯೂಶನ್, 20+ ವರ್ಷಗಳ ಐತಿಹಾಸಿಕ ದಾಖಲೆ."
+            )
+        elif target_lang == "ml":
+            return (
+                "**SATRA നോളജ് ബേസിൽ നിന്ന് (NASA FIRMS അവലോകനം):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ഉപഗ്രഹങ്ങൾ വഴി സജീവമായ തീപിടുത്തങ്ങളും "
+                "താപ വ്യതിയാനങ്ങളും (thermal anomalies) നിരീക്ഷിച്ച് 3 മണിക്കൂറിനുള്ളിൽ Near Real-Time (NRT) ഡാറ്റ നൽകുന്നു.\n\n"
+                "### SATRA ഉപയോഗിക്കുന്ന സെൻസറുകൾ:\n"
+                "- **VIIRS (Visible Infrared Imaging Radiometer Suite)**: 375 മീറ്റർ സ്പേഷ്യൽ റെസല്യൂഷൻ.\n"
+                "- **MODIS (Moderate Resolution Imaging Spectroradiometer)**: 1 കി.മീ റെസല്യൂഷൻ, 20 വർഷത്തെ ഹിസ്റ്റോറിക്കൽ ഡാറ്റ."
+            )
+        elif target_lang == "mr":
+            return (
+                "**SATRA नॉलेज बेसमधून (NASA FIRMS विहंगावलोकन):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** उपग्रहांद्वारे सक्रिय आग आणि "
+                "थर्मल विसंगतींचे (thermal anomalies) निरीक्षण करते आणि उपग्रह ओव्हरपासच्या 3 तासांच्या आत Near Real-Time (NRT) डेटा प्रदान करते.\n\n"
+                "### SATRA मधील सेन्सर्स:\n"
+                "- **VIIRS (Visible Infrared Imaging Radiometer Suite)**: 375m पिक्सेल रिझोल्यूशन (S-NPP, NOAA-20, NOAA-21).\n"
+                "- **MODIS (Moderate Resolution Imaging Spectroradiometer)**: 1 km पिक्सेल, 20+ वर्षांचा ऐतिहासिक डेटा."
+            )
+        elif target_lang == "gu":
+            return (
+                "**SATRA નોલેજ બેઝમાંથી (NASA FIRMS વિહંગાવલોકન):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ઉપગ્રહો દ્વારા સક્રિય આગ અને "
+                "થર્મલ વિસંગતતાઓનું (thermal anomalies) નિરીક્ષણ કરે છે અને સેટેલાઇટ પાસ થયાના 3 કલાકની અંદર Near Real-Time (NRT) ડેટા પૂરો પાડે છે.\n\n"
+                "### SATRA માં વપરાતા સેન્સર્સ:\n"
+                "- **VIIRS (Visible Infrared Imaging Radiometer Suite)**: 375m પિક્સેલ રિઝોલ્યુશન.\n"
+                "- **MODIS (Moderate Resolution Imaging Spectroradiometer)**: 1 km રિઝોલ્યુશન, 20+ વર્ષનો ઐતિહાસિક ડેટા."
+            )
+        elif target_lang == "bn":
+            return (
+                "**SATRA নলেজ বেস থেকে (NASA FIRMS পর্যালোচনা):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** উপগ্রহের মাধ্যমে সক্রিয় আগুন এবং "
+                "তাপীয় অসঙ্গতি (thermal anomalies) পর্যবেক্ষণ করে এবং ৩ ঘণ্টার মধ্যে Near Real-Time (NRT) ডেটা প্রদান করে।\n\n"
+                "### SATRA-তে ব্যবহৃত সেন্সর:\n"
+                "- **VIIRS**: 375m পিক্সেল রেজোলিউশন (S-NPP, NOAA-20, NOAA-21).\n"
+                "- **MODIS**: 1 km রেজোলিউশন, ২০+ বছরের ঐতিহাসিক রেকর্ড।"
+            )
+        elif target_lang == "pa":
+            return (
+                "**SATRA ਨਾਲੇਜ ਬੇਸ ਤੋਂ (NASA FIRMS ਸੰਖੇਪ ਜਾਣਕਾਰੀ):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ਉਪਗ੍ਰਹਿਆਂ ਰਾਹੀਂ ਸਰਗਰਮ ਅੱਗ ਅਤੇ "
+                "ਥਰਮਲ ਅਸੰਗਤੀਆਂ (thermal anomalies) ਦੀ ਨਿਗਰਾਨੀ ਕਰਦਾ ਹੈ ਅਤੇ 3 ਘੰਟਿਆਂ ਦੇ ਅੰਦਰ Near Real-Time (NRT) ਡੇਟਾ ਪ੍ਰਦਾਨ ਕਰਦਾ ਹੈ।\n\n"
+                "### SATRA ਵਿੱਚ ਵਰਤੇ ਜਾਂਦੇ ਸੈਂਸਰ:\n"
+                "- **VIIRS**: 375m ਪਿਕਸਲ ਰੈਜ਼ੋਲੂਸ਼ਨ (S-NPP, NOAA-20, NOAA-21).\n"
+                "- **MODIS**: 1 km ਰੈਜ਼ੋਲੂਸ਼ਨ, 20+ ਸਾਲਾਂ ਦਾ ਇਤਿਹਾਸਕ ਰਿਕਾਰਡ।"
+            )
+        elif target_lang == "ur":
+            return (
+                "**SATRA نالج بیس سے (NASA FIRMS جائزہ):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** سیٹلائٹ کے ذریعے فعال آگ اور "
+                "تھرمل بے ضابطگیوں کی نگرانی کرتا ہے اور سیٹلائٹ اوور پاس کے 3 گھنٹوں کے اندر Near Real-Time (NRT) ڈیٹا فراہم کرتا ہے۔\n\n"
+                "### SATRA میں استعمال ہونے والے سینسرز:\n"
+                "- **VIIRS**: 375m پکسل ریزولوشن (صنعتی فلیئرز اور فیکٹری آگ کی فوری شناخت).\n"
+                "- **MODIS**: 1 km پکسل ریزولوشن (20 سال سے زیادہ کا تاریخی ریکارڈ)."
+            )
 
     # Topic 2: FRP (Fire Radiative Power)
-    if "frp" in q_norm or "radiative power" in q_norm:
+    if "frp" in q_norm or "radiative power" in q_norm or "frp" in q_raw_lower:
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (Fire Radiative Power - FRP):**\n\n"
@@ -365,9 +813,75 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "### ब्राइटनेस तापमान (Brightness Temperature):\n"
                 "- केल्विन (K) में मापा जाता है। सामान्य परिवेश का तापमान ~290–300 K होता है, जबकि औद्योगिक आग में यह 340–400+ K से अधिक हो जाता है।"
             )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** అనేది మెగావాట్లలో (Megawatts - MW) కొలవబడే థర్మల్ రేడియంట్ హీట్ ఎనర్జీ అవుట్‌పుట్. "
+                "ఇది ఒక థర్మల్ అనోమలీ నుండి యూనిట్ సమయానికి వెలువడే వేడిని సూచిస్తుంది.\n\n"
+                "### భౌతిక సూత్రాలు:\n"
+                "- ఇది **Planck's radiation law** మరియు **Stefan-Boltzmann $T^4$ సమీకరణం** ఆధారంగా మిడ్-వేవ్ ఇన్‌ఫ్రారెడ్ (~3.9 µm) లో లెక్కించబడుతుంది.\n"
+                "- FRP నేరుగా ఇంధన దహన రేటుకు (fuel combustion rate) అనులోమానుపాతంలో ఉంటుంది.\n\n"
+                "### బ్రైట్‌నెస్ ఉష్ణోగ్రత (Brightness Temperature):\n"
+                "- కెల్విన్ (Kelvin - K) లో కొలుస్తారు. సాధారణ పరిసర ఉష్ణోగ్రత ~290–300 K ఉండగా, క్రియాశీల పారిశ్రామిక అగ్నిప్రమాదాల్లో ఇది 340–400+ K కంటే ఎక్కువగా ఉంటుంది."
+            )
+        elif target_lang == "kn":
+            return (
+                "**SATRA ಜ್ಞಾನ ತಳಹದಿಯಿಂದ (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** ಅನ್ನು ಮೆಗಾವ್ಯಾಟ್‌ಗಳಲ್ಲಿ (Megawatts - MW) ಅಳೆಯಲಾಗುತ್ತದೆ. "
+                "ಇದು ಥರ್ಮಲ್ ಮೂಲದಿಂದ ಹೊರಸೂಸುವ ವಿಕಿರಣ ಶಾಖ ಶಕ್ತಿಯ ದರವಾಗಿದೆ.\n\n"
+                "- **Planck's radiation law** ಮತ್ತು **Stefan-Boltzmann $T^4$ ಸೂತ್ರ** ದ ಮೇಲೆ ಲೆಕ್ಕಹಾಕಲಾಗುತ್ತದೆ.\n"
+                "- ಬ್ರೈಟ್‌ನೆಸ್ ತಾಪಮಾನವನ್ನು ಕೆಲ್ವಿನ್ (Kelvin - K) ನಲ್ಲಿ ವ್ಯಕ್ತಪಡಿಸಲಾಗುತ್ತದೆ (ಸಾಮಾನ್ಯ: 290–300 K, ಕೈಗಾರಿಕಾ ಬೆಂಕಿ: 340–400+ K)."
+            )
+        elif target_lang == "ml":
+            return (
+                "**SATRA നോളജ് ബേസിൽ നിന്ന് (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** എന്നത് മെഗാവാട്ടിൽ (Megawatts - MW) അളക്കുന്ന തെർമൽ റേഡിയേഷൻ ഔട്ട്പുട്ടാണ്. "
+                "തീപിടുത്തത്തിന്റെ വ്യാപ്തിയും ഇന്ധനം കത്തുന്ന നിരക്കും മനസ്സിലാക്കാൻ ഇത് സഹായിക്കുന്നു.\n\n"
+                "- **Planck's radiation law** അടിസ്ഥാനമാക്കി മിഡ്-വേവ് ഇൻഫ്രാറെഡ് (~3.9 µm) വഴിയാണ് കണക്കാക്കുന്നത്.\n"
+                "- ബ്രൈറ്റ്നസ്സ് താപനില കെൽവിനിൽ (Kelvin - K) അളക്കുന്നു (സാധാരണ അന്തരീക്ഷം ~290–300 K, വ്യാവസായിക തീപിടുത്തം >340–400+ K)."
+            )
+        elif target_lang == "mr":
+            return (
+                "**SATRA नॉलेज बेसमधून (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** हे मेगाव्हॉट (Megawatts - MW) मध्ये मोजले जाणारे रेडियंट हीट आउटपुट आहे. "
+                "हे थर्मल विसंगतीमधून बाहेर पडणाऱ्या उष्णतेचे प्रमाण दर्शवते.\n\n"
+                "- **Planck's radiation law** आणि **Stefan-Boltzmann $T^4$ संबंधावर** आधारित आहे.\n"
+                "- ब्राइटनेस तापमान केल्विन (Kelvin - K) मध्ये मोजले जाते (औद्योगिक आगीत 340–400+ K)."
+            )
+        elif target_lang == "gu":
+            return (
+                "**SATRA નોલેજ બેઝમાંથી (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** એ મેગાવોટ (Megawatts - MW) માં માપવામાં આવતી હીટ એનર્જી આઉટપુટ છે. "
+                "તે દર્શાવે છે કે થર્મલ વિસંગતતામાંથી કેટલી ઝડપથી ગરમી ઉત્સર્જિત થઈ રહી છે.\n\n"
+                "- **Planck's radiation law** પર આધારિત છે.\n"
+                "- બ્રાઇટનેસ તાપમાન કેલ્વિન (Kelvin - K) માં મપાય છે."
+            )
+        elif target_lang == "bn":
+            return (
+                "**SATRA নলেজ বেস থেকে (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** মেগাওয়াটে (Megawatts - MW) পরিমাপ করা তেজস্ক্রিয় তাপ শক্তি। "
+                "এটি থার্মাল অ্যানোমালি থেকে তাপ নির্গমনের হার নির্দেশ করে।\n\n"
+                "- **Planck's radiation law** অনুসারে মিড-ওয়েভ ইনফ্রারেড থেকে প্রাপ্ত।\n"
+                "- ব্রাইটনেস তাপমাত্রা কেলভিনে (Kelvin - K) প্রকাশ করা হয় (শিল্প আগুনে ৩৪০-৪০০+ K)।"
+            )
+        elif target_lang == "pa":
+            return (
+                "**SATRA ਨਾਲੇਜ ਬੇਸ ਤੋਂ (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** ਮੈਗਾਵਾਟ (Megawatts - MW) ਵਿੱਚ ਮਾਪੀ ਜਾਣ ਵਾਲੀ ਰੇਡੀਐਂਟ ਹੀਟ ਐਨਰਜੀ ਹੈ। "
+                "ਇਹ ਥਰਮਲ ਅਸੰਗਤੀ ਤੋਂ ਗਰਮੀ ਨਿਕਲਣ ਦੀ ਦਰ ਨੂੰ ਦਰਸਾਉਂਦਾ ਹੈ।\n\n"
+                "- ਬ੍ਰਾਈਟਨੈੱਸ ਤਾਪਮਾਨ ਕੈਲਵਿਨ (Kelvin - K) ਵਿੱਚ ਮਾਪਿਆ ਜਾਂਦਾ ਹੈ।"
+            )
+        elif target_lang == "ur":
+            return (
+                "**SATRA نالج بیس سے (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** میگاواٹ (Megawatts - MW) میں ماپی جانے والی تابکار حرارتی توانائی ہے، "
+                "جو کسی تھرمل بے ضابطگی سے خارج ہونے والی حرارت کی شرح کو ظاہر کرتی ہے۔\n\n"
+                "- یہ **Planck's radiation law** اور **Stefan-Boltzmann $T^4$** اصول پر مبنی ہے۔\n"
+                "- برائٹنس کا درجہ حرارت کیلون (Kelvin - K) میں ماپا جاتا ہے۔"
+            )
 
     # Topic 3: AI Model / Machine Learning Ensemble
-    if "ai model" in q_norm or "machine learning" in q_norm or "ensemble" in q_norm:
+    if "ai model" in q_norm or "machine learning" in q_norm or "ensemble" in q_norm or "classify" in q_norm:
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (AI மாதிரி கட்டமைப்பு):**\n\n"
@@ -406,6 +920,29 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "- तापमान अंतर: $\\Delta T = T_{I4} - T_{I5}$, स्थानीय सौर समय और माह।\n"
                 "- भू-स्थानिक संदर्भ: 1 किमी के भीतर ऐतिहासिक पुनरावृत्ति और औद्योगिक क्षेत्रों से दूरी।"
             )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (AI మోడల్ ఆర్కిటెక్చర్):**\n\n"
+                "SATRA ప్లాట్‌ఫారమ్ అధునాతన **Soft-Voting Ensemble Classifier** మెషిన్ లెర్నింగ్ మోడల్‌ను ఉపయోగిస్తుంది. "
+                "ఇందులో మూడు ప్రముఖ మోడల్స్ కలిసి పనిచేస్తాయి:\n\n"
+                "1. **Random Forest (100 Decision Trees)**: సెన్సార్ నాయిస్‌ను నిరోధించి వేరియన్స్‌ను తగ్గిస్తుంది.\n"
+                "2. **LightGBM**: శాటిలైట్ బ్యాండ్‌ల మధ్య సంక్లిష్ట నాన్-లీనియర్ ఇంటరాక్షన్‌లను వేగంగా గుర్తిస్తుంది.\n"
+                "3. **XGBoost**: అసమతుల్య తరగతులపై అధిక ఖచ్చితత్వాన్ని నిర్ధారిస్తుంది.\n\n"
+                "### ఫీచర్ వెక్టర్ (28 Features):\n"
+                "- రేడియోమెట్రీ: `brightness`, `bright_t31`, `frp`, `scan`, `track`, `daynight`.\n"
+                "- ఉష్ణోగ్రత వ్యత్యాసం $\\Delta T = T_{I4} - T_{I5}$, స్థానిక సమయం మరియు చారిత్రక పునరావృత ఫ్రీక్వెన్సీ."
+            )
+        elif target_lang in ["kn", "ml", "mr", "gu", "bn", "pa", "ur"]:
+            label = LANG_LABELS.get(target_lang, ("SATRA AI", ""))[0]
+            return (
+                f"**{label}:**\n\n"
+                "SATRA utilizes a high-accuracy **Soft-Voting Ensemble Classifier** combining:\n"
+                "1. **Random Forest** (100 decision trees resisting sensor noise)\n"
+                "2. **LightGBM** (fast gradient boosting on continuous satellite channels)\n"
+                "3. **XGBoost** (regularized boosting for imbalanced class stability)\n\n"
+                "**Feature Vector (28 parameters)** includes satellite radiometry (`brightness`, `bright_t31`, `frp`), "
+                "temperature difference ($\\Delta T$), local solar hour, and geospatial proximity to industrial infrastructure polygons."
+            )
 
     # Topic 4: Four Classification Classes
     if "four classification" in q_norm or "classes" in q_norm or "taxonomy" in q_norm:
@@ -436,6 +973,24 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "- **`2 = Persistent Thermal Source` (लगातार थर्मल स्रोत)**: अधिकृत औद्योगिक फ्लेयर स्टैक, ब्लास्ट फर्नेस, स्मेल्टर या भट्टियां जो लगातार उच्च तापमान उत्सर्जित करती हैं।\n"
                 "- **`3 = Other` (अन्य)**: पराली जलाना, शहरी पृष्ठभूमि की गर्मी या सौर परावर्तन से उत्पन्न होने वाले फॉल्स अलार्म।"
             )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (నాలుగు వర్గీకరణ విభాగాలు):**\n\n"
+                "SATRA అన్ని ఉపగ్రహ థర్మల్ డిటెక్షన్లను 4 ప్రామాణిక ఆపరేషనల్ కేటగిరీలుగా వర్గీకరిస్తుంది:\n\n"
+                "- **`0 = Industrial Fire` (పారిశ్రామిక అగ్ని)**: రిఫైనరీలు, రసాయన కర్మాగారాలు లేదా గోదాములలో జరిగే ప్రమాదకర అగ్ని ప్రమాదాలు.\n"
+                "- **`1 = Forest Fire` (అటవీ అగ్ని)**: అడవులు, గడ్డి భూములు లేదా బహిరంగ వృక్షసంపదలో వ్యాపించే పెద్ద మంటలు.\n"
+                "- **`2 = Persistent Thermal Source` (నిరంతర థర్మల్ మూలం)**: ఫ్లేర్ స్టాక్స్, బ్లాస్ట్ ఫర్నేస్‌లు మరియు సిమెంట్ బట్టీల వంటి స్థిరమైన అధిక-ఉష్ణోగ్రత మూలాలు.\n"
+                "- **`3 = Other` (ఇతర)**: పంట వ్యర్థాల దహనం లేదా అర్బన్ హీటింగ్ వల్ల వచ్చే తప్పుడు అలారాలు."
+            )
+        elif target_lang in ["kn", "ml", "mr", "gu", "bn", "pa", "ur"]:
+            label = LANG_LABELS.get(target_lang, ("SATRA AI", ""))[0]
+            return (
+                f"**{label} (4 Classification Classes):**\n\n"
+                "- **`0 = Industrial Fire`**: Unplanned, hazardous fires in petrochemical plants, refineries, chemical factories, and fuel storage depots.\n"
+                "- **`1 = Forest Fire`**: Expanding vegetation and wildfire perimeters over forests and brushlands.\n"
+                "- **`2 = Persistent Thermal Source`**: Stationary, authorized high-temperature industrial infrastructure (flare stacks, blast furnaces, kilns).\n"
+                "- **`3 = Other`**: Agricultural stubble burns, urban heat, and solar false alarms."
+            )
 
     # Topic 5: Exact Location Identification
     if "exact location" in q_norm or "identify" in q_norm or "location" in q_norm:
@@ -465,6 +1020,15 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "2. **पिक्सेल ज्यामिति सुधार**: स्कैन और ट्रैक कोण के आधार पर उपग्रह पिक्सेल विरूपण को ठीक किया जाता है।\n"
                 "3. **औद्योगिक पॉलीगॉन GIS बफरिंग**: पंजीकृत औद्योगिक परिसरों और रिफाइनरी सीमाओं के 500 मीटर से 1 किमी बफर के साथ स्थानिक मिलान।\n"
                 "4. **DBSCAN स्थानिक क्लस्टरिंग**: कई सैटेलाइट पासों में एक ही स्थान पर दोहराए जाने वाले हीट सिग्नेचर की पुष्टि करता है।"
+            )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (ఖచ్చితమైన స్థాన గుర్తింపు):**\n\n"
+                "SATRA థర్మల్ అనోమలీ యొక్క ఖచ్చితమైన స్థానాన్ని బహుళ-స్థాయి జియోస్పేషియల్ విశ్లేషణ ద్వారా గుర్తిస్తుంది:\n\n"
+                "1. **ఉపగ్రహ జియోలొకేషన్ టెలిమెట్రీ**: VIIRS 375m మరియు MODIS సెన్సార్ల నుండి WGS84 అక్షాంశం మరియు రేఖాంశం (Latitude/Longitude).\n"
+                "2. **పిక్సెల్ జ్యామితి దిద్దుబాటు**: స్కాన్ కోణం ఆధారంగా పిక్సెల్ విస్తరణను కాలిబ్రేట్ చేస్తుంది.\n"
+                "3. **ఇండస్ట్రియల్ పాలిగాన్ GIS బఫరింగ్**: రిఫైనరీలు మరియు పారిశ్రామిక మండలాల GIS సరిహద్దులతో 500m నుండి 1 కి.మీ బఫర్‌లో సరిపోల్చుతుంది.\n"
+                "4. **DBSCAN స్పేషియల్ క్లస్టరింగ్**: చారిత్రక రికార్డులలో అదే స్థానంలో పునరావృతమయ్యే హీట్ సిగ్నేచర్‌లను స్థిరపరుస్తుంది."
             )
 
     # Topic 6: RAG (Retrieval-Augmented Generation)
@@ -502,16 +1066,22 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "3. **क्वेरी रिट्रीवल**: जब उपयोगकर्ता हिंदी, तमिल, तंग्लिश या अंग्रेजी में प्रश्न पूछता है, तो FAISS कोसाइन समानता के आधार पर सबसे प्रासंगिक जानकारी तुरंत प्राप्त होती है।\n"
                 "4. **सत्यापित उत्तर उत्पादन**: यह AI मतिभ्रम (hallucination) को पूरी तरह रोकता है और सटीक संदर्भ उद्धरणों (citations) के साथ विश्वसनीय उत्तर देता है।"
             )
+        elif target_lang == "te":
+            return (
+                "**SATRA నాలెడ్జ్ బేస్ నుండి (RAG ఆర్కిటెక్చర్):**\n\n"
+                "**RAG (Retrieval-Augmented Generation)** అనేది SATRA AI అసిస్టెంట్‌ను ప్రామాణిక ప్రాజెక్ట్ డాక్యుమెంట్లు మరియు "
+                "లైవ్ డేటాబేస్ పరిశీలనలతో అనుసంధానించే తెలివైన ఆర్కిటెక్చర్.\n\n"
+                "### RAG ఎలా పనిచేస్తుంది:\n"
+                "1. **డాక్యుమెంట్ చంకింగ్**: సెన్సార్లు, భౌతిక శాస్త్రం మరియు ML మోడల్స్ సమాచారం నిర్మాణాత్మక భాగాలుగా విభజించబడుతుంది.\n"
+                "2. **FAISS వెక్టర్ ఇండెక్స్**: ఈ భాగాలు డెన్స్ వెక్టర్స్‌గా మార్చబడి నిల్వ చేయబడతాయి.\n"
+                "3. **రిట్రీవల్ & ధృవీకరించిన సమాధానం**: వినియోగదారుడు ఏ భాషలో అడిగినా ఖచ్చితమైన మూల డాక్యుమెంట్ల ఆధారంగా నమ్మకమైన సమాధానాలు ఉత్పత్తి చేయబడతాయి."
+            )
 
     # General Localized Fallback wrapper preserving technical details
-    if target_lang == "ta":
-        prefix = "**SATRA AI உதவியாளர் (தமிழ்):**\n\n"
-        return f"{prefix}{english_response}"
-    elif target_lang == "tanglish":
-        prefix = "**SATRA AI Assistant (Tanglish):**\n\n"
-        return f"{prefix}{english_response}"
-    elif target_lang == "hi":
-        prefix = "**SATRA AI सहायक (हिन्दी):**\n\n"
+    prefix_info = LANG_LABELS.get(target_lang)
+    if prefix_info:
+        prefix = f"**{prefix_info[0]}:**\n\n"
         return f"{prefix}{english_response}"
 
     return english_response
+
