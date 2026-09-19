@@ -1,58 +1,105 @@
 import React from 'react';
+import satraLogoDark from '../assets/satra-logo-dark.jpg';
+import satraLogoLight from '../assets/satra-logo-light.jpg';
 import {
   LayoutDashboard,
+  Globe,
+  Flame,
   Crosshair,
   ShieldAlert,
   BarChart3,
-  Globe,
+  MapPin,
   Satellite,
   Sparkles,
   Settings,
   Radio,
   Cpu,
   LogOut,
+  X,
 } from 'lucide-react';
 
+<<<<<<< ours
 export function Sidebar({ currentTab, setCurrentTab, alertCount = 0, isBackendHealthy = false, connectionStatus = 'checking', onLogout }) {
   const isChecking = connectionStatus === 'checking' || connectionStatus === 'connecting';
   const isOnline = connectionStatus === 'online';
   const statusColor = isOnline ? 'var(--success, #10B981)' : isChecking ? '#F59E0B' : 'var(--critical-red, #EF4444)';
   const statusText = isOnline ? 'ONLINE' : isChecking ? 'CONNECTING...' : 'OFFLINE';
+=======
+export function Sidebar({
+  isOpen = false,
+  onClose,
+  currentTab,
+  setCurrentTab,
+  alertCount = 0,
+  isBackendHealthy = false,
+  connectionStatus,
+  onLogout,
+}) {
+  const isOnline = connectionStatus === 'online' || (isBackendHealthy && connectionStatus !== 'offline');
+  const statusColor = isOnline ? 'var(--success)' : 'var(--critical-red)';
+  const statusText = isOnline ? 'CONNECTED' : 'DISCONNECTED';
+>>>>>>> theirs
 
   // Map integrated sub-modules to their parent navigation item
   const activeTabMapping = {
-    'path-intel': 'overview',
+    'path-intel': 'earth-intel',
     'investigate': 'gis-investigation',
-    'live-monitoring': 'overview',
-    'thermal-intel': 'overview',
-    'earth-intel': 'overview',
+    'live-monitoring': 'thermal-intel',
     'history': 'analytics',
   };
   const effectiveActiveTab = activeTabMapping[currentTab] || currentTab;
 
   const navItems = [
     { id: 'overview', num: '01', label: 'Overview', icon: LayoutDashboard },
-    { id: 'detection-explorer', num: '02', label: 'Detection Explorer', icon: Crosshair },
-    { id: 'alerts', num: '03', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
-    { id: 'analytics', num: '04', label: 'Analytics', icon: BarChart3 },
-    { id: 'gis-investigation', num: '05', label: 'GIS Investigation', icon: Globe },
-    { id: 'satellite-data', num: '06', label: 'Satellite Data', icon: Satellite },
-    { id: 'ai-assistant', num: '07', label: 'AI Assistant', icon: Sparkles },
-    { id: 'settings', num: '08', label: 'Settings', icon: Settings },
+    { id: 'earth-intel', num: '02', label: 'Earth Intelligence', icon: Globe },
+    { id: 'thermal-intel', num: '03', label: 'Thermal Intelligence', icon: Flame },
+    { id: 'detection-explorer', num: '04', label: 'Detection Explorer', icon: Crosshair },
+    { id: 'alerts', num: '05', label: 'Alerts', icon: ShieldAlert, badge: alertCount },
+    { id: 'analytics', num: '06', label: 'Analytics', icon: BarChart3 },
+    { id: 'gis-investigation', num: '07', label: 'GIS Investigation', icon: MapPin },
+    { id: 'satellite-data', num: '08', label: 'Satellite Data', icon: Satellite },
+    { id: 'ai-assistant', num: '09', label: 'AI Assistant', icon: Sparkles },
+    { id: 'settings', num: '10', label: 'Settings', icon: Settings },
   ];
 
   return (
-    <aside className="sidebar">
+    <aside
+      className={`sidebar ${isOpen ? 'open' : ''}`}
+      id="satra-sidebar"
+      aria-label="Command Modules Navigation Drawer"
+      aria-hidden={!isOpen}
+    >
       {/* SATRA Master Brand Header */}
       <div className="sidebar-header">
-        <div className="brand-icon">
-          <Globe size={22} style={{ color: '#FFFFFF' }} />
+        <div className="brand-logo-frame">
+          <img
+            src={satraLogoDark}
+            alt="SATRA Logo"
+            className="brand-logo-img satra-logo-dark"
+          />
+          <img
+            src={satraLogoLight}
+            alt="SATRA Logo"
+            className="brand-logo-img satra-logo-light"
+          />
         </div>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="brand-title">SATRA</div>
-          <div className="brand-subtitle">Thermal Risk Analysis</div>
-          <div className="brand-tagline">AI Satellite Intelligence</div>
+          <div className="brand-subtitle" style={{ fontSize: '9px', lineHeight: 1.3, letterSpacing: '0.04em' }}>
+            SATELLITE THERMAL<br />RISK ANALYSIS
+          </div>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="sidebar-close-btn"
+            aria-label="Close Navigation Drawer"
+            title="Close Sidebar Drawer (✕)"
+          >
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {/* Command Modules Navigation Deck */}

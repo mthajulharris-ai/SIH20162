@@ -18,13 +18,27 @@ import {
 } from 'lucide-react';
 import { sendChatMessage } from '../services/api';
 import {
+  LANGUAGE_OPTIONS,
   MULTILINGUAL_SUGGESTED_QUESTIONS,
   startVoiceRecognition,
   speakText,
   stopSpeaking,
 } from '../services/speech';
+import {
+  PreferredLanguageSelector,
+  GREETINGS_BY_LANG,
+} from '../components/AiAssistantModal';
 
 export function AiAssistantView({ detections = [] }) {
+  const [preferredLanguage, setPreferredLanguage] = useState(() => {
+    try {
+      return localStorage.getItem('satra_preferred_language') || 'en';
+    } catch {
+      return 'en';
+    }
+  });
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
+
   const [messages, setMessages] = useState(() => {
     try {
       const saved = localStorage.getItem('satra_chat_history');
@@ -37,12 +51,13 @@ export function AiAssistantView({ detections = [] }) {
     } catch (e) {
       console.warn('Unable to load chat history:', e);
     }
+    const initialLang = localStorage.getItem('satra_preferred_language') || 'en';
     return [
       {
         id: 'welcome',
         role: 'assistant',
-        content:
-          "Welcome to the **SATRA Domain AI Assistant**.\n\nI am your specialized intelligence copilot for **Industrial Fire Detection**, **Persistent Thermal Sources**, **NASA FIRMS** satellite constellations (VIIRS 375m & MODIS 1km), and our **v2.0 Soft-Voting ML Ensemble**.\n\nAsk any question or pick one of the recommended topics below to begin.",
+        isWelcome: true,
+        content: GREETINGS_BY_LANG[initialLang] || GREETINGS_BY_LANG.en,
         sources: ['SATRA Operational Guidelines'],
         timestamp: new Date().toISOString(),
       },
@@ -60,6 +75,32 @@ export function AiAssistantView({ detections = [] }) {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
+  const voiceTranscriptRef = useRef('');
+  const voiceInterimRef = useRef('');
+  const isVoiceSubmittingRef = useRef(false);
+
+  const handleSelectLanguage = (langId) => {
+    setPreferredLanguage(langId);
+    try {
+      localStorage.setItem('satra_preferred_language', langId);
+    } catch (e) {
+      console.warn('Unable to save preferred language:', e);
+    }
+    setIsLangDropdownOpen(false);
+
+    if (messages.length <= 1) {
+      setMessages([
+        {
+          id: 'welcome_' + Date.now(),
+          role: 'assistant',
+          isWelcome: true,
+          content: GREETINGS_BY_LANG[langId] || GREETINGS_BY_LANG.en,
+          sources: ['SATRA Operational Guidelines'],
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -85,8 +126,11 @@ export function AiAssistantView({ detections = [] }) {
   }, []);
 
   const handleSendMessage = async (textToSend) => {
-    const query = (textToSend || inputMessage).trim();
-    if (!query || isLoading) return;
+    const query = (typeof textToSend === 'string' ? textToSend : inputMessage).trim();
+    if (!query || isLoading) {
+      isVoiceSubmittingRef.current = false;
+      return;
+    }
 
     if (isListening) {
       try {
@@ -97,6 +141,9 @@ export function AiAssistantView({ detections = [] }) {
       setIsListening(false);
       setListeningStatus('');
     }
+    voiceTranscriptRef.current = '';
+    voiceInterimRef.current = '';
+    isVoiceSubmittingRef.current = false;
 
     const userMsgId = 'user_' + Date.now();
     const newUserMsg = {
@@ -117,7 +164,7 @@ export function AiAssistantView({ detections = [] }) {
         content: m.content,
       }));
 
-      const res = await sendChatMessage(query, historyPayload, 'auto');
+      const res = await sendChatMessage(query, historyPayload, preferredLanguage || 'auto');
       if (res.language) {
         setDetectedLanguage(res.language);
       }
@@ -145,45 +192,59 @@ export function AiAssistantView({ detections = [] }) {
       setMessages((prev) => [...prev, errorMsg]);
     } finally {
       setIsLoading(false);
+      isVoiceSubmittingRef.current = false;
     }
   };
 
   const toggleVoiceRecognition = () => {
     if (isListening) {
+      setIsListening(false);
+      setListeningStatus('');
       try {
         recognitionRef.current?.stop();
       } catch {
         // no-op
       }
-      setIsListening(false);
-      setListeningStatus('');
       return;
     }
 
+    // Reset voice transcript accumulator before starting a new recording
+    voiceTranscriptRef.current = '';
+    isVoiceSubmittingRef.current = false;
     setSpeechError(null);
     setIsListening(true);
     setListeningStatus('Listening...');
+    setInputMessage('');
+
+    // Dynamic recognition language selection
+    const activeSpeechLang =
+      preferredLanguage && preferredLanguage !== 'auto'
+        ? preferredLanguage
+        : (detectedLanguage && detectedLanguage !== 'auto' ? detectedLanguage : 'en');
 
     recognitionRef.current = startVoiceRecognition({
-      language: detectedLanguage || 'auto',
+      language: activeSpeechLang,
       onStart: () => {
         setListeningStatus('Recording...');
       },
-      onResult: ({ finalTranscript, interimTranscript }) => {
-        if (interimTranscript) {
-          setListeningStatus('Processing voice...');
-          setInputMessage(interimTranscript);
+      onResult: ({ finalTranscript, interimTranscript, currentDisplayTranscript }) => {
+        // Always store latest available complete transcript
+        const latest = (finalTranscript || currentDisplayTranscript || '').trim();
+        if (latest) {
+          voiceTranscriptRef.current = latest;
         }
-        if (finalTranscript) {
-          setInputMessage(finalTranscript);
-          setIsListening(false);
-          setListeningStatus('');
-          handleSendMessage(finalTranscript);
+
+        // Live visual display in input box (do NOT submit yet)
+        if (currentDisplayTranscript) {
+          setInputMessage(currentDisplayTranscript);
+          setListeningStatus(interimTranscript ? 'Listening...' : 'Processing voice...');
         }
       },
       onError: (err) => {
         setIsListening(false);
         setListeningStatus('');
+        voiceTranscriptRef.current = '';
+        isVoiceSubmittingRef.current = false;
         if (err.error === 'not-allowed') {
           setSpeechError('Microphone permission denied. Please allow microphone access in your browser.');
         } else if (err.error === 'no-speech') {
@@ -195,9 +256,22 @@ export function AiAssistantView({ detections = [] }) {
         }
         setTimeout(() => setSpeechError(null), 6000);
       },
-      onEnd: () => {
+      onEnd: ({ finalTranscript: engineFinal } = {}) => {
         setIsListening(false);
         setListeningStatus('');
+
+        // ALWAYS compute the latest local transcript synchronously
+        const latestTranscript = (engineFinal || voiceTranscriptRef.current || '').trim();
+
+        // Clear voice transcript ref immediately so it CANNOT be reused by the next recording
+        voiceTranscriptRef.current = '';
+
+        // Submit exactly ONCE if non-empty
+        if (latestTranscript && !isVoiceSubmittingRef.current) {
+          isVoiceSubmittingRef.current = true;
+          setInputMessage(latestTranscript);
+          handleSendMessage(latestTranscript);
+        }
       },
     });
   };
@@ -231,8 +305,8 @@ export function AiAssistantView({ detections = [] }) {
     const welcome = {
       id: 'welcome_' + Date.now(),
       role: 'assistant',
-      content:
-        "Conversation cleared.\n\nAsk me anything about **Industrial Fire Detection**, **NASA FIRMS**, **FRP Calculations**, **AI Classification Models**, or **Live System Telemetry**.",
+      isWelcome: true,
+      content: GREETINGS_BY_LANG[preferredLanguage] || GREETINGS_BY_LANG.en,
       sources: ['SATRA Operational Guidelines'],
       timestamp: new Date().toISOString(),
     };
@@ -390,24 +464,29 @@ export function AiAssistantView({ detections = [] }) {
           >
             <Bot size={22} />
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-heading)' }}>
-              SATRA AI Assistant
-            </span>
-            <span
-              style={{
-                fontSize: '10px',
-                padding: '2px 8px',
-                borderRadius: '12px',
-                background: 'rgba(34, 197, 94, 0.15)',
-                color: '#22c55e',
-                border: '1px solid rgba(34, 197, 94, 0.3)',
-                fontWeight: 600,
-                fontFamily: 'var(--font-mono)',
-                letterSpacing: '0.04em',
-              }}
-            >
-              ONLINE
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)', letterSpacing: '0.02em' }}>
+                SATRA AI Assistant
+              </span>
+              <span
+                style={{
+                  fontSize: '9.5px',
+                  padding: '1.5px 6px',
+                  borderRadius: '4px',
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  color: '#22c55e',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  fontWeight: 600,
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                ONLINE
+              </span>
+            </div>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, letterSpacing: '0.01em' }}>
+              Satellite Intelligence Copilot
             </span>
           </div>
         </div>
@@ -581,8 +660,19 @@ export function AiAssistantView({ detections = [] }) {
 
                       {renderFormattedContent(m.content)}
 
-                      {/* Sources Metadata Citation Deck */}
-                      {m.sources && m.sources.length > 0 && (
+                      {/* Initial Greeting & Preferred Language UI */}
+                      {(m.isWelcome || messages[0]?.id === m.id) && (
+                        <PreferredLanguageSelector
+                          preferredLanguage={preferredLanguage}
+                          onSelectLanguage={handleSelectLanguage}
+                          isOpen={isLangDropdownOpen}
+                          onToggle={() => setIsLangDropdownOpen((prev) => !prev)}
+                          onClose={() => setIsLangDropdownOpen(false)}
+                        />
+                      )}
+
+                      {/* Sources Metadata Citation Deck - only for subsequent responses */}
+                      {!m.isWelcome && messages[0]?.id !== m.id && m.sources && m.sources.length > 0 && (
                         <div
                           style={{
                             marginTop: '12px',
@@ -680,7 +770,7 @@ export function AiAssistantView({ detections = [] }) {
         {messages.length <= 4 && (
           <div
             style={{
-              padding: '10px 18px',
+              padding: '10px 20px',
               background: 'var(--bg-secondary)',
               borderTop: '1px solid var(--border-subtle)',
               display: 'flex',
@@ -688,6 +778,52 @@ export function AiAssistantView({ detections = [] }) {
               gap: '8px',
             }}
           >
+            {/* Subtle compact preference indicator when conversation is active */}
+            {messages.length > 1 && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  paddingBottom: '4px',
+                  marginBottom: '2px',
+                  borderBottom: '1px solid var(--border-subtle)',
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>Preferred:</span>
+                  <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>
+                    {(() => {
+                      const opt =
+                        LANGUAGE_OPTIONS.find((l) => l.id === preferredLanguage) ||
+                        LANGUAGE_OPTIONS[0];
+                      return `${opt.flag || '🌐'} ${
+                        opt.native && opt.native !== opt.label
+                          ? `${opt.native} (${opt.label})`
+                          : opt.label
+                      }`;
+                    })()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsLangDropdownOpen(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--primary-cyan)',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    textDecoration: 'underline',
+                    padding: 0,
+                  }}
+                >
+                  Change
+                </button>
+              </div>
+            )}
             <div
               style={{
                 fontSize: '11px',
@@ -712,7 +848,11 @@ export function AiAssistantView({ detections = [] }) {
                 scrollbarWidth: 'none',
               }}
             >
-              {(MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] || MULTILINGUAL_SUGGESTED_QUESTIONS.auto || MULTILINGUAL_SUGGESTED_QUESTIONS.en).map((q, qIdx) => (
+              {(
+                MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS[preferredLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS.en
+              ).map((q, qIdx) => (
                 <button
                   key={qIdx}
                   onClick={() => handleSendMessage(q)}
@@ -830,15 +970,24 @@ export function AiAssistantView({ detections = [] }) {
             ref={inputRef}
             type="text"
             className="satra-search-input"
-            placeholder={
-              detectedLanguage === 'ta'
-                ? 'SATRA AI-யிடம் தீ, NASA FIRMS, அல்லது ML பற்றி கேளுங்கள்...'
-                : detectedLanguage === 'hi'
-                ? 'SATRA AI से आग, NASA FIRMS, या ML के बारे में पूछें...'
-                : detectedLanguage === 'tanglish'
-                ? 'SATRA AI kitta fires, NASA FIRMS, ML pathi kelunga...'
-                : 'Ask about industrial fires, NASA FIRMS, FRP, ML ensemble, or live database...'
-            }
+            placeholder={(() => {
+              const lang =
+                detectedLanguage && detectedLanguage !== 'auto'
+                  ? detectedLanguage
+                  : preferredLanguage;
+              if (lang === 'ta') return 'SATRA AI-யிடம் கேளுங்கள்...';
+              if (lang === 'tanglish') return 'SATRA AI kitta kelunga...';
+              if (lang === 'hi') return 'SATRA AI से पूछें...';
+              if (lang === 'te') return 'SATRA AI ని అడగండి...';
+              if (lang === 'kn') return 'SATRA AI ಅನ್ನು ಕೇಳಿ...';
+              if (lang === 'ml') return 'SATRA AI-യോട് ചോദിക്കൂ...';
+              if (lang === 'mr') return 'SATRA AI ला विचारा...';
+              if (lang === 'gu') return 'SATRA AI ને પૂછો...';
+              if (lang === 'bn') return 'SATRA AI কে জিজ্ঞাসা করুন...';
+              if (lang === 'pa') return 'SATRA AI ਨੂੰ ਪੁੱਛੋ...';
+              if (lang === 'ur') return 'SATRA AI سے پوچھیں...';
+              return 'Ask SATRA anything...';
+            })()}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}

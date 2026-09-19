@@ -591,7 +591,12 @@ def generate_chat_response(
     7. Grounded Response Generation: Synthesizes grounded answer with source citations.
     8. Multilingual Localization: Localizes response to English, Tamil, Tanglish, or Hindi.
     """
-    from backend.rag.multilingual import detect_language, normalize_multilingual_query, localize_response
+    from backend.rag.multilingual import (
+        detect_language,
+        resolve_response_language,
+        normalize_multilingual_query,
+        localize_response,
+    )
 
     msg = message.strip()
     msg_lower = msg.lower()
@@ -599,11 +604,13 @@ def generate_chat_response(
     msg_norm_lower = msg_norm.lower()
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    # Determine target language: explicit preference takes priority; otherwise auto-detect
-    if language and language.lower() in ["en", "ta", "tanglish", "hi"]:
-        target_lang = language.lower()
-    else:
-        target_lang = detect_language(msg)
+    # Determine target language: current message has highest priority, then voice/history, then preferred language
+    target_lang = resolve_response_language(
+        message=msg,
+        preferred_language=language or "auto",
+        history=history,
+    )
+
 
     def _finalize(result: Dict[str, Any]) -> Dict[str, Any]:
         if target_lang != "en" and result and "response" in result:

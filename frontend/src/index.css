@@ -217,19 +217,37 @@ body {
 /* Layout Shell */
 .app-container {
   display: flex;
+  flex-direction: column;
   min-height: 100vh;
   background-color: var(--bg-space);
+  position: relative;
+}
+
+.app-body {
+  display: flex;
+  flex: 1;
+  position: relative;
+  min-height: calc(100vh - var(--header-height));
+  width: 100%;
 }
 
 .main-content {
   flex: 1;
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
+  width: 100%;
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   background: radial-gradient(circle at 85% 15%, rgba(69, 200, 245, 0.04) 0%, transparent 60%),
               radial-gradient(circle at 15% 85%, rgba(255, 69, 58, 0.03) 0%, transparent 50%),
               var(--bg-space);
+}
+
+@media (min-width: 1025px) {
+  .main-content.sidebar-open {
+    margin-left: var(--sidebar-width);
+  }
 }
 
 .content-body {
@@ -244,18 +262,81 @@ body {
   animation: fadeIn 0.2s ease-out;
 }
 
-/* Sidebar */
+/* Collapsible Navigation Drawer Sidebar */
 .sidebar {
   width: var(--sidebar-width);
   background-color: var(--bg-primary);
   border-right: 1px solid var(--border-color);
-  height: 100vh;
+  height: calc(100vh - var(--header-height));
   position: fixed;
   left: 0;
-  top: 0;
+  top: var(--header-height);
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  z-index: 950;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.25s;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sidebar.open {
+  transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.45);
+}
+
+.sidebar-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-left: auto;
+}
+
+.sidebar-close-btn:hover {
+  background: rgba(255, 69, 58, 0.15);
+  border-color: rgba(255, 69, 58, 0.4);
+  color: #FF6B6B;
+}
+
+/* Mobile & Tablet Overlay Drawer */
+.sidebar-backdrop {
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - var(--header-height));
+  background: rgba(5, 11, 20, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 920;
+  animation: fadeIn 0.2s ease-out;
+}
+
+@media (min-width: 1025px) {
+  .sidebar-backdrop {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    z-index: 1050;
+  }
+  .sidebar-close-btn {
+    display: inline-flex;
+  }
+  .main-content.sidebar-open {
+    margin-left: 0;
+  }
 }
 
 .sidebar-header {
@@ -278,6 +359,81 @@ body {
   color: white;
   box-shadow: 0 0 16px rgba(69, 200, 245, 0.35);
   border: 1px solid rgba(141, 231, 255, 0.3);
+}
+
+/* SATRA Official Logo Frames */
+.brand-logo-frame {
+  width: 44px;
+  height: 52px;
+  border-radius: 9px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050E1D;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.22);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.brand-logo-frame:hover {
+  transform: scale(1.03);
+  border-color: rgba(56, 189, 248, 0.6);
+  box-shadow: 0 0 18px rgba(56, 189, 248, 0.35);
+}
+
+.header-logo-frame {
+  width: 36px;
+  height: 44px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #050E1D;
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
+  flex-shrink: 0;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.header-logo-frame:hover {
+  transform: scale(1.03);
+  border-color: rgba(56, 189, 248, 0.6);
+}
+
+.brand-logo-img,
+.header-logo-img {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: 546 / 680;
+  object-fit: contain;
+  display: block;
+}
+
+/* Theme switching for uploaded logos */
+.satra-logo-dark {
+  display: block !important;
+}
+
+.satra-logo-light {
+  display: none !important;
+}
+
+[data-theme="light"] .satra-logo-dark {
+  display: none !important;
+}
+
+[data-theme="light"] .satra-logo-light {
+  display: block !important;
+}
+
+[data-theme="light"] .brand-logo-frame,
+[data-theme="light"] .header-logo-frame {
+  background: #FFFFFF;
+  border-color: rgba(2, 132, 199, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .brand-title {
@@ -416,12 +572,42 @@ body {
   backdrop-filter: blur(14px);
   position: sticky;
   top: 0;
-  z-index: 90;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
   gap: 14px;
+  width: 100%;
+}
+
+.satra-hamburger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--icon-btn-bg);
+  border: 1px solid rgba(69, 200, 245, 0.22);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.satra-hamburger-btn:hover {
+  background: rgba(69, 200, 245, 0.12);
+  border-color: var(--primary-cyan);
+  color: var(--primary-cyan);
+  box-shadow: 0 0 12px rgba(69, 200, 245, 0.25);
+}
+
+.satra-hamburger-btn.active {
+  background: rgba(69, 200, 245, 0.18);
+  border-color: var(--primary-cyan);
+  color: var(--ice-blue);
+  box-shadow: 0 0 16px rgba(69, 200, 245, 0.35);
 }
 
 .header-left {

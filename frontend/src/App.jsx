@@ -111,7 +111,23 @@ export function App() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+<<<<<<< ours
   const isChatOpen = isAiAssistantModalOpen || isChatbotOpen;
+=======
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Close sidebar drawer on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
+
+>>>>>>> theirs
   // ONE shared real-time backend connection state used by Header + Sidebar.
   // Global Application-Level System Connection State: 'checking' | 'online' | 'offline'
   // Default to 'checking' — never default to 'offline' on initial mount or view change
@@ -282,22 +298,49 @@ export function App() {
 
   return (
     <div className="app-container">
-      {/* Sidebar Navigation */}
-      <Sidebar
-        currentTab={currentTab}
-        setCurrentTab={handleTabChange}
-        alertCount={unverifiedAlertsCount}
+      {/* Top Application Header spanning full viewport width */}
+      <Header
+        pageTitle={getPageTitle()}
         isBackendHealthy={isBackendHealthy}
         connectionStatus={connectionStatus}
-        onLogout={handleLogout}
+        onRefresh={loadDashboardData}
+        detections={detections}
+        alerts={alerts}
+        onFocusDetection={handleFocusDetection}
+        onNavigate={handleTabChange}
+        onOpenUploadModal={() => setIsUploadModalOpen(true)}
+        onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
+        onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
+        isSidebarOpen={isSidebarOpen}
+        onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       />
 
-      {/* Main Content Area */}
-      <main className="main-content">
-        <Header
-          pageTitle={getPageTitle()}
+      <div className="app-body">
+        {/* Backdrop for overlay drawer mode on small screens / mobile */}
+        {isSidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Collapsible Sidebar Navigation Drawer */}
+        <Sidebar
+          isOpen={isSidebarOpen}
+          onClose={() => setIsSidebarOpen(false)}
+          currentTab={currentTab}
+          setCurrentTab={(tabId) => {
+            handleTabChange(tabId);
+            // On mobile/overlay viewports, auto-close sidebar on navigation
+            if (window.innerWidth <= 1024) {
+              setIsSidebarOpen(false);
+            }
+          }}
+          alertCount={unverifiedAlertsCount}
           isBackendHealthy={isBackendHealthy}
           connectionStatus={connectionStatus}
+<<<<<<< ours
           onRefresh={loadDashboardData}
           detections={detections}
           alerts={alerts}
@@ -305,10 +348,15 @@ export function App() {
           onNavigate={handleTabChange}
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
-          onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
+          onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
+=======
+          onLogout={handleLogout}
+>>>>>>> theirs
         />
 
-        <div className="content-body">
+        {/* Main Content Area */}
+        <main className={`main-content ${isSidebarOpen ? 'sidebar-open' : 'sidebar-collapsed'}`}>
+          <div className="content-body">
           <ErrorBoundary key={currentTab}>
             {/* 01 Overview — Geospatial Situational Awareness */}
             {currentTab === 'overview' && (
@@ -336,6 +384,8 @@ export function App() {
                 selectedDetection={selectedDetection}
                 onSelectDetection={setSelectedDetection}
                 onNavigate={handleTabChange}
+                onFocusDetection={handleFocusDetection}
+                onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
               />
             )}
 
@@ -358,6 +408,8 @@ export function App() {
                 onNavigate={handleTabChange}
                 onRefresh={loadDashboardData}
                 isBackendHealthy={isBackendHealthy}
+                onOpenUploadModal={() => setIsUploadModalOpen(true)}
+                onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
               />
             )}
 
@@ -466,24 +518,30 @@ export function App() {
 
         {/* Global AI Assistant Expandable Workspace / Slide-Over Panel */}
         <AiAssistantModal
-          isOpen={isAiAssistantModalOpen}
-          onClose={() => setIsAiAssistantModalOpen(false)}
+          isOpen={isAiAssistantModalOpen || isChatbotOpen}
+          onClose={() => {
+            setIsAiAssistantModalOpen(false);
+            setIsChatbotOpen(false);
+          }}
         />
 
         {/* SATRA AI Satellite Copilot Chatbot Modal (Section 14) */}
-        <SatraAiChatbotModal
-          isOpen={isChatbotOpen}
-          onClose={() => setIsChatbotOpen(false)}
-          onFocusDetection={handleFocusDetection}
-        />
+        {isChatbotOpen && (
+          <SatraAiChatbotModal
+            isOpen={isChatbotOpen}
+            onClose={() => setIsChatbotOpen(false)}
+            onFocusDetection={handleFocusDetection}
+          />
+        )}
 
       </main>
+      </div>
 
       {/* Single persistent floating "Ask SATRA" access point — fixed to the
           viewport (bottom: 24px / right: 24px) on every page. The ONLY
           floating AI Assistant entry; no duplicate chatbot cards. */}
-      {!isChatbotOpen && (
-        <FloatingAiButton onClick={() => setIsChatbotOpen(true)} />
+      {!isChatbotOpen && !isAiAssistantModalOpen && (
+        <FloatingAiButton onClick={() => setIsAiAssistantModalOpen(true)} />
       )}
     </div>
   );
