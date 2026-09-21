@@ -1617,54 +1617,90 @@ body,
 
 .satellite-top-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 0.95fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 0.9fr);
   gap: 20px;
   align-items: start;
 }
 
 .satellite-upload-card {
-  height: auto !important;
-  min-height: auto !important;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
   align-self: start;
+  height: auto;
 }
 
 .satellite-workflow-card {
   display: flex;
   flex-direction: column;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   box-sizing: border-box;
-  align-self: start;
 }
 
+.workflow-list,
 .satellite-workflow-scroll {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   overflow-y: auto;
+  overflow-x: hidden;
   flex: 1 1 auto;
   min-height: 0;
-  padding-right: 8px;
-  margin-right: -4px;
+  padding-right: 6px;
   scrollbar-width: thin;
   scrollbar-color: rgba(56, 189, 248, 0.3) rgba(11, 23, 38, 0.4);
 }
 
+.workflow-list::-webkit-scrollbar,
 .satellite-workflow-scroll::-webkit-scrollbar {
   width: 5px;
 }
 
+.workflow-list::-webkit-scrollbar-track,
 .satellite-workflow-scroll::-webkit-scrollbar-track {
   background: rgba(11, 23, 38, 0.4);
   border-radius: 4px;
 }
 
+.workflow-list::-webkit-scrollbar-thumb,
 .satellite-workflow-scroll::-webkit-scrollbar-thumb {
   background: rgba(56, 189, 248, 0.28);
   border-radius: 4px;
 }
 
+.workflow-list::-webkit-scrollbar-thumb:hover,
 .satellite-workflow-scroll::-webkit-scrollbar-thumb:hover {
   background: rgba(56, 189, 248, 0.55);
+}
+
+[data-theme="light"] .workflow-list,
+[data-theme="light"] .satellite-workflow-scroll,
+body.theme-light .workflow-list,
+body.theme-light .satellite-workflow-scroll {
+  scrollbar-color: #CBD5E1 #F1F5F9;
+}
+
+[data-theme="light"] .workflow-list::-webkit-scrollbar-track,
+[data-theme="light"] .satellite-workflow-scroll::-webkit-scrollbar-track,
+body.theme-light .workflow-list::-webkit-scrollbar-track,
+body.theme-light .satellite-workflow-scroll::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+[data-theme="light"] .workflow-list::-webkit-scrollbar-thumb,
+[data-theme="light"] .satellite-workflow-scroll::-webkit-scrollbar-thumb,
+body.theme-light .workflow-list::-webkit-scrollbar-thumb,
+body.theme-light .satellite-workflow-scroll::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+}
+
+[data-theme="light"] .workflow-list::-webkit-scrollbar-thumb:hover,
+[data-theme="light"] .satellite-workflow-scroll::-webkit-scrollbar-thumb:hover,
+body.theme-light .workflow-list::-webkit-scrollbar-thumb:hover,
+body.theme-light .satellite-workflow-scroll::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
 }
 
 @media (max-width: 1024px) {
@@ -1673,7 +1709,7 @@ body,
   }
   .satellite-workflow-card {
     height: auto !important;
-    max-height: 520px !important;
+    max-height: 480px !important;
   }
 }
 
@@ -1750,6 +1786,46 @@ body,
 
 .satra-locate-btn:active {
   transform: translateY(0);
+}
+
+[data-theme="light"] .satra-locate-btn,
+body.theme-light .satra-locate-btn {
+  background: #EFF6FF;
+  border: 1px solid #BAE6FD;
+  color: #0284C7;
+}
+
+[data-theme="light"] .satra-locate-btn:hover,
+body.theme-light .satra-locate-btn:hover {
+  background: #E0F2FE;
+  border-color: #0284C7;
+  box-shadow: 0 2px 8px rgba(2, 132, 199, 0.2);
+}
+
+.satra-class-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.satra-class-card:hover {
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .satra-class-card:hover,
+body.theme-light .satra-class-card:hover {
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08) !important;
+}
+
+.satra-table-row {
+  transition: background-color 0.15s ease;
+}
+
+.satra-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] .satra-table-row:hover,
+body.theme-light .satra-table-row:hover {
+  background-color: #F8FAFC !important;
 }
 
 @media (max-width: 860px) {
@@ -2987,6 +3063,9 @@ body.theme-light .satellite-workflow-card {
   border: 1px solid #DCE5EE;
   box-shadow: 0 4px 18px rgba(15, 23, 42, 0.06);
 }
+<<<<<<< Updated upstream
 
 
 
+=======
+>>>>>>> Stashed changes

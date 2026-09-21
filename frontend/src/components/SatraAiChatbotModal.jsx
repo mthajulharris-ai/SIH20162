@@ -89,7 +89,7 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
 
   return (
     <>
-      {/* Full-screen backdrop / dark + softly blurred overlay behind the chatbox */}
+      {/* Full-screen backdrop / softly blurred overlay behind the chatbox */}
       <div
         className="satra-chat-overlay"
         onClick={onClose}
@@ -101,7 +101,7 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           right: 0,
           bottom: 0,
           inset: 0,
-          background: 'rgba(0, 0, 0, 0.58)',
+          background: isLight ? 'rgba(15, 23, 42, 0.35)' : 'rgba(0, 0, 0, 0.58)',
           backdropFilter: 'blur(7px)',
           WebkitBackdropFilter: 'blur(7px)',
           zIndex: 9500,

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import {
   Flame,
   Trees,
@@ -109,6 +110,9 @@ export function AiClassificationSection({
   onFocusDetection,
   onNavigate,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   // State for active interactive filter & pagination
   const [selectedClassification, setSelectedClassification] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -194,11 +198,14 @@ export function AiClassificationSection({
       pct: calcPct(counts['Industrial Fire']),
       color: '#EF4444',
       lightColor: '#FCA5A5',
-      bg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-      activeBg: 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
-      border: 'rgba(239, 68, 68, 0.3)',
+      textColor: isLight ? '#991B1B' : '#FFFFFF',
+      iconBg: isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.20)',
+      iconBorder: isLight ? '#FECACA' : 'rgba(239, 68, 68, 0.44)',
+      bg: isLight ? '#FFF7F7' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
+      activeBg: isLight ? '#FEE2E2' : 'linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      border: isLight ? '#FECACA' : 'rgba(239, 68, 68, 0.3)',
       activeBorder: '#EF4444',
-      glow: 'rgba(239, 68, 68, 0.45)',
+      glow: isLight ? 'rgba(239, 68, 68, 0.12)' : 'rgba(239, 68, 68, 0.45)',
       icon: Flame,
       description: 'AI-classified industrial facility fires, flare stacks, and refinery thermal anomalies.',
     },
@@ -209,11 +216,14 @@ export function AiClassificationSection({
       pct: calcPct(counts['Forest Fire']),
       color: '#10B981',
       lightColor: '#86EFAC',
-      bg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-      activeBg: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
-      border: 'rgba(16, 185, 129, 0.3)',
+      textColor: isLight ? '#065F46' : '#FFFFFF',
+      iconBg: isLight ? '#ECFDF5' : 'rgba(16, 185, 129, 0.20)',
+      iconBorder: isLight ? '#A7F3D0' : 'rgba(16, 185, 129, 0.44)',
+      bg: isLight ? '#F2FBF7' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
+      activeBg: isLight ? '#D1FAE5' : 'linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      border: isLight ? '#A7F3D0' : 'rgba(16, 185, 129, 0.3)',
       activeBorder: '#10B981',
-      glow: 'rgba(16, 185, 129, 0.45)',
+      glow: isLight ? 'rgba(16, 185, 129, 0.12)' : 'rgba(16, 185, 129, 0.45)',
       icon: Trees,
       description: 'AI-classified forest fire hotspots from satellite thermal analysis.',
     },
@@ -224,11 +234,14 @@ export function AiClassificationSection({
       pct: calcPct(counts['Persistent Thermal Source']),
       color: '#F59E0B',
       lightColor: '#FDE68A',
-      bg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-      activeBg: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
-      border: 'rgba(245, 158, 11, 0.3)',
+      textColor: isLight ? '#D97706' : '#FFFFFF',
+      iconBg: isLight ? '#FFFBEB' : 'rgba(245, 158, 11, 0.20)',
+      iconBorder: isLight ? '#FDE68A' : 'rgba(245, 158, 11, 0.44)',
+      bg: isLight ? '#FFFBEB' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
+      activeBg: isLight ? '#FEF3C7' : 'linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      border: isLight ? '#FDE68A' : 'rgba(245, 158, 11, 0.3)',
       activeBorder: '#F59E0B',
-      glow: 'rgba(245, 158, 11, 0.45)',
+      glow: isLight ? 'rgba(245, 158, 11, 0.12)' : 'rgba(245, 158, 11, 0.45)',
       icon: Activity,
       description: 'AI-classified persistent thermal sources, chronic smelters, and permanent industrial heat signatures.',
     },
@@ -237,17 +250,20 @@ export function AiClassificationSection({
       emoji: '🎯',
       count: counts['Other'],
       pct: calcPct(counts['Other']),
-      color: '#38BDF8',
+      color: isLight ? '#0EA5E9' : '#38BDF8',
       lightColor: '#BAE6FD',
-      bg: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-      activeBg: 'linear-gradient(135deg, rgba(56, 189, 248, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
-      border: 'rgba(56, 189, 248, 0.3)',
-      activeBorder: '#38BDF8',
-      glow: 'rgba(56, 189, 248, 0.45)',
+      textColor: isLight ? '#0284C7' : '#FFFFFF',
+      iconBg: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.20)',
+      iconBorder: isLight ? '#BAE6FD' : 'rgba(56, 189, 248, 0.44)',
+      bg: isLight ? '#F0F9FF' : 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
+      activeBg: isLight ? '#E0F2FE' : 'linear-gradient(135deg, rgba(56, 189, 248, 0.22) 0%, rgba(15, 23, 42, 0.95) 100%)',
+      border: isLight ? '#BAE6FD' : 'rgba(56, 189, 248, 0.3)',
+      activeBorder: isLight ? '#0EA5E9' : '#38BDF8',
+      glow: isLight ? 'rgba(14, 165, 233, 0.12)' : 'rgba(56, 189, 248, 0.45)',
       icon: Radio,
       description: 'AI-classified agricultural burning, unclassified low-intensity thermal anomalies, and background signatures.',
     },
-  ], [counts, totalObservations]);
+  ], [counts, totalObservations, isLight]);
 
   // 4. Dominant Classification Determination
   const dominant = useMemo(() => {
@@ -420,14 +436,15 @@ export function AiClassificationSection({
   return (
     <div
       style={{
-        background: 'rgba(5, 11, 20, 0.75)',
-        border: '1px solid rgba(56, 189, 248, 0.25)',
-        borderRadius: '12px',
+        background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.75)',
+        border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.25)',
+        borderRadius: '16px',
         padding: compact ? '14px 16px' : '18px 22px',
-        boxShadow: '0 6px 24px rgba(0, 0, 0, 0.45)',
+        boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : '0 6px 24px rgba(0, 0, 0, 0.45)',
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
+        transition: 'all 0.25s ease',
       }}
     >
       {/* ============================================================ */}
@@ -438,20 +455,20 @@ export function AiClassificationSection({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
           paddingBottom: '12px',
           flexWrap: 'wrap',
           gap: '10px',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Cpu size={16} style={{ color: 'var(--primary-cyan, #38BDF8)' }} />
+          <Cpu size={16} style={{ color: isLight ? '#0284C7' : 'var(--primary-cyan, #38BDF8)' }} />
           <span
             style={{
               fontSize: '12.5px',
               fontWeight: 800,
               letterSpacing: '0.08em',
-              color: '#FFFFFF',
+              color: isLight ? '#0F172A' : '#FFFFFF',
               textTransform: 'uppercase',
             }}
           >
@@ -460,7 +477,7 @@ export function AiClassificationSection({
           <span
             style={{
               fontSize: '11px',
-              color: 'var(--text-muted, #94A3B8)',
+              color: isLight ? '#64748B' : 'var(--text-muted, #94A3B8)',
               fontFamily: 'var(--font-mono, monospace)',
             }}
           >
@@ -474,9 +491,9 @@ export function AiClassificationSection({
               fontSize: '10.5px',
               padding: '3px 9px',
               borderRadius: '5px',
-              background: 'rgba(56, 189, 248, 0.12)',
-              border: '1px solid rgba(56, 189, 248, 0.28)',
-              color: 'var(--primary-cyan, #38BDF8)',
+              background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.12)',
+              border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.28)',
+              color: isLight ? '#0284C7' : 'var(--primary-cyan, #38BDF8)',
               fontFamily: 'var(--font-mono, monospace)',
               fontWeight: 700,
               letterSpacing: '0.03em',
@@ -492,8 +509,10 @@ export function AiClassificationSection({
       {/* ============================================================ */}
       <div
         style={{
-          background: `linear-gradient(135deg, ${dominant.color}15 0%, rgba(11, 23, 38, 0.92) 100%)`,
-          border: `1.5px solid ${dominant.color}`,
+          background: isLight
+            ? '#F8FCFF'
+            : `linear-gradient(135deg, ${dominant.color}15 0%, rgba(11, 23, 38, 0.92) 100%)`,
+          border: isLight ? '1px solid #7DD3FC' : `1.5px solid ${dominant.color}`,
           borderRadius: '10px',
           padding: '14px 18px',
           display: 'flex',
@@ -501,7 +520,9 @@ export function AiClassificationSection({
           justifyContent: 'space-between',
           flexWrap: 'wrap',
           gap: '14px',
-          boxShadow: `0 4px 20px ${dominant.glow}`,
+          boxShadow: isLight
+            ? '0 4px 18px rgba(15, 23, 42, 0.04)'
+            : `0 4px 20px ${dominant.glow}`,
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -510,15 +531,15 @@ export function AiClassificationSection({
               width: 44,
               height: 44,
               borderRadius: '10px',
-              background: `${dominant.color}22`,
-              border: `1px solid ${dominant.color}55`,
+              background: isLight ? dominant.iconBg : `${dominant.color}22`,
+              border: isLight ? `1px solid ${dominant.iconBorder}` : `1px solid ${dominant.color}55`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            <DominantIcon size={24} style={{ color: dominant.color }} />
+            <DominantIcon size={24} style={{ color: isLight && dominant.name === 'Other' ? '#0284C7' : dominant.color }} />
           </div>
 
           <div>
@@ -527,21 +548,21 @@ export function AiClassificationSection({
                 fontSize: '11px',
                 fontWeight: 800,
                 letterSpacing: '0.08em',
-                color: dominant.color,
+                color: isLight ? '#0284C7' : dominant.color,
                 textTransform: 'uppercase',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '6px',
               }}
             >
-              <Award size={14} style={{ color: dominant.color }} />
+              <Award size={14} style={{ color: isLight ? '#0284C7' : dominant.color }} />
               <span>DOMINANT CLASSIFICATION</span>
             </div>
             <div
               style={{
                 fontSize: '21px',
                 fontWeight: 800,
-                color: '#FFFFFF',
+                color: isLight ? '#0F172A' : '#FFFFFF',
                 marginTop: '2px',
                 letterSpacing: '0.01em',
               }}
@@ -561,14 +582,14 @@ export function AiClassificationSection({
                 style={{
                   fontSize: '13px',
                   fontWeight: 700,
-                  color: 'var(--ice-blue, #BAE6FD)',
+                  color: isLight ? '#0284C7' : 'var(--ice-blue, #BAE6FD)',
                   fontFamily: 'var(--font-mono, monospace)',
                 }}
               >
                 Confidence: {confidenceVal}%
               </span>
-              <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>&bull;</span>
-              <span style={{ fontSize: '11.5px', color: 'var(--text-muted, #94A3B8)' }}>
+              <span style={{ color: isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.25)' }}>&bull;</span>
+              <span style={{ fontSize: '11.5px', color: isLight ? '#64748B' : 'var(--text-muted, #94A3B8)' }}>
                 {dominant.count.toLocaleString()} observation{dominant.count === 1 ? '' : 's'} ({dominant.pct.toFixed(1)}% of total)
               </span>
             </div>
@@ -578,14 +599,14 @@ export function AiClassificationSection({
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
-              background: 'rgba(5, 11, 20, 0.8)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.8)',
+              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.3)',
               borderRadius: '8px',
               padding: '6px 14px',
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: '10px', color: 'var(--text-muted, #94A3B8)', textTransform: 'uppercase', fontWeight: 600 }}>
+            <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted, #94A3B8)', textTransform: 'uppercase', fontWeight: 600 }}>
               Confidence
             </div>
             <div
@@ -593,7 +614,7 @@ export function AiClassificationSection({
                 fontSize: '18px',
                 fontWeight: 800,
                 fontFamily: 'var(--font-mono, monospace)',
-                color: 'var(--ice-blue, #BAE6FD)',
+                color: isLight ? '#0284C7' : 'var(--ice-blue, #BAE6FD)',
               }}
             >
               {confidenceVal}%
@@ -604,9 +625,15 @@ export function AiClassificationSection({
             style={{
               padding: '7px 14px',
               borderRadius: '8px',
-              background: alertLevel === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)',
-              border: `1px solid ${alertLevel === 'CRITICAL' ? 'rgba(239, 68, 68, 0.45)' : 'rgba(56, 189, 248, 0.35)'}`,
-              color: alertLevel === 'CRITICAL' ? '#FF453A' : 'var(--primary-cyan, #38BDF8)',
+              background: isLight
+                ? (alertLevel === 'CRITICAL' ? '#FEF2F2' : '#EFF6FF')
+                : (alertLevel === 'CRITICAL' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)'),
+              border: isLight
+                ? (alertLevel === 'CRITICAL' ? '1px solid #FECACA' : '1px solid #BAE6FD')
+                : (alertLevel === 'CRITICAL' ? '1px solid rgba(239, 68, 68, 0.45)' : '1px solid rgba(56, 189, 248, 0.35)'),
+              color: isLight
+                ? (alertLevel === 'CRITICAL' ? '#EF4444' : '#0284C7')
+                : (alertLevel === 'CRITICAL' ? '#FF453A' : 'var(--primary-cyan, #38BDF8)'),
               fontSize: '11.5px',
               fontWeight: 800,
               letterSpacing: '0.04em',
@@ -665,8 +692,12 @@ export function AiClassificationSection({
                 position: 'relative',
                 overflow: 'hidden',
                 boxShadow: isSelected
-                  ? `0 0 24px ${cat.glow}, 0 8px 24px rgba(0, 0, 0, 0.6)`
-                  : '0 4px 16px rgba(0, 0, 0, 0.35)',
+                  ? (isLight
+                      ? `0 0 0 1px ${cat.activeBorder}, 0 6px 20px rgba(15, 23, 42, 0.08)`
+                      : `0 0 24px ${cat.glow}, 0 8px 24px rgba(0, 0, 0, 0.6)`)
+                  : (isLight
+                      ? '0 2px 8px rgba(15, 23, 42, 0.04)'
+                      : '0 4px 16px rgba(0, 0, 0, 0.35)'),
                 filter: selectedClassification && !isSelected ? 'opacity(0.85)' : 'none',
               }}
             >
@@ -680,7 +711,7 @@ export function AiClassificationSection({
                     right: 0,
                     height: '3px',
                     background: cat.color,
-                    boxShadow: `0 0 10px ${cat.color}`,
+                    boxShadow: isLight ? 'none' : `0 0 10px ${cat.color}`,
                   }}
                 />
               )}
@@ -701,8 +732,8 @@ export function AiClassificationSection({
                         width: 26,
                         height: 26,
                         borderRadius: '6px',
-                        background: `${cat.color}20`,
-                        border: `1px solid ${cat.color}44`,
+                        background: cat.iconBg,
+                        border: `1px solid ${cat.iconBorder}`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -715,7 +746,9 @@ export function AiClassificationSection({
                       style={{
                         fontSize: '12.5px',
                         fontWeight: 700,
-                        color: isSelected ? '#FFFFFF' : cat.lightColor,
+                        color: isLight
+                          ? cat.textColor
+                          : (isSelected ? '#FFFFFF' : cat.lightColor),
                         lineHeight: 1.2,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
@@ -731,7 +764,9 @@ export function AiClassificationSection({
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      color: isSelected ? cat.color : 'rgba(255, 255, 255, 0.35)',
+                      color: isLight
+                        ? (isSelected ? cat.textColor : '#94A3B8')
+                        : (isSelected ? cat.color : 'rgba(255, 255, 255, 0.35)'),
                       transform: isSelected ? 'translateX(2px)' : 'none',
                       transition: 'all 0.2s ease',
                       flexShrink: 0,
@@ -746,7 +781,7 @@ export function AiClassificationSection({
                   style={{
                     fontSize: '13px',
                     fontWeight: 700,
-                    color: '#FFFFFF',
+                    color: isLight ? '#0F172A' : '#FFFFFF',
                     fontFamily: 'var(--font-mono, monospace)',
                     letterSpacing: '-0.01em',
                   }}
@@ -775,7 +810,7 @@ export function AiClassificationSection({
                   style={{
                     width: '100%',
                     height: '5px',
-                    background: 'rgba(255, 255, 255, 0.08)',
+                    background: isLight ? '#E2E8F0' : 'rgba(255, 255, 255, 0.08)',
                     borderRadius: '3px',
                     overflow: 'hidden',
                   }}
@@ -786,7 +821,7 @@ export function AiClassificationSection({
                       height: '100%',
                       background: cat.color,
                       borderRadius: '3px',
-                      boxShadow: isSelected ? `0 0 8px ${cat.color}` : 'none',
+                      boxShadow: isSelected && !isLight ? `0 0 8px ${cat.color}` : 'none',
                       transition: 'width 0.4s ease',
                     }}
                   />
@@ -804,11 +839,17 @@ export function AiClassificationSection({
         <div
           className="satra-classification-detail-panel"
           style={{
-            background: 'linear-gradient(180deg, rgba(10, 20, 38, 0.98) 0%, rgba(6, 13, 26, 0.99) 100%)',
-            border: `1.5px solid ${activeCategoryMeta.color}88`,
+            background: isLight
+              ? '#FFFFFF'
+              : 'linear-gradient(180deg, rgba(10, 20, 38, 0.98) 0%, rgba(6, 13, 26, 0.99) 100%)',
+            border: isLight
+              ? '1px solid #DCE5EE'
+              : `1.5px solid ${activeCategoryMeta.color}88`,
             borderRadius: '14px',
             padding: '22px 26px',
-            boxShadow: `0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px ${activeCategoryMeta.glow}`,
+            boxShadow: isLight
+              ? '0 8px 30px rgba(15, 23, 42, 0.08)'
+              : `0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px ${activeCategoryMeta.glow}`,
             display: 'flex',
             flexDirection: 'column',
             gap: '18px',
@@ -825,7 +866,7 @@ export function AiClassificationSection({
               flexWrap: 'wrap',
               gap: '16px',
               paddingBottom: '16px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
             }}
           >
             <div>
@@ -835,7 +876,7 @@ export function AiClassificationSection({
                   style={{
                     fontSize: '20px',
                     fontWeight: 800,
-                    color: '#FFFFFF',
+                    color: isLight ? '#0F172A' : '#FFFFFF',
                     margin: 0,
                     letterSpacing: '0.04em',
                     textTransform: 'uppercase',
@@ -856,13 +897,13 @@ export function AiClassificationSection({
                 >
                   {filteredDetections.length.toLocaleString()} CLASSIFIED OBSERVATION{filteredDetections.length === 1 ? '' : 'S'}
                 </span>
-                <span style={{ color: 'rgba(255, 255, 255, 0.25)' }}>&bull;</span>
-                <span style={{ fontSize: '12px', color: 'var(--text-muted, #94A3B8)' }}>
+                <span style={{ color: isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.25)' }}>&bull;</span>
+                <span style={{ fontSize: '12px', color: isLight ? '#64748B' : 'var(--text-muted, #94A3B8)' }}>
                   ({activeCategoryMeta.pct.toFixed(1)}% of total)
                 </span>
               </div>
 
-              <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 0 0', lineHeight: 1.4 }}>
+              <p style={{ fontSize: '12px', color: isLight ? '#64748B' : '#94A3B8', margin: '4px 0 0 0', lineHeight: 1.4 }}>
                 {activeCategoryMeta.description}
               </p>
             </div>
@@ -877,8 +918,9 @@ export function AiClassificationSection({
                   padding: '8px 16px',
                   fontSize: '12px',
                   gap: '6px',
-                  background: 'rgba(56, 189, 248, 0.14)',
-                  borderColor: 'rgba(56, 189, 248, 0.4)',
+                  background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.14)',
+                  borderColor: isLight ? '#BFDBFE' : 'rgba(56, 189, 248, 0.4)',
+                  color: isLight ? '#0284C7' : undefined,
                 }}
                 title="View classified hotspots on the 3D Earth GIS Map"
               >
@@ -896,9 +938,9 @@ export function AiClassificationSection({
                   gap: '6px',
                   padding: '8px 16px',
                   borderRadius: '6px',
-                  background: 'rgba(16, 185, 129, 0.12)',
-                  border: '1px solid rgba(16, 185, 129, 0.35)',
-                  color: '#86EFAC',
+                  background: isLight ? '#ECFDF5' : 'rgba(16, 185, 129, 0.12)',
+                  border: isLight ? '1px solid #A7F3D0' : '1px solid rgba(16, 185, 129, 0.35)',
+                  color: isLight ? '#059669' : '#86EFAC',
                   fontSize: '12px',
                   fontWeight: 700,
                   cursor: filteredDetections.length === 0 ? 'not-allowed' : 'pointer',
@@ -921,9 +963,9 @@ export function AiClassificationSection({
                   gap: '6px',
                   padding: '8px 16px',
                   borderRadius: '6px',
-                  background: 'rgba(239, 68, 68, 0.12)',
-                  border: '1px solid rgba(239, 68, 68, 0.35)',
-                  color: '#FCA5A5',
+                  background: isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.12)',
+                  border: isLight ? '1px solid #FECACA' : '1px solid rgba(239, 68, 68, 0.35)',
+                  color: isLight ? '#DC2626' : '#FCA5A5',
                   fontSize: '12px',
                   fontWeight: 700,
                   cursor: 'pointer',
@@ -943,9 +985,9 @@ export function AiClassificationSection({
             className="satra-desktop-table"
             style={{
               overflowX: 'auto',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
               borderRadius: '10px',
-              background: 'rgba(10, 16, 30, 0.65)',
+              background: isLight ? '#FFFFFF' : 'rgba(10, 16, 30, 0.65)',
             }}
           >
             <table
@@ -959,9 +1001,9 @@ export function AiClassificationSection({
               <thead>
                 <tr
                   style={{
-                    background: 'rgba(15, 23, 42, 0.95)',
-                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-                    color: '#94A3B8',
+                    background: isLight ? '#F8FAFC' : 'rgba(15, 23, 42, 0.95)',
+                    borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.1)',
+                    color: isLight ? '#64748B' : '#94A3B8',
                     fontSize: '10.5px',
                     fontWeight: 700,
                     letterSpacing: '0.06em',
@@ -997,7 +1039,7 @@ export function AiClassificationSection({
                         key={d.id || `det-${idx}`}
                         className="satra-table-row"
                         style={{
-                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                          borderBottom: isLight ? '1px solid #F1F5F9' : '1px solid rgba(255, 255, 255, 0.05)',
                           transition: 'background-color 0.15s ease',
                         }}
                       >
@@ -1006,7 +1048,7 @@ export function AiClassificationSection({
                           style={{
                             padding: '12px 14px',
                             fontFamily: 'var(--font-mono, monospace)',
-                            color: '#64748B',
+                            color: isLight ? '#94A3B8' : '#64748B',
                           }}
                         >
                           {rowNum}
@@ -1017,7 +1059,7 @@ export function AiClassificationSection({
                           style={{
                             padding: '12px 14px',
                             fontFamily: 'var(--font-mono, monospace)',
-                            color: '#CBD5E1',
+                            color: isLight ? '#334155' : '#CBD5E1',
                             fontWeight: 600,
                           }}
                         >
@@ -1030,7 +1072,7 @@ export function AiClassificationSection({
                             style={{
                               fontFamily: 'var(--font-mono, monospace)',
                               fontWeight: 800,
-                              color: '#38BDF8',
+                              color: isLight ? '#0284C7' : '#38BDF8',
                               fontSize: '12.5px',
                             }}
                           >
@@ -1044,7 +1086,7 @@ export function AiClassificationSection({
                             style={{
                               fontFamily: 'var(--font-mono, monospace)',
                               fontWeight: 800,
-                              color: '#BAE6FD',
+                              color: isLight ? '#0369A1' : '#BAE6FD',
                               fontSize: '12.5px',
                             }}
                           >
@@ -1059,9 +1101,9 @@ export function AiClassificationSection({
                               display: 'inline-block',
                               padding: '2px 8px',
                               borderRadius: '4px',
-                              background: 'rgba(56, 189, 248, 0.1)',
-                              border: '1px solid rgba(56, 189, 248, 0.25)',
-                              color: '#BAE6FD',
+                              background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.1)',
+                              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.25)',
+                              color: isLight ? '#0284C7' : '#BAE6FD',
                               fontFamily: 'var(--font-mono, monospace)',
                               fontWeight: 700,
                               fontSize: '11px',
@@ -1088,7 +1130,7 @@ export function AiClassificationSection({
                           style={{
                             padding: '12px 14px',
                             fontFamily: 'var(--font-mono, monospace)',
-                            color: '#E2E8F0',
+                            color: isLight ? '#0F172A' : '#E2E8F0',
                           }}
                         >
                           {tempFormatted}
@@ -1099,7 +1141,7 @@ export function AiClassificationSection({
                           style={{
                             padding: '12px 14px',
                             fontSize: '11px',
-                            color: '#94A3B8',
+                            color: isLight ? '#64748B' : '#94A3B8',
                             fontFamily: 'var(--font-mono, monospace)',
                           }}
                         >
@@ -1112,9 +1154,9 @@ export function AiClassificationSection({
                             style={{
                               fontSize: '11px',
                               fontWeight: 600,
-                              color: '#8DE7FF',
-                              background: 'rgba(14, 165, 233, 0.08)',
-                              border: '1px solid rgba(14, 165, 233, 0.22)',
+                              color: isLight ? '#0284C7' : '#8DE7FF',
+                              background: isLight ? '#F0F9FF' : 'rgba(14, 165, 233, 0.08)',
+                              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(14, 165, 233, 0.22)',
                               padding: '2px 7px',
                               borderRadius: '4px',
                               whiteSpace: 'nowrap',
@@ -1145,20 +1187,20 @@ export function AiClassificationSection({
                       style={{
                         textAlign: 'center',
                         padding: '42px 20px',
-                        color: '#94A3B8',
+                        color: isLight ? '#64748B' : '#94A3B8',
                       }}
                     >
                       <div
                         style={{
                           fontSize: '14px',
                           fontWeight: 700,
-                          color: '#FFFFFF',
+                          color: isLight ? '#0F172A' : '#FFFFFF',
                           marginBottom: '4px',
                         }}
                       >
                         NO OBSERVATIONS CURRENTLY CLASSIFIED AS {activeCategoryMeta.name.toUpperCase()}
                       </div>
-                      <div style={{ fontSize: '12px', color: '#64748B' }}>
+                      <div style={{ fontSize: '12px', color: isLight ? '#64748B' : '#64748B' }}>
                         No satellite thermal observations match this category in the current telemetry batch.
                       </div>
                     </td>
@@ -1178,17 +1220,17 @@ export function AiClassificationSection({
               gap: '12px',
               paddingTop: '6px',
               fontSize: '11.5px',
-              color: '#94A3B8',
+              color: isLight ? '#64748B' : '#94A3B8',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
               <div>
                 Showing{' '}
-                <strong style={{ color: '#FFFFFF' }}>
+                <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>
                   {filteredDetections.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}
                 </strong>
                 –
-                <strong style={{ color: '#FFFFFF' }}>
+                <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>
                   {Math.min(currentPage * pageSize, filteredDetections.length)}
                 </strong>{' '}
                 of{' '}
@@ -1200,7 +1242,7 @@ export function AiClassificationSection({
 
               {/* Rows Per Page Selector */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ color: '#64748B', fontSize: '11px' }}>Rows per page:</span>
+                <span style={{ color: isLight ? '#64748B' : '#64748B', fontSize: '11px' }}>Rows per page:</span>
                 <select
                   value={pageSize}
                   onChange={(e) => {
@@ -1208,9 +1250,9 @@ export function AiClassificationSection({
                     setCurrentPage(1);
                   }}
                   style={{
-                    background: 'rgba(15, 23, 42, 0.85)',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
-                    color: '#F8FAFC',
+                    background: isLight ? '#FFFFFF' : 'rgba(15, 23, 42, 0.85)',
+                    border: isLight ? '1px solid #CBD5E1' : '1px solid rgba(255, 255, 255, 0.15)',
+                    color: isLight ? '#0F172A' : '#F8FAFC',
                     borderRadius: '6px',
                     padding: '3px 8px',
                     fontSize: '11px',
@@ -1237,9 +1279,13 @@ export function AiClassificationSection({
                     gap: '4px',
                     padding: '5px 10px',
                     borderRadius: '6px',
-                    background: currentPage === 1 ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: currentPage === 1 ? '#475569' : '#CBD5E1',
+                    background: isLight
+                      ? (currentPage === 1 ? '#F1F5F9' : '#FFFFFF')
+                      : (currentPage === 1 ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)'),
+                    border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.12)',
+                    color: isLight
+                      ? (currentPage === 1 ? '#94A3B8' : '#334155')
+                      : (currentPage === 1 ? '#475569' : '#CBD5E1'),
                     fontSize: '11px',
                     fontWeight: 600,
                     cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
@@ -1253,7 +1299,7 @@ export function AiClassificationSection({
                 {getPaginationItems().map((item, i) => {
                   if (item === '...') {
                     return (
-                      <span key={`ellipsis-${i}`} style={{ padding: '0 4px', color: '#64748B' }}>
+                      <span key={`ellipsis-${i}`} style={{ padding: '0 4px', color: isLight ? '#94A3B8' : '#64748B' }}>
                         ...
                       </span>
                     );
@@ -1268,11 +1314,13 @@ export function AiClassificationSection({
                         height: '28px',
                         padding: '0 6px',
                         borderRadius: '6px',
-                        background: isCur ? activeCategoryMeta.color : 'rgba(255, 255, 255, 0.06)',
+                        background: isCur
+                          ? activeCategoryMeta.color
+                          : (isLight ? '#FFFFFF' : 'rgba(255, 255, 255, 0.06)'),
                         border: isCur
                           ? `1px solid ${activeCategoryMeta.color}`
-                          : '1px solid rgba(255, 255, 255, 0.1)',
-                        color: isCur ? '#FFFFFF' : '#CBD5E1',
+                          : (isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.1)'),
+                        color: isCur ? '#FFFFFF' : (isLight ? '#334155' : '#CBD5E1'),
                         fontSize: '11px',
                         fontWeight: isCur ? 800 : 600,
                         cursor: 'pointer',
@@ -1293,9 +1341,13 @@ export function AiClassificationSection({
                     gap: '4px',
                     padding: '5px 10px',
                     borderRadius: '6px',
-                    background: currentPage === totalPages ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    color: currentPage === totalPages ? '#475569' : '#CBD5E1',
+                    background: isLight
+                      ? (currentPage === totalPages ? '#F1F5F9' : '#FFFFFF')
+                      : (currentPage === totalPages ? 'rgba(255, 255, 255, 0.03)' : 'rgba(255, 255, 255, 0.07)'),
+                    border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.12)',
+                    color: isLight
+                      ? (currentPage === totalPages ? '#94A3B8' : '#334155')
+                      : (currentPage === totalPages ? '#475569' : '#CBD5E1'),
                     fontSize: '11px',
                     fontWeight: 600,
                     cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',

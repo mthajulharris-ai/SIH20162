@@ -82,7 +82,11 @@ export function OverviewView({
   useEffect(() => {
     let isMounted = true;
 
+<<<<<<< Updated upstream
     const checkSystemAndTelemetry = async () => {
+=======
+    const checkSystem = async () => {
+>>>>>>> Stashed changes
       try {
         const [healthRes, modelRes, satRes] = await Promise.allSettled([
           getHealth(),
@@ -94,35 +98,15 @@ export function OverviewView({
         // Update Satellite Telemetry from the combined call
         if (satRes.status === 'fulfilled' && satRes.value) {
           setSatelliteTelemetry(satRes.value);
-        } else {
-          setSatelliteTelemetry({
-            status: 'CONNECTED',
-            active_constellations: [
-              'VIIRS / NOAA-20',
-              'VIIRS / SNPP',
-              'MODIS Terra/Aqua',
-            ],
-            sensor_resolution: '375m / 1km',
-          });
         }
 
-        // Update System Health
-        const isFastApiOk =
-          healthRes.status === 'fulfilled' &&
-          (healthRes.value?.status === 'healthy' || healthRes.value?.status === 'online');
-        const isModelOk =
-          modelRes.status === 'fulfilled' &&
-          (modelRes.value?.is_available || modelRes.value?.status === 'ready');
-        const isFirmsOk =
-          satRes.status === 'fulfilled' &&
-          (satRes.value?.status === 'CONNECTED' ||
-            satRes.value?.status === 'active' ||
-            satRes.value?.status === 'OK');
-        const isDbOk = isFastApiOk;
+        const isFastApiOk = healthRes.status === 'fulfilled' && healthRes.value?.status === 'ok';
+        const isModelOk = modelRes.status === 'fulfilled' && modelRes.value?.status === 'ready';
+        const isDbOk = healthRes.status === 'fulfilled' && healthRes.value?.database === 'connected';
 
         setSystemHealth({
           fastapi: isFastApiOk ? 'Operational' : 'Unavailable',
-          firms: isFirmsOk ? 'Connected' : 'Syncing',
+          firms: 'Connected',
           aiModel: isModelOk ? 'Active' : 'Fallback',
           database: isDbOk ? 'Connected' : 'Disconnected',
           allOperational: isFastApiOk && isModelOk,
@@ -149,7 +133,11 @@ export function OverviewView({
       }
     };
 
+<<<<<<< Updated upstream
     checkSystemAndTelemetry();
+=======
+    checkSystem();
+>>>>>>> Stashed changes
     return () => {
       isMounted = false;
     };

@@ -21,11 +21,11 @@ import {
   AlertTriangle,
   Info,
   ShieldCheck,
-  ChevronRight,
   ExternalLink,
   Loader2,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
+import { DeepEventIntelligence } from '../components/DeepEventIntelligence';
 import { useTheme } from '../context/ThemeContext';
 
 // Mathematical Haversine Distance in meters
@@ -655,29 +655,6 @@ out center 35;`;
 
         {/* Source indicator & Target HUD */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('investigate')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 14px',
-                borderRadius: '8px',
-                background: isLight ? '#F0F7FC' : 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(3, 105, 161, 0.3) 100%)',
-                border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.4)',
-                color: isLight ? '#0284C7' : '#38BDF8',
-                fontSize: '11.5px',
-                fontWeight: 700,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              title="Open Deep Thermal Event Intelligence View"
-            >
-              <span>Deep Event Intel</span>
-              <ChevronRight size={13} />
-            </button>
-          )}
           <div
             style={{
               display: 'flex',
@@ -947,6 +924,25 @@ out center 35;`;
             ) : (
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px' }}>
                 Select a detection marker on the map or click a detection from the explorer to investigate its real geographic surroundings.
+              </div>
+            )}
+
+            {/* DEEP EVENT INTELLIGENCE — collapsible, lives INSIDE this same
+                Exact Detection Location card (expands downward, never a
+                detached floating panel or second sidebar). */}
+            {selectedDetection && (
+              <div
+                style={{
+                  marginTop: '14px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid var(--glass-border-subtle)',
+                }}
+              >
+                <DeepEventIntelligence
+                  detection={selectedDetection}
+                  localFeatures={localFeatures}
+                  onOpenFullInvestigation={onNavigate ? () => onNavigate('investigate') : undefined}
+                />
               </div>
             )}
           </div>

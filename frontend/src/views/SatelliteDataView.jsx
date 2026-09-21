@@ -67,16 +67,20 @@ export function SatelliteDataView({
     if (!uploadCardRef.current) return;
     const measure = () => {
       if (uploadCardRef.current) {
-        const rect = uploadCardRef.current.getBoundingClientRect();
-        if (rect.height > 100) {
-          setUploadCardHeight(Math.round(rect.height));
+        const h = uploadCardRef.current.offsetHeight || Math.round(uploadCardRef.current.getBoundingClientRect().height);
+        if (h > 100) {
+          setUploadCardHeight(h);
         }
       }
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(uploadCardRef.current);
-    return () => observer.disconnect();
+    window.addEventListener('resize', measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', measure);
+    };
   }, []);
 
   // Filter actual detection records by sensor
@@ -649,8 +653,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
             display: 'flex',
             flexDirection: 'column',
-            height: 'auto',
-            alignSelf: 'start',
+            boxSizing: 'border-box',
           }}
         >
           <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0 }}>
@@ -1042,10 +1045,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             borderRadius: '14px',
             padding: '24px 28px',
             boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
-            height: 'auto',
-            maxHeight: 'none',
             boxSizing: 'border-box',
-            alignSelf: 'start',
+            display: 'flex',
+            flexDirection: 'column',
+            height: uploadCardHeight ? `${uploadCardHeight}px` : '100%',
+            maxHeight: uploadCardHeight ? `${uploadCardHeight}px` : undefined,
+            minHeight: 0,
+            overflow: 'hidden',
           }}
         >
           <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0, flexShrink: 0 }}>
@@ -1060,7 +1066,20 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             </div>
           </div>
 
-          <div className="satellite-workflow-scroll" style={{ overflowY: 'visible', maxHeight: 'none', height: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div
+            className="workflow-list satellite-workflow-scroll"
+            style={{
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px',
+              paddingRight: '6px',
+              scrollbarWidth: 'thin',
+            }}
+          >
             {[
               {
                 num: '01',

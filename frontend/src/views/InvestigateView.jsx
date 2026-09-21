@@ -23,6 +23,7 @@ import {
   Cpu,
 } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
+import { buildEventIntelligence } from '../services/eventIntelligence';
 
 export function InvestigateView({
   selectedDetection = null,
@@ -36,49 +37,12 @@ export function InvestigateView({
   const [copySuccess, setCopySuccess] = useState(false);
   const [isRawExpanded, setIsRawExpanded] = useState(true);
 
-  // Default Event: #SAT-20481 Coimbatore Region if none provided
-  const event = useMemo(() => {
-    if (selectedDetection) {
-      const lat = parseFloat(selectedDetection.latitude || 11.0168).toFixed(4);
-      const lon = parseFloat(selectedDetection.longitude || 76.9558).toFixed(4);
-      const tempC = selectedDetection.brightness
-        ? (parseFloat(selectedDetection.brightness) > 200 ? (parseFloat(selectedDetection.brightness) - 273.15).toFixed(1) : parseFloat(selectedDetection.brightness).toFixed(1))
-        : '68.4';
-      const conf = selectedDetection.prediction_confidence
-        ? (parseFloat(selectedDetection.prediction_confidence) * 100).toFixed(1)
-        : '94.7';
-
-      return {
-        id: selectedDetection.id ? (String(selectedDetection.id).startsWith('SAT-') ? selectedDetection.id : `SAT-${selectedDetection.id}`) : 'SAT-20481',
-        locationName: selectedDetection.location_name || (lat > 20 ? 'Hazira Industrial Belt, Gujarat' : 'Coimbatore, Tamil Nadu'),
-        status: 'ACTIVE',
-        risk: (selectedDetection.alert_level || 'HIGH').toUpperCase(),
-        detected: selectedDetection.acq_date ? `${selectedDetection.acq_date} — ${selectedDetection.acq_time || '12:42 PM'} UTC` : '18 Sep 2026 — 12:42 PM',
-        lat: lat,
-        lon: lon,
-        temp: tempC,
-        confidence: conf,
-        source: selectedDetection.source ? `${selectedDetection.source} Thermal Imaging` : 'Satellite Thermal Imaging (VIIRS / INSAT-3DR)',
-        satellite: selectedDetection.source || 'INSAT-3DR / Sentinel-3 SLSTR',
-        frp: selectedDetection.frp ? parseFloat(selectedDetection.frp).toFixed(1) : '46.2',
-      };
-    }
-
-    return {
-      id: 'SAT-20481',
-      locationName: 'Coimbatore, Tamil Nadu',
-      status: 'ACTIVE',
-      risk: 'HIGH',
-      detected: '18 Sep 2026 — 12:42 PM',
-      lat: '11.0168',
-      lon: '76.9558',
-      temp: '68.4',
-      confidence: '94.7',
-      source: 'Satellite Thermal Imaging (VIIRS / INSAT-3DR)',
-      satellite: 'INSAT-3DR / Sentinel-3 SLSTR',
-      frp: '46.2',
-    };
-  }, [selectedDetection]);
+  // Deep Event Intelligence model — shared with the GIS Investigation page so
+  // the event intelligence data exists in exactly one place.
+  const event = useMemo(
+    () => buildEventIntelligence(selectedDetection),
+    [selectedDetection]
+  );
 
   const rawJsonData = useMemo(() => {
     return {
