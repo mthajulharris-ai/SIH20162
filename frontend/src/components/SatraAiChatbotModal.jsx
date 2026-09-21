@@ -88,7 +88,6 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
   };
 
   return (
-<<<<<<< Updated upstream
     <>
       {/* Full-screen backdrop / dark + softly blurred overlay behind the chatbox */}
       <div
@@ -119,11 +118,13 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           maxWidth: 'calc(100vw - 48px)',
           height: '620px',
           maxHeight: 'calc(100vh - 48px)',
-          background: 'rgba(11, 23, 38, 0.96)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(56, 189, 248, 0.35)',
+          background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.96)',
+          backdropFilter: isLight ? 'none' : 'blur(20px)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
           borderRadius: '16px',
-          boxShadow: '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
+          boxShadow: isLight
+            ? '0 16px 48px rgba(15, 23, 42, 0.15), 0 2px 12px rgba(15, 23, 42, 0.06)'
+            : '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
           zIndex: 9501,
           display: 'flex',
           flexDirection: 'column',
@@ -131,31 +132,6 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           animation: 'fadeIn 0.2s ease-out',
         }}
       >
-=======
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        width: '420px',
-        maxWidth: 'calc(100vw - 48px)',
-        height: '620px',
-        maxHeight: 'calc(100vh - 48px)',
-        background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.96)',
-        backdropFilter: isLight ? 'none' : 'blur(20px)',
-        border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
-        borderRadius: '16px',
-        boxShadow: isLight
-          ? '0 16px 48px rgba(15, 23, 42, 0.15), 0 2px 12px rgba(15, 23, 42, 0.06)'
-          : '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        animation: 'fadeIn 0.2s ease-out',
-      }}
-    >
->>>>>>> Stashed changes
       {/* Header */}
       <div
         style={{

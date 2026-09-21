@@ -18,7 +18,12 @@ export const LANGUAGE_OPTIONS = [
   { id: 'or', label: 'Odia', native: 'ଓଡ଼ିଆ', code: 'or-IN', flag: '🇮🇳' },
   { id: 'as', label: 'Assamese', native: 'অসমীয়া', code: 'as-IN', flag: '🇮🇳' },
   { id: 'ur', label: 'Urdu', native: 'اردو', code: 'ur-IN', flag: '🇮🇳' },
-  { id: 'raj', label: 'Rajasthani', native: 'र�export const MULTILINGUAL_SUGGESTED_QUESTIONS = {
+  { id: 'raj', label: 'Rajasthani', native: 'राजस्थानी', code: 'hi-IN', flag: '🇮🇳' },
+  { id: 'tanglish', label: 'Tanglish', native: 'Tamil (Latin)', code: 'ta-IN', flag: '🇮🇳' },
+  { id: 'auto', label: 'Auto Detect', native: 'Auto Detect', code: 'auto', flag: '🌐' },
+];
+
+export const MULTILINGUAL_SUGGESTED_QUESTIONS = {
   auto: [
     'What is NASA FIRMS?',
     'What is FRP?',
@@ -146,62 +151,6 @@ export const LANGUAGE_OPTIONS = [
     'SATRA आग नै कियां छांटै है?',
     'आज री आग दिखावो',
     'लगातार थर्मल स्रोत कांई है?',
-  ],
-};ണിക്കുക',
-    'നാല് വർഗ്ഗീകരണങ്ങൾ ഏവ?',
-  ],
-  mr: [
-    'NASA FIRMS म्हणजे काय?',
-    'SATRA आगीचे वर्गीकरण कसे करते?',
-    'FRP म्हणजे काय?',
-    'आजच्या आगी दाखवा',
-    'चार वर्गीकरण वर्ग कोणते आहेत?',
-  ],
-  gu: [
-    'NASA FIRMS શું છે?',
-    'SATRA આગનું વર્ગીકરણ કેવી રીતે કરે છે?',
-    'FRP શું છે?',
-    'આજની આગ બતાવો',
-    'ચાર વર્ગીકરણ શ્રેણીઓ કઈ છે?',
-  ],
-  bn: [
-    'NASA FIRMS কী?',
-    'SATRA কীভাবে আগুন শ্রেণিবদ্ধ করে?',
-    'FRP কী?',
-    'আজকের আগুন সনাক্তকরণ দেখাও',
-    'চারটি শ্রেণিবিভাগ কী কী?',
-  ],
-  pa: [
-    'NASA FIRMS ਕੀ ਹੈ?',
-    'SATRA ਅੱਗ ਨੂੰ ਕਿਵੇਂ ਸ਼੍ਰੇਣੀਬੱਧ ਕਰਦਾ ਹੈ?',
-    'FRP ਕੀ ਹੈ?',
-    'ਅੱਜ ਦੀਆਂ ਅੱਗਾਂ ਦਿਖਾਓ',
-    'ਚਾਰ ਵਰਗੀਕਰਨ ਸ਼੍ਰੇਣੀਆਂ ਕੀ ਹਨ?',
-  ],
-  or: [
-    'NASA FIRMS କଣ?',
-    'SATRA ଅଗ୍ନିକୁ କିପରି ବର୍ଗୀକରଣ କରେ?',
-    'FRP କଣ?',
-    'ଆଜିର ଅଗ୍ନିକାଣ୍ଡ ଦେଖାନ୍ତୁ',
-  ],
-  ur: [
-    'NASA FIRMS کیا ہے؟',
-    'SATRA آگ کی درجہ بندی کیسے کرتا ہے؟',
-    'FRP کیا ہے؟',
-    'آج کی آگ کی نشاندہی دکھائیں',
-  ],
-  as: [
-    'NASA FIRMS কি?',
-    'SATRA জুই কেনেকৈ শ্ৰেণীবদ্ধ কৰে?',
-    'FRP কি?',
-    'আজিৰ জুই চিনাক্তকৰণ দেখুৱাওক',
-    'চাৰিটা শ্ৰেণীবিভাজন কি কি?',
-  ],
-  raj: [
-    'NASA FIRMS कांई है?',
-    'SATRA आग नै कियां छांटै है?',
-    'FRP कांई है?',
-    'आज री आग दिखावो',
   ],
 };
 

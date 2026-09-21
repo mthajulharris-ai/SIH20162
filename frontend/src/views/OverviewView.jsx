@@ -82,11 +82,7 @@ export function OverviewView({
   useEffect(() => {
     let isMounted = true;
 
-<<<<<<< Updated upstream
     const checkSystemAndTelemetry = async () => {
-=======
-    const checkSystem = async () => {
->>>>>>> Stashed changes
       try {
         const [healthRes, modelRes, satRes] = await Promise.allSettled([
           getHealth(),
@@ -139,7 +135,6 @@ export function OverviewView({
             aiModel: 'Active',
             database: 'Connected',
             allOperational: true,
-<<<<<<< Updated upstream
           });
           setSatelliteTelemetry({
             status: 'CONNECTED',
@@ -149,19 +144,12 @@ export function OverviewView({
               'MODIS Terra/Aqua',
             ],
             sensor_resolution: '375m / 1km',
-=======
->>>>>>> Stashed changes
           });
         }
       }
     };
 
-<<<<<<< Updated upstream
     checkSystemAndTelemetry();
-
-=======
-    checkSystem();
->>>>>>> Stashed changes
     return () => {
       isMounted = false;
     };
@@ -270,88 +258,12 @@ export function OverviewView({
       {/* ============================================================ */}
       {/* 2. AI CLASSIFICATION SECTION (Interactive 4-Class Filters)  */}
       {/* ============================================================ */}
-<<<<<<< Updated upstream
       <AiClassificationSection
         detections={detections}
         analytics={analytics}
         onFocusDetection={onFocusDetection}
         onNavigate={onNavigate}
       />
-=======
-      <section className="overview-stats-grid">
-        {/* Card 1: Industrial Fires (Red) */}
-        <div className="overview-stat-card stat-industrial">
-          <div>
-            <div className="stat-label">
-              Industrial Fires
-            </div>
-            <div className="stat-val">
-              {counts.industrial}
-            </div>
-            <div className="stat-desc">
-              High-temp localized assets
-            </div>
-          </div>
-          <div className="stat-icon-box">
-            <Flame size={24} />
-          </div>
-        </div>
-
-        {/* Card 2: Forest Fires (Green) */}
-        <div className="overview-stat-card stat-forest">
-          <div>
-            <div className="stat-label">
-              Forest Fires
-            </div>
-            <div className="stat-val">
-              {counts.forest}
-            </div>
-            <div className="stat-desc">
-              Biomass thermal fronts
-            </div>
-          </div>
-          <div className="stat-icon-box">
-            <Trees size={24} />
-          </div>
-        </div>
-
-        {/* Card 3: Persistent Sources (Orange/Yellow) */}
-        <div className="overview-stat-card stat-persistent">
-          <div>
-            <div className="stat-label">
-              Persistent Sources
-            </div>
-            <div className="stat-val">
-              {counts.persistent}
-            </div>
-            <div className="stat-desc">
-              Refineries & flaring
-            </div>
-          </div>
-          <div className="stat-icon-box">
-            <Factory size={24} />
-          </div>
-        </div>
-
-        {/* Card 4: Other (Blue) */}
-        <div className="overview-stat-card stat-other">
-          <div>
-            <div className="stat-label">
-              Other
-            </div>
-            <div className="stat-val">
-              {counts.other}
-            </div>
-            <div className="stat-desc">
-              Agricultural & unclassified
-            </div>
-          </div>
-          <div className="stat-icon-box">
-            <Target size={24} />
-          </div>
-        </div>
-      </section>
->>>>>>> Stashed changes
 
       {/* ============================================================ */}
       {/* 3. PRIMARY DASHBOARD ROW (Upload & Analysis, System Status, Quick Access) */}

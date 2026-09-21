@@ -33,12 +33,8 @@ import {
 
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { ClassBadge, ProvenanceBadge, StatusBadge } from '../components/StatusBadge';
-<<<<<<< Updated upstream
 import { getSatelliteStatus, getNearbyGis } from '../services/api';
-=======
-import { getSatelliteStatus } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
->>>>>>> Stashed changes
 
 /**
  * SATRA 4-Class Classification Taxonomy & Color Palettes
@@ -1647,7 +1643,6 @@ export function EarthIntelligenceView({
                 </div>
               </div>
 
-<<<<<<< Updated upstream
               {/* Section 2: Investigation Radius & Geographic Context (PS 26162) */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Investigation Radius Selector */}
@@ -1660,10 +1655,10 @@ export function EarthIntelligenceView({
                       marginBottom: '6px',
                     }}
                   >
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: isLight ? '#0284C7' : '#38BDF8', letterSpacing: '0.05em' }}>
                       INVESTIGATION RADIUS
                     </span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '10px', color: isLight ? '#64748B' : '#94A3B8' }}>
                       Around exact detection
                     </span>
                   </div>
@@ -1682,9 +1677,9 @@ export function EarthIntelligenceView({
                             padding: '6px 8px',
                             fontSize: '11px',
                             fontWeight: isActive ? 700 : 500,
-                            background: isActive ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.03)',
-                            border: `1px solid ${isActive ? '#38BDF8' : 'rgba(255, 255, 255, 0.08)'}`,
-                            color: isActive ? '#38BDF8' : '#94A3B8',
+                            background: isActive ? (isLight ? '#E0F2FE' : 'rgba(56, 189, 248, 0.22)') : (isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.03)'),
+                            border: `1px solid ${isActive ? '#38BDF8' : (isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.08)')}`,
+                            color: isActive ? '#0284C7' : (isLight ? '#64748B' : '#94A3B8'),
                             borderRadius: '6px',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
@@ -1695,21 +1690,22 @@ export function EarthIntelligenceView({
                       );
                     })}
                   </div>
-=======
-              {/* Section 2: Location Context */}
-              <div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    color: isLight ? '#0284C7' : '#38BDF8',
-                    textTransform: 'uppercase',
-                    marginBottom: '8px',
-                  }}
-                >
-                  Location Context
->>>>>>> Stashed changes
+                </div>
+
+                {/* Location Context */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      color: isLight ? '#0284C7' : '#38BDF8',
+                      textTransform: 'uppercase',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    Location Context
+                  </div>
                 </div>
 
                 {/* Resolved Administrative Area Banner */}
@@ -1720,12 +1716,8 @@ export function EarthIntelligenceView({
                     borderRadius: '6px',
                     border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '12px',
-<<<<<<< Updated upstream
-                    color: '#F8FAFC',
-=======
                     color: isLight ? '#0F172A' : '#F8FAFC',
                     marginBottom: '10px',
->>>>>>> Stashed changes
                     lineHeight: 1.45,
                   }}
                 >
@@ -1860,40 +1852,24 @@ export function EarthIntelligenceView({
                     return (
                       <div
                         style={{
-<<<<<<< Updated upstream
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          background: isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.08)',
+                          border: isLight ? '1px solid #FECACA' : '1px solid rgba(239, 68, 68, 0.35)',
                           borderRadius: '8px',
                           padding: '12px 14px',
-=======
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '11.5px',
-                          padding: '6px 10px',
-                          background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
-                          borderRadius: '6px',
-                          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
->>>>>>> Stashed changes
                         }}
                       >
                         <div
                           style={{
-<<<<<<< Updated upstream
                             fontSize: '11px',
                             fontWeight: 800,
                             color: '#EF4444',
                             letterSpacing: '0.05em',
-=======
-                            color: isLight ? '#334155' : '#E2E8F0',
->>>>>>> Stashed changes
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
                             marginBottom: '6px',
                           }}
                         >
-<<<<<<< Updated upstream
                           <Flame size={14} />
                           <span>INDUSTRIAL CONTEXT (AI PREDICTED INDUSTRIAL FIRE)</span>
                         </div>
@@ -2155,39 +2131,6 @@ export function EarthIntelligenceView({
                           No mapped nearby features found.
                         </div>
                       )}
-=======
-                          <span
-                            style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              background: '#0EA5E9',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span>
-                            {feat.categoryLabel} — <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{feat.name}</strong>
-                          </span>
-                        </span>
-                        <span style={{ color: isLight ? '#0284C7' : '#38BDF8', fontFamily: 'monospace', fontWeight: 600, flexShrink: 0 }}>
-                          {feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(1)} km`}
-                        </span>
-                      </div>
-                    ))
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: '11.5px',
-                        color: '#64748B',
-                        fontStyle: 'italic',
-                        padding: '8px 12px',
-                        background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.02)',
-                        borderRadius: '6px',
-                        border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.04)',
-                      }}
-                    >
-                      No mapped nearby features found.
->>>>>>> Stashed changes
                     </div>
                   )}
                 </div>
@@ -2261,9 +2204,6 @@ export function EarthIntelligenceView({
                   }}
                 >
                   <MapPin size={14} />
-<<<<<<< Updated upstream
-                  <span>VIEW DETAILS IN EXPLORER</span>
-=======
                   <span>VIEW DETAILS</span>
                 </button>
 
@@ -2291,7 +2231,6 @@ export function EarthIntelligenceView({
                 >
                   <Target size={14} />
                   <span>INVESTIGATE LOCATION</span>
->>>>>>> Stashed changes
                 </button>
 
                 {/* Optional Google Street View if API key is present */}

@@ -1678,7 +1678,6 @@ body,
 }
 
 /* ==========================================================================
-<<<<<<< Updated upstream
    SATRA Interactive Classification Drill-Down & Hotspot Telemetry Registry
    ========================================================================== */
 
@@ -1791,7 +1790,7 @@ body,
     transform: translateY(0);
   }
 }
-=======
+/* ==========================================================================
    SATRA Overview Dashboard — Theme-Aware Aerospace Command Styling
    Dark Mode (Default): Preserves existing high-tech Command Center aesthetic
    Light Mode ([data-theme="light"]): Clean, genuinely light, high-contrast
@@ -2991,4 +2990,3 @@ body.theme-light .satellite-workflow-card {
 
 
 
->>>>>>> Stashed changes

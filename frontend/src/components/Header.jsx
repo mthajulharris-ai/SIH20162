@@ -82,19 +82,7 @@ export function Header({
 
   return (
     <header className="top-header">
-<<<<<<< Updated upstream
-      {/* Left: Hamburger Menu Toggle + SATRA Logo & Branding */}
-      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <button
-          onClick={onToggleSidebar}
-          className={`satra-hamburger-btn ${isSidebarOpen ? 'active' : ''}`}
-          aria-label={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
-          title={isSidebarOpen ? 'Close Navigation Menu (☰)' : 'Open Navigation Menu (☰)'}
-        >
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-=======
-      {/* Left: Hamburger Menu Toggle + SATRA Identity */}
+      {/* Left: Hamburger Menu Toggle + SATRA Logo & Identity */}
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {onToggleSidebar && (
           <button
@@ -106,7 +94,6 @@ export function Header({
             {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         )}
->>>>>>> Stashed changes
 
         <div className="header-logo-frame">
           <img
@@ -142,11 +129,7 @@ export function Header({
             </span>
           </div>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-<<<<<<< Updated upstream
             AI Satellite Intelligence • Turning satellite data into a safer tomorrow
-=======
-            AI Satellite Intelligence
->>>>>>> Stashed changes
           </div>
         </div>
       </div>
