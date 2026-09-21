@@ -200,12 +200,12 @@ export function GisMapView({ initialSelectedDetection = null }) {
 
       // Construct rich popup with all required fields (Step 3)
       const popupHtml = `
-        <div style="font-family: Inter, sans-serif; font-size: 12px; color: #F8FAFC; min-width: 250px; line-height: 1.55;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
+        <div style="font-family: Inter, sans-serif; font-size: 12px; color: var(--text-primary, #0F172A); min-width: 250px; line-height: 1.55;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; border-bottom: 1px solid var(--border-color, #E2E8F0); padding-bottom: 4px;">
             <span style="font-size: 13.5px; font-weight: 700; color: ${markerColor};">
               ${d.predicted_class || 'Thermal Anomaly'}
             </span>
-            <span style="font-size: 10px; font-weight: 700; color: ${provenanceBadgeColor}; background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px;">
+            <span style="font-size: 10px; font-weight: 700; color: ${provenanceBadgeColor}; background: var(--glass-nested, rgba(255,255,255,0.08)); padding: 2px 6px; border-radius: 4px;">
               ${provenanceLabel}
             </span>
           </div>
@@ -216,9 +216,9 @@ export function GisMapView({ initialSelectedDetection = null }) {
           <div><strong>Satellite / Instrument:</strong> ${d.source || 'VIIRS'} / ${d.instrument || 'VIIRS'}</div>
           <div><strong>Acquisition Time:</strong> ${d.acq_date} ${d.acq_time} UTC</div>
           <div><strong>Data Provenance:</strong> <span style="color: ${provenanceBadgeColor}; font-weight: 600;">${d.data_provenance || 'REAL_FIRMS'}</span></div>
-          <div><strong>Model Version:</strong> <span style="color: #94A3B8; font-family: monospace;">${d.model_version || '2.0.0-scientific-prototype'}</span></div>
-          <div><strong>Verification Status:</strong> <span style="color: #C084FC;">Requires Verification</span></div>
-          <div style="margin-top: 8px; padding: 5px 8px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 4px; color: #FCA5A5; font-size: 10.5px; font-weight: 600; text-align: center;">
+          <div><strong>Model Version:</strong> <span style="color: var(--text-muted, #94A3B8); font-family: monospace;">${d.model_version || '2.0.0-scientific-prototype'}</span></div>
+          <div><strong>Verification Status:</strong> <span style="color: #8B5CF6;">Requires Verification</span></div>
+          <div style="margin-top: 8px; padding: 5px 8px; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 4px; color: #DC2626; font-size: 10.5px; font-weight: 600; text-align: center;">
             ⚠️ AI prediction &mdash; Requires Verification
           </div>
         </div>

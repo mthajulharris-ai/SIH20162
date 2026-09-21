@@ -114,7 +114,7 @@ export function DetectionsView({ detections = [], onRefresh, loading = false, on
                 filtered.map((d) => (
                   <tr key={d.id}>
                     <td className="mono-cell">#{d.id}</td>
-                    <td className="mono-cell" style={{ color: '#FFFFFF' }}>
+                    <td className="mono-cell" style={{ color: 'var(--text-heading, #0F172A)' }}>
                       {parseFloat(d.latitude).toFixed(4)}, {parseFloat(d.longitude).toFixed(4)}
                     </td>
                     <td>

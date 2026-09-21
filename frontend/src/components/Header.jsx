@@ -82,6 +82,7 @@ export function Header({
 
   return (
     <header className="top-header">
+<<<<<<< Updated upstream
       {/* Left: Hamburger Menu Toggle + SATRA Logo & Branding */}
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <button
@@ -92,6 +93,20 @@ export function Header({
         >
           {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
+=======
+      {/* Left: Hamburger Menu Toggle + SATRA Identity */}
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        {onToggleSidebar && (
+          <button
+            onClick={onToggleSidebar}
+            className={`satra-hamburger-btn ${isSidebarOpen ? 'active' : ''}`}
+            aria-label={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+            title={isSidebarOpen ? 'Close Navigation Menu (☰)' : 'Open Navigation Menu (☰)'}
+          >
+            {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
+        )}
+>>>>>>> Stashed changes
 
         <div className="header-logo-frame">
           <img
@@ -108,7 +123,7 @@ export function Header({
 
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
+            <span style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-heading)', letterSpacing: '0.04em' }}>
               SATRA
             </span>
             <span
@@ -127,7 +142,11 @@ export function Header({
             </span>
           </div>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
+<<<<<<< Updated upstream
             AI Satellite Intelligence • Turning satellite data into a safer tomorrow
+=======
+            AI Satellite Intelligence
+>>>>>>> Stashed changes
           </div>
         </div>
       </div>
@@ -167,7 +186,7 @@ export function Header({
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Flame size={12} style={{ color: 'var(--thermal-red)' }} />
-                    <strong style={{ fontSize: '11.5px', color: '#FFFFFF' }}>#{d.id} {d.predicted_class}</strong>
+                    <strong style={{ fontSize: '11.5px', color: 'var(--text-heading)' }}>#{d.id} {d.predicted_class}</strong>
                   </div>
                   <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                     {parseFloat(d.latitude).toFixed(4)}°, {parseFloat(d.longitude).toFixed(4)}° &bull; {d.source || 'VIIRS'} &bull; {d.frp ? `${parseFloat(d.frp).toFixed(1)} MW` : 'N/A'}
@@ -413,7 +432,7 @@ export function Header({
             alignItems: 'center',
             gap: '8px',
             paddingLeft: '10px',
-            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+            borderLeft: '1px solid var(--border-color)',
             cursor: 'pointer',
           }}
           title="SATRA Team Operator"
@@ -435,8 +454,8 @@ export function Header({
             <User size={15} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
-            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#FFFFFF' }}>SATRA</span>
-            <span style={{ fontSize: '10px', color: '#94A3B8' }}>Team</span>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: 'var(--text-heading)' }}>SATRA</span>
+            <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Team</span>
           </div>
         </div>
       </div>

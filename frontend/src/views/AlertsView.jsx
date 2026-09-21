@@ -191,7 +191,7 @@ export function AlertsView({
                   <tr key={alert.id}>
                     <td><StatusBadge status={alert.alert_level} type="severity" /></td>
                     <td style={{ maxWidth: '340px' }}>
-                      <div style={{ fontWeight: 600, color: '#FFFFFF', fontSize: '13px', marginBottom: '2px' }}>
+                      <div style={{ fontWeight: 600, color: 'var(--text-heading)', fontSize: '13px', marginBottom: '2px' }}>
                         {alert.title}
                       </div>
                       <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', lineHeight: 1.4 }}>
@@ -248,10 +248,10 @@ export function AlertsView({
               ) : (
                 <tr>
                   <td colSpan="8" style={{ textAlign: 'center', padding: '48px 20px', color: 'var(--text-muted)' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginBottom: '6px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-heading)', marginBottom: '6px' }}>
                       NO ACTIVE ALERTS
                     </div>
-                    <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>
+                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
                       All systems nominal. No unverified critical thermal anomalies detected in the real satellite stream.
                     </div>
                   </td>
@@ -271,7 +271,7 @@ export function AlertsView({
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(5, 11, 20, 0.85)',
+            backgroundColor: 'rgba(5, 11, 20, 0.65)',
             backdropFilter: 'blur(6px)',
             display: 'flex',
             alignItems: 'center',
@@ -282,7 +282,7 @@ export function AlertsView({
         >
           <div className="modal-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>
+              <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text-heading)' }}>
                 Verify Incident Alert #{modalAlert.id}
               </div>
               <button
