@@ -2,7 +2,7 @@
 Central API v1 Router aggregation.
 """
 from fastapi import APIRouter
-from backend.api.v1.endpoints import health, detections, inference, alerts, analytics, satellite, chat
+from backend.api.v1.endpoints import health, detections, inference, alerts, analytics, satellite, chat, gis
 
 api_router = APIRouter()
 
@@ -26,4 +26,7 @@ api_router.include_router(satellite.router, prefix="/satellite", tags=["Satellit
 
 # Include AI Assistant chat endpoint
 api_router.include_router(chat.router, prefix="/chat", tags=["AI Assistant"])
+
+# Include GIS and Geospatial Intelligence endpoints
+api_router.include_router(gis.router, prefix="/gis", tags=["GIS & Geospatial Intelligence"])
 

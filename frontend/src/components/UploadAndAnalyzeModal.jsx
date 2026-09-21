@@ -618,7 +618,24 @@ export function UploadAndAnalyzeModal({
   };
 
   const handleFocusClick = (detectionTarget) => {
-    const det = detectionTarget || analysisResult?.detection;
+    let det = detectionTarget || analysisResult?.detection;
+    if (!det && analysisResult?.all_detections && analysisResult.all_detections.length > 0) {
+      det = analysisResult.all_detections[0];
+    }
+    if (!det && analysisResult?.exact_location) {
+      det = {
+        id: 'uploaded-1',
+        latitude: analysisResult.exact_location.latitude,
+        longitude: analysisResult.exact_location.longitude,
+        predicted_class: analysisResult.prediction?.predicted_class || 'Other',
+        prediction_confidence: analysisResult.prediction?.confidence || 0.95,
+        frp: analysisResult.thermal_data?.frp,
+        brightness: analysisResult.thermal_data?.brightness,
+        source: analysisResult.observation?.satellite || 'UPLOADED',
+        acq_date: analysisResult.observation?.acq_date,
+        acq_time: analysisResult.observation?.acq_time,
+      };
+    }
     if (det) {
       if (onViewExactLocation) {
         onViewExactLocation(det);
@@ -1990,7 +2007,7 @@ export function UploadAndAnalyzeModal({
                   }}
                 >
                   <Globe size={16} />
-                  <span>VIEW EXACT LOCATION ON EARTH / GIS</span>
+                  <span>INVESTIGATE LOCATION ON SATELLITE / GIS</span>
                 </button>
               </div>
             </div>

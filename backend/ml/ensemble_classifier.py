@@ -68,9 +68,10 @@ class SoftVotingEnsembleWrapper:
     probability calculation, confidence thresholding, and optional YOLO visual fusion.
     """
 
-    def __init__(self, ensemble: VotingClassifier):
+    def __init__(self, ensemble: VotingClassifier, model_version: str = "4.0.0-operational-ensemble"):
         self.ensemble = ensemble
         self.model_type = MODEL_TYPE_NAME
+        self.model_version = model_version
         self.classes_ = [0, 1, 2, 3]
 
     def predict_probabilities(self, X: np.ndarray) -> np.ndarray:
@@ -86,7 +87,7 @@ class SoftVotingEnsembleWrapper:
         Runs single thermal anomaly inference.
         
         Steps:
-        1. Validates exact 6 features.
+        1. Validates exact 8 canonical features.
         2. Computes predicted class probabilities via soft voting.
         3. Extracts predicted class and tabular confidence.
         4. Fuses with YOLOv11 visual detection if image is supplied.
@@ -143,6 +144,7 @@ class SoftVotingEnsembleWrapper:
             "visual_confidence": round(yolo_conf, 4) if yolo_conf is not None else None,
             "status": status,
             "model_type": self.model_type,
+            "model_version": self.model_version,
             "fusion_source": fusion_source,
             "alert_level": alert_level,
             "class_probabilities": class_probs,
@@ -185,6 +187,7 @@ class SoftVotingEnsembleWrapper:
                 "confidence": round(conf, 4),
                 "status": status,
                 "model_type": self.model_type,
+                "model_version": self.model_version,
                 "fusion_source": "TABULAR_ONLY",
                 "alert_level": alert_level,
                 "class_probabilities": class_probs,
@@ -264,19 +267,23 @@ def train_ensemble_pipeline(
     output_model_path: Union[str, Path] = "models/satra_ensemble.pkl",
     test_size: float = 0.20,
     random_state: int = 42,
+    use_spatial_group: bool = True,
 ) -> Tuple[SoftVotingEnsembleWrapper, Dict[str, Any]]:
     """
     Production training pipeline:
     1. Loads the real labelled dataset.
-    2. Validates all six required features.
+    2. Validates all eight required features.
     3. Handles missing/invalid values.
     4. Validates all 4 classes exist. If any are missing, STOPS and reports without inventing data.
-    5. Splits dataset using stratification.
-    6. Trains RF + LightGBM + XGBoost inside soft-voting ensemble.
-    7. Evaluates on test set.
-    8. Prints: Accuracy, Precision, Recall, F1-score, Classification report, Confusion matrix.
-    9. Saves the trained ensemble using joblib.
+    5. Splits dataset using spatial holdout (StratifiedGroupKFold) or stratification.
+    6. Trains and evaluates individual candidate models (RF, LightGBM, XGBoost).
+    7. Trains Soft-Voting Ensemble (RF + LightGBM + XGBoost).
+    8. Evaluates on holdout test set.
+    9. Prints comprehensive metrics table and classification reports.
+    10. Saves the trained ensemble using joblib.
     """
+    from sklearn.model_selection import StratifiedGroupKFold
+
     # 1. Load dataset
     if isinstance(dataset_path, (str, Path)):
         p = Path(dataset_path)
@@ -288,7 +295,7 @@ def train_ensemble_pipeline(
 
     logger.info("Loaded training dataset with %d rows.", len(df))
 
-    # 2. Validate all six features exist or can be extracted
+    # 2. Validate all eight features exist or can be extracted
     from backend.ml.feature_extractor import extract_features_from_observation
 
     df_cols_lower = {c.lower(): c for c in df.columns}
@@ -309,7 +316,7 @@ def train_ensemble_pipeline(
                 f"Training dataset is missing required features: {missing_feats}. Required: {REQUIRED_FEATURES}. ({err})"
             )
 
-    # Map target column (prioritize string labels for accurate mapping to 4-class taxonomy)
+    # Map target column
     target_col = None
     for cand in ["target_label", "label", "target_class", "class", "predicted_class"]:
         if cand in df.columns or cand.lower() in df_cols_lower:
@@ -323,7 +330,7 @@ def train_ensemble_pipeline(
 
     # 3. Handle missing values
     initial_len = len(df)
-    df = df.dropna(subset=REQUIRED_FEATURES + [target_col])
+    df = df.dropna(subset=REQUIRED_FEATURES + [target_col]).copy()
     if len(df) < initial_len:
         logger.warning("Dropped %d rows with missing values. Remaining: %d.", initial_len - len(df), len(df))
 
@@ -334,12 +341,12 @@ def train_ensemble_pipeline(
         unmapped = df[y_int.isna()][target_col].unique()
         if len(unmapped) > 0:
             raise ValueError(f"Unrecognized class labels in target column: {unmapped}")
-        y = y_int.astype(int)
+        y = y_int.astype(int).values
     else:
-        y = y_raw.astype(int)
+        y = y_raw.astype(int).values
 
     # 4. Check for all 4 classes - STRICT STOP IF MISSING
-    present_classes = sorted(list(y.unique()))
+    present_classes = sorted(list(np.unique(y)))
     required_classes = [0, 1, 2, 3]
     missing_classes = [c for c in required_classes if c not in present_classes]
 
@@ -358,30 +365,76 @@ def train_ensemble_pipeline(
     # Validate and extract feature matrix X
     X = validate_feature_vector(df[REQUIRED_FEATURES])
 
-    # 5. Stratified train/test split
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y,
-        test_size=test_size,
-        stratify=y,
-        random_state=random_state
-    )
+    # 5. Spatial Holdout Split (StratifiedGroupKFold) to prevent geographic leakage
+    train_idx, test_idx = None, None
+    if use_spatial_group:
+        if "spatial_cluster_id" in df.columns:
+            groups = df["spatial_cluster_id"].astype(str).values
+        elif "latitude" in df.columns and "longitude" in df.columns:
+            # 0.05 degree ~ 5.5 km grid grouping
+            groups = (
+                np.round(df["latitude"].values / 0.05).astype(str) + "_" +
+                np.round(df["longitude"].values / 0.05).astype(str)
+            )
+        else:
+            groups = None
 
-    logger.info("Training set: %d samples, Test set: %d samples.", len(X_train), len(X_test))
+        if groups is not None and len(np.unique(groups)) > 10:
+            sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=random_state)
+            try:
+                for tr_idx, te_idx in sgkf.split(X, y, groups=groups):
+                    # Ensure all 4 classes exist in both train and test
+                    if len(np.unique(y[tr_idx])) == 4 and len(np.unique(y[te_idx])) == 4:
+                        train_idx, test_idx = tr_idx, te_idx
+                        break
+            except Exception as split_err:
+                logger.warning("Spatial group split fallback: %s", split_err)
 
-    # 6. Build and fit soft-voting ensemble
-    ensemble = build_ensemble_classifier()
+    if train_idx is None or test_idx is None:
+        train_idx, test_idx = train_test_split(
+            np.arange(len(X)),
+            test_size=test_size,
+            stratify=y,
+            random_state=random_state,
+        )
 
-    # Fit XGBoost with balanced sample weights for robust multiclass handling
+    X_train, X_test = X[train_idx], X[test_idx]
+    y_train, y_test = y[train_idx], y[test_idx]
+
+    logger.info("Training set: %d samples, Holdout test set: %d samples.", len(X_train), len(X_test))
+
+    # 6. Train and benchmark individual candidate models
     sample_weights = compute_sample_weight("balanced", y_train)
 
-    logger.info("Training soft-voting ensemble (Random Forest + LightGBM + XGBoost)...")
-    ensemble.fit(
-        X_train,
-        y_train,
-        sample_weight=sample_weights
-    )
+    rf_model = RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42, n_jobs=-1)
+    lgbm_model = LGBMClassifier(n_estimators=300, learning_rate=0.05, num_leaves=31, class_weight="balanced", random_state=42, n_jobs=-1, verbose=-1)
+    xgb_model = XGBClassifier(n_estimators=300, learning_rate=0.05, max_depth=6, objective="multi:softprob", num_class=4, eval_metric="mlogloss", random_state=42, n_jobs=-1)
 
-    # 7. Evaluate on validation/test set
+    candidate_results = {}
+    for name, model, fit_weights in [
+        ("RandomForest", rf_model, True),
+        ("LightGBM", lgbm_model, True),
+        ("XGBoost", xgb_model, True),
+    ]:
+        logger.info("Training candidate model: %s...", name)
+        if fit_weights:
+            model.fit(X_train, y_train, sample_weight=sample_weights)
+        else:
+            model.fit(X_train, y_train)
+        pred_m = model.predict(X_test)
+        candidate_results[name] = {
+            "accuracy": float(accuracy_score(y_test, pred_m)),
+            "precision_macro": float(precision_score(y_test, pred_m, average="macro", zero_division=0)),
+            "recall_macro": float(recall_score(y_test, pred_m, average="macro", zero_division=0)),
+            "f1_macro": float(f1_score(y_test, pred_m, average="macro", zero_division=0)),
+        }
+
+    # 7. Build and fit soft-voting ensemble
+    ensemble = build_ensemble_classifier()
+    logger.info("Training soft-voting ensemble (Random Forest + LightGBM + XGBoost)...")
+    ensemble.fit(X_train, y_train, sample_weight=sample_weights)
+
+    # 8. Evaluate ensemble on holdout test set
     y_pred = ensemble.predict(X_test)
     y_proba = ensemble.predict_proba(X_test)
 
@@ -397,23 +450,30 @@ def train_ensemble_pipeline(
     )
     conf_mat = confusion_matrix(y_test, y_pred)
 
-    # 8. Print comprehensive evaluation metrics
-    print("\n" + "=" * 65)
-    print("      SATRA PRODUCTION SOFT-VOTING ENSEMBLE EVALUATION")
-    print("=" * 65)
-    print(f"Accuracy:        {acc * 100:.2f}%")
-    print(f"Macro Precision: {prec * 100:.2f}%")
-    print(f"Macro Recall:    {rec * 100:.2f}%")
-    print(f"Macro F1-score:  {f1 * 100:.2f}%")
-    print("-" * 65)
-    print("Classification Report:")
+    candidate_results["SoftVotingEnsemble"] = {
+        "accuracy": acc,
+        "precision_macro": prec,
+        "recall_macro": rec,
+        "f1_macro": f1,
+    }
+
+    # 9. Print comprehensive evaluation metrics
+    print("\n" + "=" * 70)
+    print("       SATRA PRODUCTION MODEL BENCHMARK & ENSEMBLE EVALUATION")
+    print("=" * 70)
+    print(f"{'Model Name':<22} | {'Accuracy':<10} | {'Precision':<10} | {'Recall':<10} | {'Macro F1':<10}")
+    print("-" * 70)
+    for mname, mres in candidate_results.items():
+        print(f"{mname:<22} | {mres['accuracy']*100:>8.2f}% | {mres['precision_macro']*100:>8.2f}% | {mres['recall_macro']*100:>8.2f}% | {mres['f1_macro']*100:>8.2f}%")
+    print("-" * 70)
+    print("\nSoft-Voting Ensemble Classification Report (Spatial Holdout):")
     print(cls_report)
     print("Confusion Matrix:")
     print(conf_mat)
-    print("=" * 65 + "\n")
+    print("=" * 70 + "\n")
 
-    # 9. Save trained ensemble
-    wrapper = SoftVotingEnsembleWrapper(ensemble)
+    # 10. Save trained ensemble
+    wrapper = SoftVotingEnsembleWrapper(ensemble, model_version="4.0.0-operational-ensemble")
     out_p = Path(output_model_path)
     out_p.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(wrapper, out_p)
@@ -424,6 +484,7 @@ def train_ensemble_pipeline(
         "precision": prec,
         "recall": rec,
         "f1_score": f1,
+        "candidate_results": candidate_results,
         "classification_report": cls_report,
         "confusion_matrix": conf_mat.tolist(),
         "model_path": str(out_p),

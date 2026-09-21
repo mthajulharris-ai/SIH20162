@@ -113,8 +113,8 @@ def test_full_system_smoke_workflow(smoke_client):
     assert 0.0 <= prediction["confidence"] <= 1.0
 
     # Step 6: Model version is recorded
-    assert prediction["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble"]
-    assert detection["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble"]
+    assert prediction["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble", "4.0.0-operational-ensemble"]
+    assert detection["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble", "4.0.0-operational-ensemble"]
 
     # Step 7: Provenance is preserved
     assert detection["data_provenance"] == PROVENANCE_SAMPLE
@@ -132,7 +132,7 @@ def test_full_system_smoke_workflow(smoke_client):
     assert det_data["latitude"] == pytest.approx(28.6139, abs=1e-4)
     assert det_data["longitude"] == pytest.approx(77.2090, abs=1e-4)
     assert det_data["data_provenance"] == PROVENANCE_SAMPLE
-    assert det_data["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble"]
+    assert det_data["model_version"] in ["2.0.0-scientific-prototype", "3.0.0-ensemble", "4.0.0-operational-ensemble"]
 
     # Step 9 & 11: Alert logic executes & Alert can be retrieved
     alerts_resp = client.get("/api/v1/alerts")

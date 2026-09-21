@@ -22,9 +22,20 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:5173",
+        "http://localhost:8000",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "http://127.0.0.1:8000",
+        "http://10.172.57.71:3000",
+        "http://10.172.57.71:5173",
+        "http://10.172.57.71:8000",
     ]
+    CORS_ORIGIN_REGEX: str = (
+        r"^https?://(localhost|127\.0\.0\.1|"
+        r"10\.\d{1,3}\.\d{1,3}\.\d{1,3}|"
+        r"192\.168\.\d{1,3}\.\d{1,3}|"
+        r"172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3})(:\d+)?$"
+    )
 
     # NASA FIRMS API Configurations
     NASA_FIRMS_BASE_URL: str = "https://firms.modaps.eosdis.nasa.gov/api"

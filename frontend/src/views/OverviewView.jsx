@@ -57,11 +57,12 @@ export function OverviewView({
     allOperational: true,
   });
 
+  // Live satellite constellation telemetry (VIIRS / MODIS status)
+  const [satelliteTelemetry, setSatelliteTelemetry] = useState(null);
+
   // Query real statuses on mount
   useEffect(() => {
     let isMounted = true;
-<<<<<<< ours
-
     const loadSatelliteTelemetry = async () => {
       try {
         const status = await getSatelliteStatus();
@@ -79,7 +80,11 @@ export function OverviewView({
               'MODIS Terra/Aqua',
             ],
             sensor_resolution: '375m / 1km',
-=======
+          });
+        }
+      }
+    };
+
     const checkSystem = async () => {
       try {
         const [healthRes, modelRes, satRes] = await Promise.allSettled([
@@ -117,18 +122,12 @@ export function OverviewView({
             aiModel: 'Active',
             database: 'Connected',
             allOperational: true,
->>>>>>> theirs
           });
         }
       }
     };
-<<<<<<< ours
-
     loadSatelliteTelemetry();
-
-=======
     checkSystem();
->>>>>>> theirs
     return () => {
       isMounted = false;
     };

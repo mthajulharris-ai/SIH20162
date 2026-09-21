@@ -26,11 +26,14 @@ import {
   ChevronRight,
   ExternalLink,
   ShieldAlert,
+  Navigation,
+  Eye,
+  RefreshCw,
 } from 'lucide-react';
 
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { ClassBadge, ProvenanceBadge, StatusBadge } from '../components/StatusBadge';
-import { getSatelliteStatus } from '../services/api';
+import { getSatelliteStatus, getNearbyGis } from '../services/api';
 
 /**
  * SATRA 4-Class Classification Taxonomy & Color Palettes
@@ -166,7 +169,7 @@ export function EarthIntelligenceView({
   onOpenAiAssistant = () => {},
 }) {
   // View mode: '3d' (default realistic Earth) | '2d' (high-res Leaflet satellite)
-  const [viewMode, setViewMode] = useState('3d');
+  const [viewMode, setViewMode] = useState(selectedDetection ? '2d' : '3d');
 
   // Search input & feedback state
   const [searchQuery, setSearchQuery] = useState('');
@@ -186,14 +189,38 @@ export function EarthIntelligenceView({
   // Copied coordinates state
   const [copiedCoords, setCopiedCoords] = useState(false);
 
-  // Real Reverse Geocoding & Local OSM Infrastructure State
+  // PS 26162: Configurable Investigation Radius (1000m default, 2000m, 5000m)
+  const [investigationRadius, setInvestigationRadius] = useState(1000);
+  const [activeFeature, setActiveFeature] = useState(null);
+  const [isFeaturesExpanded, setIsFeaturesExpanded] = useState(true);
+
+  // Real GIS Physical Features & Counts State (from Backend FastAPI GIS Service)
+  const [gisData, setGisData] = useState({
+    status: 'idle',
+    radius_m: 1000,
+    summary: {
+      industrial: 0,
+      factories: 0,
+      roads: 0,
+      buildings: 0,
+      forest: 0,
+      settlements: 0,
+      water: 0,
+      other: 0,
+    },
+    features: [],
+    message: null,
+  });
+  const [isGisLoading, setIsGisLoading] = useState(false);
+  const [gisError, setGisError] = useState(null);
+
+  // Real Reverse Geocoding & Administrative Context State
   const [locationContext, setLocationContext] = useState({
     resolvedAddress: null,
     continent: '',
     country: '',
     state: '',
     city: '',
-    features: [],
     loading: false,
     source: '',
   });
@@ -203,7 +230,15 @@ export function EarthIntelligenceView({
   const leafletMapRef = useRef(null);
   const leafletMarkersRef = useRef(null);
 
-  // 1. Resolve Location Context and Real Overpass Nearby Features
+  // Automatically switch to 2D Satellite GIS View whenever a detection is selected
+  useEffect(() => {
+    if (selectedDetection) {
+      setViewMode('2d');
+      setActiveFeature(null);
+    }
+  }, [selectedDetection]);
+
+  // 1. Resolve Administrative Geography (Nominatim) and Real Physical GIS Features (Backend Service)
   useEffect(() => {
     if (!selectedDetection) {
       setLocationContext({
@@ -212,10 +247,27 @@ export function EarthIntelligenceView({
         country: '',
         state: '',
         city: '',
-        features: [],
         loading: false,
         source: '',
       });
+      setGisData({
+        status: 'idle',
+        radius_m: investigationRadius,
+        summary: {
+          industrial: 0,
+          factories: 0,
+          roads: 0,
+          buildings: 0,
+          forest: 0,
+          settlements: 0,
+          water: 0,
+          other: 0,
+        },
+        features: [],
+        message: null,
+      });
+      setIsGisLoading(false);
+      setGisError(null);
       return;
     }
 
@@ -226,15 +278,16 @@ export function EarthIntelligenceView({
     let isMounted = true;
     const controller = new AbortController();
     setLocationContext((prev) => ({ ...prev, loading: true }));
+    setIsGisLoading(true);
+    setGisError(null);
 
     const fetchGeoData = async () => {
       let resolvedCountry = '';
       let resolvedState = '';
       let resolvedCity = '';
       let resolvedSummary = '';
-      let featuresList = [];
 
-      // A. Fetch Nominatim Reverse Geocode
+      // A. Reverse Geocoding for Place Name (Nominatim)
       try {
         const nomRes = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`,
@@ -262,102 +315,52 @@ export function EarthIntelligenceView({
         resolvedSummary = formatCoordinates(lat, lon);
       }
 
-      // B. Fetch Real Overpass Infrastructure Nearby
-      const overpassQuery = `[out:json][timeout:8];
-(
-  nwr["landuse"="industrial"](around:2500,${lat},${lon});
-  nwr["man_made"="works"](around:2500,${lat},${lon});
-  nwr["industrial"](around:2500,${lat},${lon});
-  nwr["building"](around:1200,${lat},${lon});
-  nwr["highway"~"primary|secondary|tertiary|trunk|motorway|residential"](around:1500,${lat},${lon});
-  nwr["landuse"~"forest|wood"](around:2500,${lat},${lon});
-  nwr["natural"~"wood|scrub|water"](around:2500,${lat},${lon});
-  nwr["place"~"city|town|village|suburb"](around:4000,${lat},${lon});
-);
-out center 25;`;
-
+      // B. Fetch Real Physical Infrastructure from Backend GIS Service (Zero Mock Data)
       try {
-        const opRes = await fetch('https://overpass-api.de/api/interpreter', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: 'data=' + encodeURIComponent(overpassQuery),
-          signal: controller.signal,
-        });
-
-        if (opRes.ok) {
-          const opData = await opRes.json();
-          const elements = opData.elements || [];
-
-          for (const el of elements) {
-            const clat = el.lat || (el.center && el.center.lat);
-            const clon = el.lon || (el.center && el.center.lon);
-            if (!clat || !clon) continue;
-
-            const dist = calculateHaversineMeters(lat, lon, clat, clon);
-            const tags = el.tags || {};
-            let categoryLabel = 'Infrastructure';
-
-            if (
-              tags.landuse === 'industrial' ||
-              tags.man_made === 'works' ||
-              tags.industrial ||
-              (tags.building && tags.building.toLowerCase().includes('industrial'))
-            ) {
-              categoryLabel = 'Industrial Facility';
-            } else if (tags.highway) {
-              categoryLabel = 'Road';
-            } else if (tags.building) {
-              categoryLabel = 'Building';
-            } else if (tags.landuse === 'forest' || tags.natural === 'wood' || tags.natural === 'scrub') {
-              categoryLabel = 'Forest / Vegetation';
-            } else if (tags.natural === 'water' || tags.water) {
-              categoryLabel = 'Water Body';
-            } else if (tags.place) {
-              categoryLabel = 'Settlement';
-            }
-
-            const rawName =
-              tags.name ||
-              tags['name:en'] ||
-              (tags.highway ? `${tags.highway.charAt(0).toUpperCase() + tags.highway.slice(1)} Road` : null) ||
-              tags.place ||
-              tags.operator;
-
-            const name = rawName || `${categoryLabel} Asset`;
-
-            featuresList.push({
-              categoryLabel,
-              name,
-              distance_m: dist,
-            });
+        const res = await getNearbyGis({ lat, lon, radius: investigationRadius });
+        if (isMounted) {
+          if (res && res.status === 'success') {
+            setGisData(res);
+            setGisError(null);
+          } else if (res && res.status === 'unavailable') {
+            setGisData(res);
+            setGisError(res.message || 'Nearby GIS context unavailable');
           }
-
-          featuresList.sort((a, b) => a.distance_m - b.distance_m);
-          // Keep closest unique items (max 5)
-          const seen = new Set();
-          featuresList = featuresList.filter((f) => {
-            const key = `${f.categoryLabel}-${f.name}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          }).slice(0, 5);
         }
       } catch (err) {
-        if (!isMounted) return;
-        console.warn('Overpass spatial query fallback:', err);
-      }
-
-      if (isMounted) {
-        setLocationContext({
-          resolvedAddress: resolvedSummary,
-          continent: getContinent(lat, lon, resolvedCountry),
-          country: resolvedCountry,
-          state: resolvedState,
-          city: resolvedCity,
-          features: featuresList,
-          loading: false,
-          source: featuresList.length > 0 ? 'OpenStreetMap Overpass API' : 'Nominatim Geocoding',
-        });
+        if (isMounted) {
+          console.warn('Backend GIS query error:', err);
+          setGisError('Nearby GIS context unavailable');
+          setGisData({
+            status: 'unavailable',
+            radius_m: investigationRadius,
+            summary: {
+              industrial: 0,
+              factories: 0,
+              roads: 0,
+              buildings: 0,
+              forest: 0,
+              settlements: 0,
+              water: 0,
+              other: 0,
+            },
+            features: [],
+            message: 'Nearby GIS context unavailable',
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsGisLoading(false);
+          setLocationContext({
+            resolvedAddress: resolvedSummary,
+            continent: getContinent(lat, lon, resolvedCountry),
+            country: resolvedCountry,
+            state: resolvedState,
+            city: resolvedCity,
+            loading: false,
+            source: 'OpenStreetMap GIS Service',
+          });
+        }
       }
     };
 
@@ -367,7 +370,7 @@ out center 25;`;
       isMounted = false;
       controller.abort();
     };
-  }, [selectedDetection]);
+  }, [selectedDetection, investigationRadius]);
 
   // 2. Search Bar Handler: Supports Coordinates, ID, or Geocoded Location
   const handleSearchSubmit = async (e) => {
@@ -521,7 +524,7 @@ out center 25;`;
     }
   };
 
-  // 3. Initialize 2D Leaflet Satellite Map when viewMode === '2d'
+  // 3. Initialize & Update 2D Leaflet Satellite Map when viewMode === '2d'
   useEffect(() => {
     if (viewMode !== '2d' || !leafletContainerRef.current) return;
 
@@ -530,7 +533,7 @@ out center 25;`;
       const centerLon = selectedDetection ? parseFloat(selectedDetection.longitude) : 75.0;
       const map = L.map(leafletContainerRef.current, {
         center: [centerLat, centerLon],
-        zoom: selectedDetection ? 11 : 5,
+        zoom: selectedDetection ? 15 : 5,
         zoomControl: false,
         attributionControl: false,
       });
@@ -555,29 +558,29 @@ out center 25;`;
     const markersGroup = leafletMarkersRef.current;
     if (markersGroup) markersGroup.clearLayers();
 
-    // Plot real detections
+    // Plot background detections
     (detections || []).forEach((d) => {
+      if (selectedDetection && String(selectedDetection.id) === String(d.id)) return;
       const lat = parseFloat(d.latitude);
       const lon = parseFloat(d.longitude);
       if (isNaN(lat) || isNaN(lon)) return;
 
       const key = normalizeClassKey(d.predicted_class || d.classification);
       const color = TAXONOMY[key]?.color || '#FACC15';
-      const isSelected = selectedDetection && String(selectedDetection.id) === String(d.id);
 
       const marker = L.circleMarker([lat, lon], {
-        radius: isSelected ? 10 : 6,
-        color: isSelected ? '#FFFFFF' : color,
-        weight: isSelected ? 3 : 1.5,
+        radius: 5,
+        color: '#FFFFFF',
+        weight: 1,
         fillColor: color,
-        fillOpacity: 0.85,
+        fillOpacity: 0.75,
       });
 
       marker.bindTooltip(
         `<div style="font-family: sans-serif; font-size: 11px; color: #FFFFFF; background: #0B1320; padding: 6px 10px; border-radius: 4px; border: 1px solid ${color};">
           <strong>${d.predicted_class || 'Thermal Anomaly'}</strong><br/>
           Lat: ${lat.toFixed(4)}°, Lon: ${lon.toFixed(4)}°<br/>
-          Confidence: ${formatConfidence(d.prediction_confidence)}
+          FRP: ${d.frp != null ? `${parseFloat(d.frp).toFixed(1)} MW` : 'N/A'}
         </div>`,
         { direction: 'top', className: 'tactical-map-tooltip' }
       );
@@ -589,14 +592,129 @@ out center 25;`;
       marker.addTo(markersGroup);
     });
 
+    // If a detection is selected, plot exact tactical marker, radius circle, and nearby features
     if (selectedDetection) {
-      const lat = parseFloat(selectedDetection.latitude);
-      const lon = parseFloat(selectedDetection.longitude);
-      if (!isNaN(lat) && !isNaN(lon)) {
-        map.setView([lat, lon], 12, { animate: true });
+      const detLat = parseFloat(selectedDetection.latitude);
+      const detLon = parseFloat(selectedDetection.longitude);
+
+      if (!isNaN(detLat) && !isNaN(detLon)) {
+        const key = normalizeClassKey(selectedDetection.predicted_class || selectedDetection.classification);
+        const color = TAXONOMY[key]?.color || '#EF4444';
+
+        // 1. Radius Circle Overlay
+        const radiusCircle = L.circle([detLat, detLon], {
+          radius: investigationRadius,
+          color: '#38BDF8',
+          weight: 1.5,
+          dashArray: '5, 5',
+          fillColor: '#0284C7',
+          fillOpacity: 0.05,
+        });
+        radiusCircle.addTo(markersGroup);
+
+        // 2. Exact Detection Marker with pulsing animation
+        const pulseIcon = L.divIcon({
+          className: 'satra-detection-marker-node',
+          html: `
+            <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: ${color}; opacity: 0.4; animation: satraPulse 2s infinite ease-out;"></div>
+              <div style="position: absolute; width: 22px; height: 22px; border-radius: 50%; background: ${color}; border: 2.5px solid #FFFFFF; box-shadow: 0 0 14px ${color};"></div>
+              <div style="position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #FFFFFF;"></div>
+            </div>
+          `,
+          iconSize: [36, 36],
+          iconAnchor: [18, 18],
+        });
+
+        const detMarker = L.marker([detLat, detLon], { icon: pulseIcon, zIndexOffset: 2000 });
+        detMarker.bindTooltip(
+          `<div style="font-family: sans-serif; font-size: 11.5px; color: #FFFFFF; background: #0B1320; padding: 8px 12px; border-radius: 6px; border: 1.5px solid ${color}; line-height: 1.5;">
+            <div style="font-weight: 800; color: ${color}; text-transform: uppercase; margin-bottom: 2px;">
+              EXACT DETECTION LOCATION
+            </div>
+            <strong>AI Classification:</strong> ${selectedDetection.predicted_class || 'Thermal Anomaly'}<br/>
+            <strong>Confidence:</strong> ${formatConfidence(selectedDetection.prediction_confidence)}<br/>
+            <strong>Coordinates:</strong> ${detLat.toFixed(6)}°, ${detLon.toFixed(6)}°<br/>
+            ${selectedDetection.frp ? `<strong>FRP:</strong> ${parseFloat(selectedDetection.frp).toFixed(1)} MW<br/>` : ''}
+            <strong>Satellite:</strong> ${selectedDetection.source || selectedDetection.satellite || 'VIIRS'}
+          </div>`,
+          { direction: 'top', className: 'tactical-map-tooltip' }
+        );
+        detMarker.on('click', () => {
+          map.setView([detLat, detLon], 15, { animate: true });
+          setActiveFeature(null);
+        });
+        detMarker.addTo(markersGroup);
+
+        // 3. Nearby Real GIS Features
+        const badgeMap = {
+          industrial: { icon: '🏭', color: '#F97316' },
+          roads: { icon: '🛣️', color: '#38BDF8' },
+          forest: { icon: '🌳', color: '#10B981' },
+          buildings: { icon: '🏢', color: '#818CF8' },
+          settlements: { icon: '🏘️', color: '#C084FC' },
+          water: { icon: '💧', color: '#06B6D4' },
+          other: { icon: '📍', color: '#94A3B8' },
+        };
+
+        (gisData.features || []).forEach((feat) => {
+          if (feat.latitude == null || feat.longitude == null) return;
+          const badge = badgeMap[feat.type] || badgeMap.other;
+          const isActive = activeFeature && activeFeature.id === feat.id;
+
+          const featIcon = L.divIcon({
+            className: 'satra-gis-node',
+            html: `
+              <div style="
+                display: flex; align-items: center; justify-content: center;
+                width: ${isActive ? '34px' : '26px'};
+                height: ${isActive ? '34px' : '26px'};
+                border-radius: 50%;
+                background: #0B1320;
+                border: 2px solid ${isActive ? '#FFFFFF' : badge.color};
+                box-shadow: ${isActive ? `0 0 16px #FFFFFF, 0 0 10px ${badge.color}` : '0 2px 8px rgba(0,0,0,0.7)'};
+                font-size: ${isActive ? '15px' : '13px'};
+                cursor: pointer;
+                transition: all 0.2s ease;
+              ">
+                ${badge.icon}
+              </div>
+            `,
+            iconSize: [isActive ? 34 : 26, isActive ? 34 : 26],
+            iconAnchor: [isActive ? 17 : 13, isActive ? 17 : 13],
+          });
+
+          const fMarker = L.marker([feat.latitude, feat.longitude], {
+            icon: featIcon,
+            zIndexOffset: isActive ? 1500 : 500,
+          });
+
+          const distLabel = feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(2)} km`;
+          fMarker.bindTooltip(
+            `<div style="font-family: sans-serif; font-size: 11px; color: #FFFFFF; background: #0B1320; padding: 6px 10px; border-radius: 6px; border: 1px solid ${badge.color};">
+              <strong>${badge.icon} ${feat.name}</strong><br/>
+              <span style="color: #94A3B8;">${feat.category_label} &bull; ${distLabel} (${feat.direction})</span>
+            </div>`,
+            { direction: 'top', className: 'tactical-map-tooltip' }
+          );
+
+          fMarker.on('click', () => {
+            setActiveFeature(feat);
+            map.setView([feat.latitude, feat.longitude], Math.max(map.getZoom(), 16), { animate: true });
+          });
+
+          fMarker.addTo(markersGroup);
+        });
+
+        // Center on detection or active feature
+        if (activeFeature && activeFeature.latitude && activeFeature.longitude) {
+          map.setView([activeFeature.latitude, activeFeature.longitude], Math.max(map.getZoom(), 16), { animate: true });
+        } else {
+          map.setView([detLat, detLon], 15, { animate: true });
+        }
       }
     }
-  }, [viewMode, detections, selectedDetection, onSelectDetection]);
+  }, [viewMode, detections, selectedDetection, gisData, activeFeature, investigationRadius, onSelectDetection]);
 
   // 4. Zoom control for 3D Earth and 2D Satellite
   const handleZoom = (delta) => {
@@ -989,6 +1107,46 @@ out center 25;`;
                 ref={leafletContainerRef}
                 style={{ position: 'absolute', inset: 0, zIndex: 1, background: '#050B14' }}
               />
+            )}
+
+            {/* Tactical Focus Detection Floating Action on Map */}
+            {viewMode === '2d' && selectedDetection && (
+              <button
+                onClick={() => {
+                  setActiveFeature(null);
+                  if (leafletMapRef.current) {
+                    const dlat = parseFloat(selectedDetection.latitude);
+                    const dlon = parseFloat(selectedDetection.longitude);
+                    if (!isNaN(dlat) && !isNaN(dlon)) {
+                      leafletMapRef.current.setView([dlat, dlon], 15, { animate: true });
+                    }
+                  }
+                }}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  right: '20px',
+                  zIndex: 20,
+                  background: 'rgba(11, 23, 38, 0.94)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid #38BDF8',
+                  borderRadius: '8px',
+                  padding: '8px 14px',
+                  color: '#FFFFFF',
+                  fontSize: '11.5px',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.6), 0 0 14px rgba(56, 189, 248, 0.3)',
+                  transition: 'all 0.15s ease',
+                }}
+                title="Center map on exact satellite thermal coordinate"
+              >
+                <Crosshair size={14} style={{ color: '#38BDF8' }} />
+                <span>FOCUS DETECTION [{parseFloat(selectedDetection.latitude).toFixed(4)}°, {parseFloat(selectedDetection.longitude).toFixed(4)}°]</span>
+              </button>
             )}
 
             {/* Honest Empty State Banner if no detections exist */}
@@ -1478,22 +1636,56 @@ out center 25;`;
                 </div>
               </div>
 
-              {/* Section 2: Location Context */}
-              <div>
-                <div
-                  style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    color: '#38BDF8',
-                    textTransform: 'uppercase',
-                    marginBottom: '8px',
-                  }}
-                >
-                  Location Context
+              {/* Section 2: Investigation Radius & Geographic Context (PS 26162) */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Investigation Radius Selector */}
+                <div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.05em' }}>
+                      INVESTIGATION RADIUS
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#94A3B8' }}>
+                      Around exact detection
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px' }}>
+                    {[1000, 2000, 5000].map((rad) => {
+                      const isActive = investigationRadius === rad;
+                      return (
+                        <button
+                          key={rad}
+                          onClick={() => {
+                            setInvestigationRadius(rad);
+                            setActiveFeature(null);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '6px 8px',
+                            fontSize: '11px',
+                            fontWeight: isActive ? 700 : 500,
+                            background: isActive ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.03)',
+                            border: `1px solid ${isActive ? '#38BDF8' : 'rgba(255, 255, 255, 0.08)'}`,
+                            color: isActive ? '#38BDF8' : '#94A3B8',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease',
+                          }}
+                        >
+                          {rad / 1000} km {rad === 1000 ? '(Default)' : ''}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
 
-                {/* Resolved Administrative Area */}
+                {/* Resolved Administrative Area Banner */}
                 <div
                   style={{
                     padding: '8px 12px',
@@ -1502,10 +1694,12 @@ out center 25;`;
                     border: '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '12px',
                     color: '#F8FAFC',
-                    marginBottom: '10px',
                     lineHeight: 1.45,
                   }}
                 >
+                  <div style={{ fontSize: '10px', color: '#64748B', fontWeight: 600, marginBottom: '2px' }}>
+                    ADMINISTRATIVE REGION
+                  </div>
                   {locationContext.loading ? (
                     <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Resolving spatial geography...</span>
                   ) : (
@@ -1513,70 +1707,406 @@ out center 25;`;
                   )}
                 </div>
 
-                {/* Nearby Geographic Features from Overpass/OSM */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {locationContext.loading ? (
-                    <div style={{ fontSize: '11.5px', color: '#64748B', fontStyle: 'italic', padding: '6px 0' }}>
-                      Analyzing nearby spatial infrastructure...
+                {/* GEOGRAPHIC CONTEXT (Summary Counts from Real GIS Query) */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      color: '#38BDF8',
+                      textTransform: 'uppercase',
+                      marginBottom: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <span>GEOGRAPHIC CONTEXT</span>
+                    <span style={{ fontSize: '10px', color: '#64748B', fontWeight: 500 }}>
+                      Radius: {investigationRadius / 1000} km
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(2, 1fr)',
+                      gap: '6px',
+                      marginBottom: '6px',
+                    }}
+                  >
+                    {/* Industrial Facilities */}
+                    <div style={{ background: 'rgba(249, 115, 22, 0.08)', border: '1px solid rgba(249, 115, 22, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#FDBA74', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🏭 Industrial</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.industrial || 0}
+                      </div>
                     </div>
-                  ) : locationContext.features && locationContext.features.length > 0 ? (
-                    locationContext.features.map((feat, idx) => (
+
+                    {/* Factories */}
+                    <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#FCA5A5', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🏭 Factories</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.factories || 0}
+                      </div>
+                    </div>
+
+                    {/* Roads */}
+                    <div style={{ background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#BAE6FD', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🛣️ Roads</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.roads || 0}
+                      </div>
+                    </div>
+
+                    {/* Buildings */}
+                    <div style={{ background: 'rgba(129, 140, 248, 0.08)', border: '1px solid rgba(129, 140, 248, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#C7D2FE', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🏢 Buildings</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.buildings || 0}
+                      </div>
+                    </div>
+
+                    {/* Forest / Vegetation */}
+                    <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#A7F3D0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🌳 Forest / Woodland</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.forest || 0}
+                      </div>
+                    </div>
+
+                    {/* Settlements */}
+                    <div style={{ background: 'rgba(192, 132, 252, 0.08)', border: '1px solid rgba(192, 132, 252, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#E9D5FF', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>🏘️ Settlements</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.settlements || 0}
+                      </div>
+                    </div>
+
+                    {/* Water Bodies */}
+                    <div style={{ background: 'rgba(6, 182, 212, 0.08)', border: '1px solid rgba(6, 182, 212, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#A5F3FC', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>💧 Water Bodies</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.water || 0}
+                      </div>
+                    </div>
+
+                    {/* Other POIs */}
+                    <div style={{ background: 'rgba(148, 163, 184, 0.08)', border: '1px solid rgba(148, 163, 184, 0.25)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <div style={{ fontSize: '10px', color: '#CBD5E1', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <span>📍 Other POIs</span>
+                      </div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px' }}>
+                        {gisData.summary?.other || 0}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI-SPECIFIC INVESTIGATION EVIDENCE CARD (Sections 7, 8, 9, 17) */}
+                {(() => {
+                  const detClassKey = normalizeClassKey(selectedDetection.predicted_class || selectedDetection.classification);
+                  const nearestIndustrial = (gisData.features || []).find((f) => f.type === 'industrial');
+                  const nearestForest = (gisData.features || []).find((f) => f.type === 'forest');
+
+                  if (detClassKey === 'industrial') {
+                    return (
                       <div
-                        key={idx}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          fontSize: '11.5px',
-                          padding: '6px 10px',
-                          background: 'rgba(255, 255, 255, 0.03)',
-                          borderRadius: '6px',
-                          border: '1px solid rgba(255, 255, 255, 0.06)',
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          borderRadius: '8px',
+                          padding: '12px 14px',
                         }}
                       >
-                        <span
+                        <div
                           style={{
-                            color: '#E2E8F0',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#EF4444',
+                            letterSpacing: '0.05em',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '6px',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            maxWidth: '220px',
+                            marginBottom: '6px',
                           }}
                         >
-                          <span
-                            style={{
-                              width: '6px',
-                              height: '6px',
-                              borderRadius: '50%',
-                              background: '#38BDF8',
-                              flexShrink: 0,
-                            }}
-                          />
-                          <span>
-                            {feat.categoryLabel} — <strong style={{ color: '#FFFFFF' }}>{feat.name}</strong>
-                          </span>
-                        </span>
-                        <span style={{ color: '#38BDF8', fontFamily: 'monospace', fontWeight: 600, flexShrink: 0 }}>
-                          {feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(1)} km`}
-                        </span>
+                          <Flame size={14} />
+                          <span>INDUSTRIAL CONTEXT (AI PREDICTED INDUSTRIAL FIRE)</span>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#E2E8F0', lineHeight: 1.55 }}>
+                          <div>
+                            Nearby industrial facilities: <strong>{gisData.summary?.industrial || 0}</strong>
+                          </div>
+                          {nearestIndustrial ? (
+                            <div style={{ marginTop: '4px' }}>
+                              Nearest industrial facility: <strong style={{ color: '#FFFFFF' }}>{nearestIndustrial.name}</strong><br/>
+                              Distance: <strong style={{ color: '#38BDF8' }}>
+                                {nearestIndustrial.distance_m < 1000 ? `${nearestIndustrial.distance_m} m` : `${(nearestIndustrial.distance_m / 1000).toFixed(2)} km`}
+                              </strong> ({nearestIndustrial.direction})
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '4px', color: '#94A3B8', fontStyle: 'italic' }}>
+                              No mapped industrial facility within {investigationRadius / 1000} km.
+                            </div>
+                          )}
+                          <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: '10.5px', color: '#94A3B8' }}>
+                            Evidence Note: Industrial-context feature located within search perimeter. AI classification and geographic evidence remain separate observations.
+                          </div>
+                        </div>
                       </div>
-                    ))
-                  ) : (
-                    <div
-                      style={{
-                        fontSize: '11.5px',
-                        color: '#64748B',
-                        fontStyle: 'italic',
-                        padding: '8px 12px',
-                        background: 'rgba(255, 255, 255, 0.02)',
-                        borderRadius: '6px',
-                        border: '1px solid rgba(255, 255, 255, 0.04)',
-                      }}
-                    >
-                      No mapped nearby features found.
+                    );
+                  }
+
+                  if (detClassKey === 'forest') {
+                    return (
+                      <div
+                        style={{
+                          background: 'rgba(16, 185, 129, 0.08)',
+                          border: '1px solid rgba(16, 185, 129, 0.35)',
+                          borderRadius: '8px',
+                          padding: '12px 14px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#10B981',
+                            letterSpacing: '0.05em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginBottom: '6px',
+                          }}
+                        >
+                          <Trees size={14} />
+                          <span>FOREST / LAND CONTEXT (AI PREDICTED FOREST FIRE)</span>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#E2E8F0', lineHeight: 1.55 }}>
+                          <div>
+                            Nearby forest / woodland: <strong>{gisData.summary?.forest || 0}</strong>
+                          </div>
+                          {nearestForest ? (
+                            <div style={{ marginTop: '4px' }}>
+                              Nearest forest / woodland: <strong style={{ color: '#FFFFFF' }}>{nearestForest.name}</strong><br/>
+                              Distance: <strong style={{ color: '#38BDF8' }}>
+                                {nearestForest.distance_m < 1000 ? `${nearestForest.distance_m} m` : `${(nearestForest.distance_m / 1000).toFixed(2)} km`}
+                              </strong> ({nearestForest.direction})
+                            </div>
+                          ) : (
+                            <div style={{ marginTop: '4px', color: '#94A3B8', fontStyle: 'italic' }}>
+                              No mapped forest/woodland within {investigationRadius / 1000} km.
+                            </div>
+                          )}
+                          <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: '10.5px', color: '#94A3B8' }}>
+                            Evidence Note: Nearby vegetation/land-use feature detected. Physical GIS evidence evaluated separately from thermal radiometry.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  if (detClassKey === 'persistent') {
+                    return (
+                      <div
+                        style={{
+                          background: 'rgba(168, 85, 247, 0.08)',
+                          border: '1px solid rgba(168, 85, 247, 0.35)',
+                          borderRadius: '8px',
+                          padding: '12px 14px',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            color: '#A855F7',
+                            letterSpacing: '0.05em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            marginBottom: '6px',
+                          }}
+                        >
+                          <Factory size={14} />
+                          <span>THERMAL PERSISTENCE + GEOGRAPHIC CONTEXT</span>
+                        </div>
+                        <div style={{ fontSize: '11.5px', color: '#E2E8F0', lineHeight: 1.55 }}>
+                          <div>Persistence: <strong>High (Multi-temporal recurring signature)</strong></div>
+                          <div>Nearby industrial features: <strong>{gisData.summary?.industrial || 0}</strong></div>
+                          <div>Nearby factories: <strong>{gisData.summary?.factories || 0}</strong></div>
+                          {nearestIndustrial && (
+                            <div style={{ marginTop: '4px' }}>
+                              Nearest mapped facility: <strong style={{ color: '#FFFFFF' }}>{nearestIndustrial.name}</strong><br/>
+                              Distance: <strong style={{ color: '#38BDF8' }}>
+                                {nearestIndustrial.distance_m < 1000 ? `${nearestIndustrial.distance_m} m` : `${(nearestIndustrial.distance_m / 1000).toFixed(2)} km`}
+                              </strong> ({nearestIndustrial.direction})
+                            </div>
+                          )}
+                          <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px dashed rgba(255,255,255,0.1)', fontSize: '10.5px', color: '#94A3B8' }}>
+                            Evidence Note: Stationary thermal source correlated with surrounding spatial infrastructure.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return null;
+                })()}
+
+                {/* Section: NEARBY FEATURES (Compact Expandable List) */}
+                <div>
+                  <div
+                    onClick={() => setIsFeaturesExpanded(!isFeaturesExpanded)}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      color: '#38BDF8',
+                      textTransform: 'uppercase',
+                      marginBottom: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                    }}
+                  >
+                    <span>NEARBY FEATURES ({gisData.features?.length || 0})</span>
+                    <span style={{ fontSize: '11px', color: '#64748B' }}>
+                      {isFeaturesExpanded ? 'Collapse ▲' : 'Expand ▼'}
+                    </span>
+                  </div>
+
+                  {isFeaturesExpanded && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '280px', overflowY: 'auto' }}>
+                      {isGisLoading ? (
+                        <div style={{ fontSize: '11.5px', color: '#64748B', fontStyle: 'italic', padding: '8px 0', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <RefreshCw size={13} className="spin" />
+                          <span>Querying real OpenStreetMap spatial features...</span>
+                        </div>
+                      ) : gisError ? (
+                        <div
+                          style={{
+                            fontSize: '11.5px',
+                            color: '#F87171',
+                            padding: '8px 12px',
+                            background: 'rgba(239, 68, 68, 0.08)',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(239, 68, 68, 0.25)',
+                          }}
+                        >
+                          {gisError}
+                        </div>
+                      ) : gisData.features && gisData.features.length > 0 ? (
+                        gisData.features.map((feat, idx) => {
+                          const isFeatureSelected = activeFeature && activeFeature.id === feat.id;
+                          const icon =
+                            feat.type === 'industrial' ? '🏭' :
+                            feat.type === 'roads' ? '🛣️' :
+                            feat.type === 'forest' ? '🌳' :
+                            feat.type === 'buildings' ? '🏢' :
+                            feat.type === 'settlements' ? '🏘️' :
+                            feat.type === 'water' ? '💧' : '📍';
+
+                          return (
+                            <div
+                              key={idx}
+                              onClick={() => {
+                                setActiveFeature(feat);
+                                if (leafletMapRef.current) {
+                                  leafletMapRef.current.setView([feat.latitude, feat.longitude], Math.max(leafletMapRef.current.getZoom(), 16), { animate: true });
+                                }
+                              }}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                fontSize: '11.5px',
+                                padding: '8px 10px',
+                                background: isFeatureSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                borderRadius: '6px',
+                                border: `1px solid ${isFeatureSelected ? '#38BDF8' : 'rgba(255, 255, 255, 0.06)'}`,
+                                cursor: 'pointer',
+                                transition: 'all 0.15s ease',
+                              }}
+                              title="Click to focus feature on map"
+                            >
+                              <div
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                  maxWidth: '220px',
+                                }}
+                              >
+                                <span style={{ fontSize: '13px', flexShrink: 0 }}>{icon}</span>
+                                <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                  <div style={{ color: isFeatureSelected ? '#38BDF8' : '#FFFFFF', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {feat.name}
+                                  </div>
+                                  <div style={{ fontSize: '10px', color: '#94A3B8' }}>
+                                    {feat.category_label}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                                <span
+                                  style={{
+                                    fontSize: '9.5px',
+                                    fontWeight: 700,
+                                    padding: '2px 5px',
+                                    borderRadius: '4px',
+                                    background: 'rgba(56, 189, 248, 0.12)',
+                                    color: '#38BDF8',
+                                    fontFamily: 'monospace',
+                                  }}
+                                >
+                                  {feat.direction}
+                                </span>
+                                <span style={{ color: '#F8FAFC', fontFamily: 'monospace', fontWeight: 700, fontSize: '11px' }}>
+                                  {feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(1)} km`}
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div
+                          style={{
+                            fontSize: '11.5px',
+                            color: '#64748B',
+                            fontStyle: 'italic',
+                            padding: '10px 12px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(255, 255, 255, 0.04)',
+                            textAlign: 'center',
+                          }}
+                        >
+                          No mapped nearby features found.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1593,6 +2123,40 @@ out center 25;`;
                   borderTop: '1px solid rgba(255, 255, 255, 0.08)',
                 }}
               >
+                {/* Focus Detection Button */}
+                <button
+                  onClick={() => {
+                    setActiveFeature(null);
+                    if (leafletMapRef.current) {
+                      const dlat = parseFloat(selectedDetection.latitude);
+                      const dlon = parseFloat(selectedDetection.longitude);
+                      if (!isNaN(dlat) && !isNaN(dlon)) {
+                        leafletMapRef.current.setView([dlat, dlon], 15, { animate: true });
+                      }
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '9px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(56, 189, 248, 0.15)',
+                    border: '1px solid #38BDF8',
+                    borderRadius: '6px',
+                    color: '#38BDF8',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <Target size={14} />
+                  <span>FOCUS DETECTION POINT</span>
+                </button>
+
                 <button
                   onClick={() => {
                     onFocusDetection(selectedDetection);
@@ -1616,33 +2180,7 @@ out center 25;`;
                   }}
                 >
                   <MapPin size={14} />
-                  <span>VIEW DETAILS</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    onFocusDetection(selectedDetection);
-                    onNavigate('gis-investigation');
-                  }}
-                  style={{
-                    width: '100%',
-                    justifyContent: 'center',
-                    padding: '8.5px',
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
-                    borderRadius: '6px',
-                    color: '#38BDF8',
-                    cursor: 'pointer',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  <Target size={14} />
-                  <span>INVESTIGATE LOCATION</span>
+                  <span>VIEW DETAILS IN EXPLORER</span>
                 </button>
 
                 {/* Optional Google Street View if API key is present */}

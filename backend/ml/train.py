@@ -18,13 +18,13 @@ def main():
     parser.add_argument(
         "--data",
         type=str,
-        default="data/samples/prototype_labeled_dataset.csv",
+        default="data/processed/operational_labeled_dataset.csv",
         help="Path to real labelled dataset CSV",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="models/satra_ensemble.pkl",
+        default="models/satra_ensemble_candidate_v4.pkl",
         help="Path to save trained ensemble (.pkl)",
     )
     args = parser.parse_args()
