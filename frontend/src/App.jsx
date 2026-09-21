@@ -19,7 +19,6 @@ import { SettingsView } from './views/SettingsView';
 import { LoginView } from './views/LoginView';
 import { UploadAndAnalyzeModal } from './components/UploadAndAnalyzeModal';
 import { AiAssistantModal } from './components/AiAssistantModal';
-import { SatraAiChatbotModal } from './components/SatraAiChatbotModal';
 import { FloatingAiButton } from './components/FloatingAiButton';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -110,8 +109,6 @@ export function App() {
   };
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
-  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-  const isChatOpen = isAiAssistantModalOpen || isChatbotOpen;
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Close sidebar drawer on Escape key press
@@ -306,7 +303,7 @@ export function App() {
         onNavigate={handleTabChange}
         onOpenUploadModal={() => setIsUploadModalOpen(true)}
         onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
-        onToggleChatbot={() => setIsChatbotOpen((prev) => !prev)}
+        onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
       />
@@ -511,21 +508,9 @@ export function App() {
 
         {/* Global AI Assistant Expandable Workspace / Slide-Over Panel */}
         <AiAssistantModal
-          isOpen={isAiAssistantModalOpen || isChatbotOpen}
-          onClose={() => {
-            setIsAiAssistantModalOpen(false);
-            setIsChatbotOpen(false);
-          }}
+          isOpen={isAiAssistantModalOpen}
+          onClose={() => setIsAiAssistantModalOpen(false)}
         />
-
-        {/* SATRA AI Satellite Copilot Chatbot Modal (Section 14) */}
-        {isChatbotOpen && (
-          <SatraAiChatbotModal
-            isOpen={isChatbotOpen}
-            onClose={() => setIsChatbotOpen(false)}
-            onFocusDetection={handleFocusDetection}
-          />
-        )}
 
       </main>
       </div>
@@ -533,7 +518,7 @@ export function App() {
       {/* Single persistent floating "Ask SATRA" access point — fixed to the
           viewport (bottom: 24px / right: 24px) on every page. The ONLY
           floating AI Assistant entry; no duplicate chatbot cards. */}
-      {!isChatbotOpen && !isAiAssistantModalOpen && (
+      {!isAiAssistantModalOpen && (
         <FloatingAiButton onClick={() => setIsAiAssistantModalOpen(true)} />
       )}
     </div>
