@@ -20,6 +20,7 @@ import { sendChatMessage } from '../services/api';
 import {
   LANGUAGE_OPTIONS,
   MULTILINGUAL_SUGGESTED_QUESTIONS,
+  CHATBOT_UI_TRANSLATIONS,
   startVoiceRecognition,
   speakText,
   stopSpeaking,
@@ -78,6 +79,13 @@ export function AiAssistantView({ detections = [] }) {
   const voiceTranscriptRef = useRef('');
   const voiceInterimRef = useRef('');
   const isVoiceSubmittingRef = useRef(false);
+
+  // Dynamic active language for UI labels, placeholder, and suggested questions
+  const activeUiLang =
+    preferredLanguage && preferredLanguage !== 'auto'
+      ? preferredLanguage
+      : (detectedLanguage && detectedLanguage !== 'auto' ? detectedLanguage : 'en');
+  const t = CHATBOT_UI_TRANSLATIONS[activeUiLang] || CHATBOT_UI_TRANSLATIONS.en;
 
   const handleSelectLanguage = (langId) => {
     setPreferredLanguage(langId);
@@ -668,6 +676,7 @@ export function AiAssistantView({ detections = [] }) {
                           isOpen={isLangDropdownOpen}
                           onToggle={() => setIsLangDropdownOpen((prev) => !prev)}
                           onClose={() => setIsLangDropdownOpen(false)}
+                          translations={t}
                         />
                       )}
 
@@ -792,8 +801,8 @@ export function AiAssistantView({ detections = [] }) {
                   color: 'var(--text-muted)',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Preferred:</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span>{t.preferredPrefix}</span>
                   <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>
                     {(() => {
                       const opt =
@@ -820,7 +829,7 @@ export function AiAssistantView({ detections = [] }) {
                     padding: 0,
                   }}
                 >
-                  Change
+                  {t.change}
                 </button>
               </div>
             )}
@@ -837,7 +846,7 @@ export function AiAssistantView({ detections = [] }) {
               }}
             >
               <Sparkles size={12} style={{ color: 'var(--primary-cyan)' }} />
-              Suggested SATRA Queries
+              {t.suggestedQueries}
             </div>
             <div
               style={{
@@ -849,8 +858,7 @@ export function AiAssistantView({ detections = [] }) {
               }}
             >
               {(
-                MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] ||
-                MULTILINGUAL_SUGGESTED_QUESTIONS[preferredLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS[activeUiLang] ||
                 MULTILINGUAL_SUGGESTED_QUESTIONS.en
               ).map((q, qIdx) => (
                 <button
@@ -914,7 +922,7 @@ export function AiAssistantView({ detections = [] }) {
                   }}
                 />
               )}
-              <span>{speechError || listeningStatus || 'Listening for speech...'}</span>
+              <span>{speechError || listeningStatus || t.listeningForSpeech || 'Listening for speech...'}</span>
             </div>
             {isListening && (
               <button
@@ -928,7 +936,7 @@ export function AiAssistantView({ detections = [] }) {
                   textDecoration: 'underline',
                 }}
               >
-                Cancel
+                {t.cancel}
               </button>
             )}
           </div>
@@ -970,24 +978,7 @@ export function AiAssistantView({ detections = [] }) {
             ref={inputRef}
             type="text"
             className="satra-search-input"
-            placeholder={(() => {
-              const lang =
-                detectedLanguage && detectedLanguage !== 'auto'
-                  ? detectedLanguage
-                  : preferredLanguage;
-              if (lang === 'ta') return 'SATRA AI-யிடம் கேளுங்கள்...';
-              if (lang === 'tanglish') return 'SATRA AI kitta kelunga...';
-              if (lang === 'hi') return 'SATRA AI से पूछें...';
-              if (lang === 'te') return 'SATRA AI ని అడగండి...';
-              if (lang === 'kn') return 'SATRA AI ಅನ್ನು ಕೇಳಿ...';
-              if (lang === 'ml') return 'SATRA AI-യോട് ചോദിക്കൂ...';
-              if (lang === 'mr') return 'SATRA AI ला विचारा...';
-              if (lang === 'gu') return 'SATRA AI ને પૂછો...';
-              if (lang === 'bn') return 'SATRA AI কে জিজ্ঞাসা করুন...';
-              if (lang === 'pa') return 'SATRA AI ਨੂੰ ਪੁੱਛੋ...';
-              if (lang === 'ur') return 'SATRA AI سے پوچھیں...';
-              return 'Ask SATRA anything...';
-            })()}
+            placeholder={t.inputPlaceholder}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -1019,7 +1010,7 @@ export function AiAssistantView({ detections = [] }) {
               opacity: !inputMessage.trim() || isLoading ? 0.5 : 1,
             }}
           >
-            <span>Send</span>
+            <span>{t.send}</span>
             <Send size={14} />
           </button>
         </div>

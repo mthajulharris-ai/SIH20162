@@ -25,6 +25,7 @@ import { sendChatMessage } from '../services/api';
 import {
   LANGUAGE_OPTIONS,
   MULTILINGUAL_SUGGESTED_QUESTIONS,
+  CHATBOT_UI_TRANSLATIONS,
   startVoiceRecognition,
   speakText,
   stopSpeaking,
@@ -55,7 +56,9 @@ export function PreferredLanguageSelector({
   isOpen,
   onToggle,
   onClose,
+  translations,
 }) {
+  const t = translations || CHATBOT_UI_TRANSLATIONS[preferredLanguage] || CHATBOT_UI_TRANSLATIONS.en;
   const [search, setSearch] = useState('');
   const dropdownRef = useRef(null);
 
@@ -99,7 +102,7 @@ export function PreferredLanguageSelector({
           letterSpacing: '0.04em',
         }}
       >
-        Preferred Language
+        {t.preferredLanguageTitle}
       </div>
 
       {/* Single clickable dropdown field */}
@@ -186,7 +189,7 @@ export function PreferredLanguageSelector({
             <Search size={13} style={{ color: 'var(--primary-cyan)', flexShrink: 0 }} />
             <input
               type="text"
-              placeholder="Search language..."
+              placeholder={t.searchLanguage}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               autoFocus
@@ -270,7 +273,7 @@ export function PreferredLanguageSelector({
                   color: 'var(--text-muted)',
                 }}
               >
-                No matching languages
+                {t.noMatchingLanguages}
               </div>
             )}
           </div>
@@ -329,6 +332,13 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
   const voiceTranscriptRef = useRef('');
   const voiceInterimRef = useRef('');
   const isVoiceSubmittingRef = useRef(false);
+
+  // Dynamic active language for UI labels, placeholder, and suggested questions
+  const activeUiLang =
+    preferredLanguage && preferredLanguage !== 'auto'
+      ? preferredLanguage
+      : (detectedLanguage && detectedLanguage !== 'auto' ? detectedLanguage : 'en');
+  const t = CHATBOT_UI_TRANSLATIONS[activeUiLang] || CHATBOT_UI_TRANSLATIONS.en;
 
   // When user selects a preferred language
   const handleSelectLanguage = (langId) => {
@@ -495,7 +505,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     recognitionRef.current = startVoiceRecognition({
       language: activeSpeechLang,
       onStart: () => {
-        setListeningStatus('Recording...');
+        setListeningStatus(t.recording || 'Recording...');
       },
       onResult: ({ finalTranscript, interimTranscript, currentDisplayTranscript }) => {
         // Always store latest available complete transcript
@@ -507,7 +517,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
         // Live visual display in input box (do NOT submit yet)
         if (currentDisplayTranscript) {
           setInputMessage(currentDisplayTranscript);
-          setListeningStatus(interimTranscript ? 'Listening...' : 'Processing voice...');
+          setListeningStatus(interimTranscript ? (t.listening || 'Listening...') : (t.processingVoice || 'Processing voice...'));
         }
       },
       onError: (err) => {
@@ -715,35 +725,42 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
     return parsed;
   };
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 9500,
-        pointerEvents: 'none',
-      }}
-    >
-      {/* Dim backdrop — click to close */}
+    <>
+      {/* Full-screen backdrop / dark + softly blurred overlay behind the chatbox */}
       <div
+        className="satra-chat-overlay"
         onClick={onClose}
+        aria-label="Close SATRA AI Assistant"
         style={{
-          position: 'absolute',
+          position: 'fixed',
           top: 0,
           left: 0,
           right: 0,
           bottom: 0,
-          background: 'rgba(2, 6, 15, 0.55)',
-          backdropFilter: 'blur(3px)',
-          WebkitBackdropFilter: 'blur(3px)',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.58)',
+          backdropFilter: 'blur(7px)',
+          WebkitBackdropFilter: 'blur(7px)',
+          zIndex: 9500,
+          animation: 'satra-fade-in 0.25s ease forwards',
           pointerEvents: 'auto',
         }}
       />
-      {/* Right-side SATRA AI Assistant slide-over panel */}
+
+      {/* Fore-layer: Right-side SATRA AI Assistant panel (100% sharp, crisp, unaffected by blur) */}
       <div
-        className="satra-ai-panel"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 9501,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          className="satra-ai-panel"
         style={{
           position: 'absolute',
           top: 0,
@@ -994,6 +1011,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                           isOpen={isLangDropdownOpen}
                           onToggle={() => setIsLangDropdownOpen((prev) => !prev)}
                           onClose={() => setIsLangDropdownOpen(false)}
+                          translations={t}
                         />
                       )}
 
@@ -1081,7 +1099,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                 }}
               >
                 <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>
-                  Analyzing telemetry & querying domain models...
+                  {t.analyzingTelemetry}
                 </span>
                 <RefreshCw size={11} className="animate-spin" style={{ color: 'var(--primary-cyan)' }} />
               </div>
@@ -1118,7 +1136,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>Preferred:</span>
+                  <span>{t.preferredPrefix}</span>
                   <span style={{ color: 'var(--primary-cyan)', fontWeight: 600 }}>
                     {(() => {
                       const opt =
@@ -1145,7 +1163,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                     padding: 0,
                   }}
                 >
-                  Change
+                  {t.change}
                 </button>
               </div>
             )}
@@ -1162,7 +1180,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
               }}
             >
               <Sparkles size={11} style={{ color: 'var(--primary-cyan)' }} />
-              Suggested SATRA Queries
+              {t.suggestedQueries}
             </div>
             <div
               style={{
@@ -1174,8 +1192,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
               }}
             >
               {(
-                MULTILINGUAL_SUGGESTED_QUESTIONS[detectedLanguage] ||
-                MULTILINGUAL_SUGGESTED_QUESTIONS[preferredLanguage] ||
+                MULTILINGUAL_SUGGESTED_QUESTIONS[activeUiLang] ||
                 MULTILINGUAL_SUGGESTED_QUESTIONS.en
               )
                 .slice(0, 5)
@@ -1241,7 +1258,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                   }}
                 />
               )}
-              <span>{speechError || listeningStatus || 'Listening for speech...'}</span>
+              <span>{speechError || listeningStatus || t.listeningForSpeech || 'Listening for speech...'}</span>
             </div>
             {isListening && (
               <button
@@ -1255,7 +1272,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
                   textDecoration: 'underline',
                 }}
               >
-                Cancel
+                {t.cancel}
               </button>
             )}
           </div>
@@ -1297,24 +1314,7 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
             ref={inputRef}
             type="text"
             className="satra-search-input"
-            placeholder={(() => {
-              const lang =
-                detectedLanguage && detectedLanguage !== 'auto'
-                  ? detectedLanguage
-                  : preferredLanguage;
-              if (lang === 'ta') return 'SATRA AI-யிடம் கேளுங்கள்...';
-              if (lang === 'tanglish') return 'SATRA AI kitta kelunga...';
-              if (lang === 'hi') return 'SATRA AI से पूछें...';
-              if (lang === 'te') return 'SATRA AI ని అడగండి...';
-              if (lang === 'kn') return 'SATRA AI ಅನ್ನು ಕೇಳಿ...';
-              if (lang === 'ml') return 'SATRA AI-യോട് ചോദിക്കൂ...';
-              if (lang === 'mr') return 'SATRA AI ला विचारा...';
-              if (lang === 'gu') return 'SATRA AI ને પૂછો...';
-              if (lang === 'bn') return 'SATRA AI কে জিজ্ঞাসা করুন...';
-              if (lang === 'pa') return 'SATRA AI ਨੂੰ ਪੁੱਛੋ...';
-              if (lang === 'ur') return 'SATRA AI سے پوچھیں...';
-              return 'Ask SATRA anything...';
-            })()}
+            placeholder={t.inputPlaceholder}
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -1346,12 +1346,13 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
               opacity: !inputMessage.trim() || isLoading ? 0.5 : 1,
             }}
           >
-            <span>Send</span>
+            <span>{t.send}</span>
             <Send size={13} />
           </button>
         </div>
       </div>
     </div>
+    </>
   );
 }
 

@@ -162,9 +162,21 @@ def _is_unrelated(query: str) -> bool:
     """
     Identifies queries completely outside the SATRA domain (e.g., cooking, pop culture, generic trivia).
     """
-    from backend.rag.multilingual import normalize_multilingual_query
+    from backend.rag.multilingual import normalize_multilingual_query, detect_language
     q = query.lower().strip()
     q_norm = normalize_multilingual_query(query).lower().strip()
+
+    # Check for clearly off-topic patterns FIRST
+    off_topic_patterns = [
+        r"\b(recipe|bake|cake|cook|pizza|pasta|bread|cookie|food)\b",
+        r"\b(cricket|football|soccer|nba|messi|ronaldo|ipl|world cup)\b",
+        r"\b(movie|film|actor|actress|song|singer|music|hollywood|bollywood)\b",
+        r"\b(poem|joke|story|fiction|novel|dating|love)\b",
+        r"\b(crypto|bitcoin|stock price|trading|forex|ethereum)\b",
+    ]
+    for pattern in off_topic_patterns:
+        if re.search(pattern, q) or re.search(pattern, q_norm):
+            return True
 
     # Allowed technical / domain keywords
     domain_terms = [
@@ -177,23 +189,34 @@ def _is_unrelated(query: str) -> bool:
         "today", "yesterday", "recent", "week", "stats", "facilities", "sensor",
         "lightgbm", "xgboost", "random forest", "ensemble", "snpp", "noaa", "terra", "aqua",
         "hello", "hi", "hey", "help", "who are you", "what can you do", "explain", "rag",
-        "overview", "taxonomy", "class"
+        "overview", "taxonomy", "class", "system", "data", "work", "info", "information",
+        "detail", "details", "monitor", "monitoring", "platform", "dashboard", "map",
+        # Indic & multilingual domain keywords
+        "தீ", "வெப்ப", "செயற்கைக்கோள்", "எச்சரிக்கை", "கதிர்வீச்சு", "வகைப்பாடு", "உதவி",
+        "மంటలు", "అగ్ని", "వేడి", "ఉపగ్రహం", "హెచ్చరిక", "వర్గీకరణ", "సహాయం",
+        "ಬೆಂಕಿ", "ಉಷ್ಣ", "ಉಪಗ್ರಹ", "ಎಚ್ಚರಿಕೆ", "ವರ್ಗೀಕರಣ",
+        "തീ", "താപം", "ഉപഗ്രഹം", "മുന്നറിയിപ്പ്",
+        "आग", "अग्नि", "तापमान", "उपग्रह", "चेतावनी", "वर्गीकरण", "मदद",
+        "આગ", "તાપમાન", "ઉપગ્રહ", "ચેતવણી",
+        "আগুন", "তাপমাত্রা", "উপগ্রহ", "সতর্কতা",
+        "ਅੱਗ", "ਤਾਪਮਾਨ", "ਉਪਗ੍ਰਹਿ", "ਚੇਤਾਵਨੀ",
+        "ଅଗ୍ନି", "ନିଆଁ", "ତାପମାତ୍ରା", "ଉପଗ୍ରହ",
+        "آگ", "حرارت", "سیٹلائٹ"
     ]
 
     if any(term in q or term in q_norm for term in domain_terms):
         return False
 
-    # Check for clearly off-topic patterns
-    off_topic_patterns = [
-        r"\b(recipe|bake|cake|cook|pizza|pasta|bread|cookie|food)\b",
-        r"\b(cricket|football|soccer|nba|messi|ronaldo|ipl|world cup)\b",
-        r"\b(movie|film|actor|actress|song|singer|music|hollywood|bollywood)\b",
-        r"\b(poem|joke|story|fiction|novel|dating|love)\b",
-        r"\b(crypto|bitcoin|stock price|trading|forex|ethereum)\b",
-    ]
-    for pattern in off_topic_patterns:
-        if re.search(pattern, q) or re.search(pattern, q_norm):
-            return True
+    # If the text is in an Indic/Urdu script and did not match off-topic patterns,
+    # let it pass through to RAG rather than falsely rejecting it
+    detected = detect_language(query)
+    if detected not in ("en", "neutral"):
+        return False
+
+    # For English queries with question cues or general assistant queries, let RAG/domain handlers evaluate
+    general_cues = ["what", "how", "why", "where", "tell", "show", "can", "is", "are", "do", "does", "give"]
+    if any(q.startswith(cue) or f" {cue} " in q for cue in general_cues):
+        return False
 
     return True
 

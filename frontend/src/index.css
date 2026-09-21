@@ -1382,6 +1382,37 @@ body {
 }
 
 /* ==========================================================================
+   SATRA AI Assistant Full-Screen Backdrop Overlay
+   ========================================================================== */
+@keyframes satra-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.satra-chat-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.58);
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+  z-index: 9500;
+  opacity: 1;
+  animation: satra-fade-in 0.25s ease forwards;
+  pointer-events: auto;
+}
+
+
+/* ==========================================================================
    SATRA Light Theme Overrides & Preserved Scientific Visualizations
    ========================================================================== */
 [data-theme="light"] .brand-title,

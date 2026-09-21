@@ -84,27 +84,48 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        bottom: 24,
-        right: 24,
-        width: '420px',
-        maxWidth: 'calc(100vw - 48px)',
-        height: '620px',
-        maxHeight: 'calc(100vh - 48px)',
-        background: 'rgba(11, 23, 38, 0.96)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(56, 189, 248, 0.35)',
-        borderRadius: '16px',
-        boxShadow: '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
-        zIndex: 1000,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-        animation: 'fadeIn 0.2s ease-out',
-      }}
-    >
+    <>
+      {/* Full-screen backdrop / dark + softly blurred overlay behind the chatbox */}
+      <div
+        className="satra-chat-overlay"
+        onClick={onClose}
+        aria-label="Close SATRA AI Satellite Copilot"
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.58)',
+          backdropFilter: 'blur(7px)',
+          WebkitBackdropFilter: 'blur(7px)',
+          zIndex: 9500,
+          animation: 'satra-fade-in 0.25s ease forwards',
+          pointerEvents: 'auto',
+        }}
+      />
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 24,
+          right: 24,
+          width: '420px',
+          maxWidth: 'calc(100vw - 48px)',
+          height: '620px',
+          maxHeight: 'calc(100vh - 48px)',
+          background: 'rgba(11, 23, 38, 0.96)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(56, 189, 248, 0.35)',
+          borderRadius: '16px',
+          boxShadow: '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
+          zIndex: 9501,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          animation: 'fadeIn 0.2s ease-out',
+        }}
+      >
       {/* Header */}
       <div
         style={{
@@ -350,5 +371,6 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
         </button>
       </form>
     </div>
+    </>
   );
 }
