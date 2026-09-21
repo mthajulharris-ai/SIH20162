@@ -761,39 +761,39 @@ export function AiAssistantModal({ isOpen, onClose, onClearHistory }) {
       >
         <div
           className="satra-ai-panel"
-        style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          bottom: 0,
-          width: 'min(88vw, 420px)',
-          height: '100%',
-          maxHeight: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: 'var(--bg-card)',
-          borderLeft: '1px solid var(--border-color)',
-          borderRadius: 0,
-          boxShadow: '-18px 0 44px rgba(0, 0, 0, 0.55), -4px 0 18px rgba(69, 200, 245, 0.12)',
-          overflow: 'hidden',
-          padding: 0,
-          margin: 0,
-          pointerEvents: 'auto',
-          transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-        }}
-      >
-        {/* Assistant Header - Section 1: Compact, Clean, Professional */}
-        <div
           style={{
-            padding: '12px 16px',
-            background: 'var(--panel-header-bg)',
-            borderBottom: '1px solid var(--border-color)',
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            bottom: 0,
+            width: 'min(88vw, 420px)',
+            height: '100%',
+            maxHeight: '100%',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexShrink: 0,
+            flexDirection: 'column',
+            background: 'var(--bg-card)',
+            borderLeft: '1px solid var(--border-color)',
+            borderRadius: 0,
+            boxShadow: '-18px 0 44px rgba(0, 0, 0, 0.55), -4px 0 18px rgba(69, 200, 245, 0.12)',
+            overflow: 'hidden',
+            padding: 0,
+            margin: 0,
+            pointerEvents: 'auto',
+            transition: 'width 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
+          {/* Assistant Header - Section 1: Compact, Clean, Professional */}
+          <div
+            style={{
+              padding: '12px 16px',
+              background: 'var(--panel-header-bg)',
+              borderBottom: '1px solid var(--border-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexShrink: 0,
+            }}
+          >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div
               style={{

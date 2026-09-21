@@ -29,6 +29,7 @@ import {
 import { KpiCard } from '../components/KpiCard';
 import { getSatelliteStatus, syncSatelliteFirms, uploadAndAnalyzeSatelliteFile } from '../services/api';
 import { AiClassificationSection } from '../components/AiClassificationSection';
+import { useTheme } from '../context/ThemeContext';
 
 export function SatelliteDataView({
   detections = [],
@@ -41,6 +42,8 @@ export function SatelliteDataView({
   onSelectDetection,
   onAnalysisSuccess,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
   const [satelliteStatus, setSatelliteStatus] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState(null);
@@ -384,16 +387,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       */}
       <div
         style={{
-          background: 'linear-gradient(135deg, rgba(14, 28, 48, 0.95) 0%, rgba(8, 18, 32, 0.98) 100%)',
-          border: '1px solid rgba(56, 189, 248, 0.3)',
-          borderRadius: '12px',
+          background: isLight ? '#FFFFFF' : 'linear-gradient(135deg, rgba(14, 28, 48, 0.95) 0%, rgba(8, 18, 32, 0.98) 100%)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.3)',
+          borderRadius: '14px',
           padding: '18px 24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '20px',
           flexWrap: 'wrap',
-          boxShadow: '0 8px 28px rgba(0, 0, 0, 0.45)',
+          boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : '0 8px 28px rgba(0, 0, 0, 0.45)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', minWidth: '300px' }}>
@@ -402,21 +405,21 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               width: '46px',
               height: '46px',
               borderRadius: '10px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
+              background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)',
+              border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#38BDF8',
+              color: isLight ? '#0284C7' : '#38BDF8',
               flexShrink: 0,
-              boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+              boxShadow: isLight ? 'none' : '0 0 16px rgba(56, 189, 248, 0.25)',
             }}
           >
             <Satellite size={26} />
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
                 Satellite Data Ingestion &amp; Analysis Workspace
               </h2>
               <span
@@ -425,8 +428,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: '4px',
-                  background: 'rgba(56, 189, 248, 0.2)',
-                  color: '#38BDF8',
+                  background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.2)',
+                  color: isLight ? '#0284C7' : '#38BDF8',
+                  border: isLight ? '1px solid #BFDBFE' : 'none',
                   letterSpacing: '0.06em',
                   textTransform: 'uppercase',
                 }}
@@ -434,7 +438,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 08 MODULE
               </span>
             </div>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#94A3B8', lineHeight: 1.45 }}>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: isLight ? '#64748B' : '#94A3B8', lineHeight: 1.45 }}>
               Ingest, validate, and analyze NASA FIRMS spaceborne radiometry (VIIRS 375m &amp; MODIS 1km) or upload custom telemetry archives.
             </p>
           </div>
@@ -447,14 +451,15 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             onChange={(e) => setSelectedSatellite(e.target.value)}
             disabled={isSyncing}
             style={{
-              background: 'rgba(5, 11, 20, 0.85)',
-              color: 'var(--text-primary)',
-              border: '1px solid rgba(56, 189, 248, 0.3)',
+              background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.85)',
+              color: isLight ? '#0F172A' : 'var(--text-primary)',
+              border: isLight ? '1px solid #CBD5E1' : '1px solid rgba(56, 189, 248, 0.3)',
               borderRadius: '8px',
               padding: '8px 12px',
               fontSize: '12.5px',
               fontWeight: 600,
               cursor: 'pointer',
+              boxShadow: isLight ? '0 1px 3px rgba(0, 0, 0, 0.05)' : 'none',
             }}
             title="Select NASA FIRMS NRT Satellite Sensor"
           >
@@ -474,10 +479,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
-              background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.35) 0%, rgba(16, 185, 129, 0.35) 100%)',
-              border: '1px solid var(--primary-cyan)',
+              background: isLight
+                ? 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)'
+                : 'linear-gradient(135deg, rgba(56, 189, 248, 0.35) 0%, rgba(16, 185, 129, 0.35) 100%)',
+              border: isLight ? '1px solid #0284C7' : '1px solid var(--primary-cyan)',
               color: '#FFFFFF',
-              boxShadow: '0 0 16px rgba(56, 189, 248, 0.25)',
+              boxShadow: isLight ? '0 2px 8px rgba(14, 165, 233, 0.25)' : '0 0 16px rgba(56, 189, 248, 0.25)',
               fontWeight: 700,
               cursor: isSyncing ? 'not-allowed' : 'pointer',
               opacity: isSyncing ? 0.7 : 1,
@@ -485,7 +492,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             }}
             title="Trigger live NASA FIRMS Area API query"
           >
-            <RefreshCw size={15} className={isSyncing ? 'spin' : ''} style={{ color: 'var(--primary-cyan)' }} />
+            <RefreshCw size={15} className={isSyncing ? 'spin' : ''} style={{ color: '#FFFFFF' }} />
             <span>{isSyncing ? 'Syncing FIRMS...' : 'Sync NASA FIRMS'}</span>
           </button>
 
@@ -500,10 +507,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 display: 'flex',
                 alignItems: 'center',
                 borderRadius: '8px',
+                background: isLight ? '#FFFFFF' : undefined,
+                borderColor: isLight ? '#CBD5E1' : undefined,
+                color: isLight ? '#334155' : undefined,
               }}
               title="Open multi-file upload modal"
             >
-              <Layers size={15} style={{ color: 'var(--ice-blue)' }} />
+              <Layers size={15} style={{ color: isLight ? '#0284C7' : 'var(--ice-blue)' }} />
               <span>Batch Modal</span>
             </button>
           )}
@@ -630,13 +640,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           className="card-panel satellite-upload-card"
           style={{
             marginBottom: 0,
-            background: 'var(--glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
+            background: isLight ? '#FFFFFF' : 'var(--glass-surface)',
+            backdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+            WebkitBackdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--glass-border)',
             borderRadius: '14px',
             padding: '24px 28px',
-            boxShadow: 'var(--glass-shadow)',
+            boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
             display: 'flex',
             flexDirection: 'column',
             height: 'auto',
@@ -645,11 +655,11 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
         >
           <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0 }}>
             <div>
-              <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
-                <UploadCloud size={20} style={{ color: '#38BDF8' }} />
+              <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF' }}>
+                <UploadCloud size={20} style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
                 <span>UPLOAD &amp; ANALYZE SATELLITE DATA</span>
               </div>
-              <div className="panel-subtitle" style={{ fontSize: '12.5px', marginTop: '4px', color: '#94A3B8' }}>
+              <div className="panel-subtitle" style={{ fontSize: '12.5px', marginTop: '4px', color: isLight ? '#64748B' : '#94A3B8' }}>
                 Support for NASA FIRMS VIIRS 375m, MODIS 1km, NRT archives, and custom telemetry
               </div>
             </div>
@@ -665,11 +675,17 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
             style={{
-              border: isDragging ? '2px dashed #38BDF8' : '2px dashed rgba(56, 189, 248, 0.35)',
+              border: isDragging
+                ? '2px dashed #0EA5E9'
+                : isLight
+                ? '1px dashed #93C5FD'
+                : '2px dashed rgba(56, 189, 248, 0.35)',
               borderRadius: '12px',
               padding: '28px 20px',
               textAlign: 'center',
-              background: isDragging ? 'rgba(56, 189, 248, 0.12)' : 'rgba(15, 32, 50, 0.5)',
+              background: isDragging
+                ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.12)')
+                : (isLight ? '#F8FBFF' : 'rgba(15, 32, 50, 0.5)'),
               cursor: 'pointer',
               transition: 'all 0.2s ease',
             }}
@@ -687,22 +703,22 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 width: '54px',
                 height: '54px',
                 borderRadius: '12px',
-                background: 'rgba(56, 189, 248, 0.12)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
+                background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.12)',
+                border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.35)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 margin: '0 auto 12px auto',
-                color: '#38BDF8',
-                boxShadow: '0 0 16px rgba(56, 189, 248, 0.2)',
+                color: isLight ? '#0284C7' : '#38BDF8',
+                boxShadow: isLight ? 'none' : '0 0 16px rgba(56, 189, 248, 0.2)',
               }}
             >
               <UploadCloud size={28} />
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
               Drag &amp; drop satellite observations here, or click to browse
             </div>
-            <div style={{ fontSize: '12.5px', color: '#94A3B8', marginTop: '4px', maxWidth: '480px', margin: '4px auto 0 auto' }}>
+            <div style={{ fontSize: '12.5px', color: isLight ? '#64748B' : '#94A3B8', marginTop: '4px', maxWidth: '480px', margin: '4px auto 0 auto' }}>
               Supports NASA FIRMS CSV, JSON, GeoJSON, and large ZIP archives with automated sensor band calibration.
             </div>
 
@@ -716,9 +732,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     fontWeight: 700,
                     padding: '3px 8px',
                     borderRadius: '4px',
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    color: '#38BDF8',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.12)',
+                    color: isLight ? '#0284C7' : '#38BDF8',
+                    border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.3)',
                   }}
                 >
                   {badge}
@@ -732,8 +748,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             <div
               style={{
                 marginTop: '14px',
-                background: 'rgba(15, 32, 50, 0.7)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
+                background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.7)',
+                border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(56, 189, 248, 0.35)',
                 borderRadius: '10px',
                 padding: '12px 16px',
                 display: 'flex',
@@ -743,12 +759,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                <FileText size={20} style={{ color: '#38BDF8', flexShrink: 0 }} />
+                <FileText size={20} style={{ color: isLight ? '#0284C7' : '#38BDF8', flexShrink: 0 }} />
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selectedFile.name}
                   </div>
-                  <div style={{ fontSize: '11.5px', color: '#94A3B8' }}>
+                  <div style={{ fontSize: '11.5px', color: isLight ? '#64748B' : '#94A3B8' }}>
                     {(selectedFile.size / 1024).toFixed(1)} KB &bull; Ready for SATRA AI Core
                   </div>
                 </div>
@@ -763,7 +779,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   if (fileInputRef.current) fileInputRef.current.value = '';
                 }}
                 className="btn-secondary"
-                style={{ padding: '4px 10px', fontSize: '11.5px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{
+                  padding: '4px 10px',
+                  fontSize: '11.5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  background: isLight ? '#FFFFFF' : undefined,
+                  borderColor: isLight ? '#CBD5E1' : undefined,
+                  color: isLight ? '#334155' : undefined,
+                }}
               >
                 <RotateCcw size={12} />
                 <span>Clear</span>
@@ -773,7 +798,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
 
           {/* 1-Click Operational Test Presets */}
           <div style={{ marginTop: '18px' }}>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: isLight ? '#475569' : '#94A3B8', textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.04em' }}>
               Or test with real NASA FIRMS satellite pass:
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
@@ -785,8 +810,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                   className="btn-secondary"
                   style={{
                     padding: '10px 12px',
-                    background: 'rgba(15, 32, 50, 0.75)',
-                    borderColor: 'rgba(56, 189, 248, 0.3)',
+                    background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.75)',
+                    borderColor: isLight ? '#DCE5EE' : 'rgba(56, 189, 248, 0.3)',
                     borderRadius: '8px',
                     textAlign: 'left',
                     display: 'flex',
@@ -794,11 +819,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     gap: '3px',
                     cursor: isAnalyzing ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
+                    boxShadow: isLight ? '0 1px 3px rgba(0, 0, 0, 0.03)' : 'none',
                   }}
                 >
-                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>{p.label}</div>
-                  <div style={{ fontSize: '11px', color: '#38BDF8' }}>{p.sensor}</div>
-                  <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>{p.region}</div>
+                  <div style={{ fontSize: '12.5px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>{p.label}</div>
+                  <div style={{ fontSize: '11px', color: isLight ? '#0284C7' : '#38BDF8', fontWeight: 600 }}>{p.sensor}</div>
+                  <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : '#94A3B8' }}>{p.region}</div>
                 </button>
               ))}
             </div>
@@ -816,9 +842,11 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 fontSize: '14px',
                 fontWeight: 700,
                 justifyContent: 'center',
-                background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(2, 132, 199, 0.5) 100%)',
-                border: '1px solid var(--primary-cyan)',
-                boxShadow: '0 0 20px rgba(56, 189, 248, 0.25)',
+                background: isLight
+                  ? 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)'
+                  : 'linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(2, 132, 199, 0.5) 100%)',
+                border: isLight ? '1px solid #0284C7' : '1px solid var(--primary-cyan)',
+                boxShadow: isLight ? '0 2px 8px rgba(14, 165, 233, 0.25)' : '0 0 20px rgba(56, 189, 248, 0.25)',
                 borderRadius: '8px',
               }}
             >
@@ -831,19 +859,20 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           {isAnalyzing && (
             <div
               style={{
-                background: 'rgba(15, 32, 50, 0.95)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: isLight ? '#FFFFFF' : 'rgba(15, 32, 50, 0.95)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.4)',
                 borderRadius: '10px',
                 padding: '16px 18px',
                 marginTop: '16px',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '12px',
+                boxShadow: isLight ? '0 2px 12px rgba(15, 23, 42, 0.05)' : 'none',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Loader2 size={18} className="spin" style={{ color: '#38BDF8' }} />
-                <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                <Loader2 size={18} className="spin" style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
+                <span style={{ fontSize: '13.5px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                   SATRA AI Pipeline Processing Satellite Telemetry...
                 </span>
               </div>
@@ -867,8 +896,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                         gap: '12px',
                         padding: '6px 10px',
                         borderRadius: '6px',
-                        background: isCurrent ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
-                        border: isCurrent ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid transparent',
+                        background: isCurrent
+                          ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)')
+                          : 'transparent',
+                        border: isCurrent
+                          ? (isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.35)')
+                          : '1px solid transparent',
                       }}
                     >
                       <div
@@ -876,23 +909,27 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                           width: 20,
                           height: 20,
                           borderRadius: '50%',
-                          background: isDone ? '#10B981' : isCurrent ? '#38BDF8' : 'rgba(255,255,255,0.08)',
+                          background: isDone
+                            ? '#10B981'
+                            : isCurrent
+                            ? (isLight ? '#0284C7' : '#38BDF8')
+                            : (isLight ? '#E2E8F0' : 'rgba(255,255,255,0.08)'),
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           fontSize: '10.5px',
                           fontWeight: 800,
-                          color: '#FFFFFF',
+                          color: (isDone || isCurrent) ? '#FFFFFF' : (isLight ? '#64748B' : '#94A3B8'),
                           flexShrink: 0,
                         }}
                       >
                         {isDone ? '✓' : s.step + 1}
                       </div>
                       <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? '#38BDF8' : '#FFFFFF' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 700, color: isCurrent ? (isLight ? '#0284C7' : '#38BDF8') : (isLight ? '#0F172A' : '#FFFFFF') }}>
                           {s.label}
                         </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                        <div style={{ fontSize: '11px', color: isLight ? '#64748B' : '#94A3B8' }}>
                           {s.desc}
                         </div>
                       </div>
@@ -908,12 +945,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
             <div
               style={{
                 marginTop: '14px',
-                background: 'rgba(239, 68, 68, 0.15)',
-                border: '1px solid rgba(239, 68, 68, 0.4)',
+                background: isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.15)',
+                border: isLight ? '1px solid #FECACA' : '1px solid rgba(239, 68, 68, 0.4)',
                 borderRadius: '8px',
                 padding: '10px 14px',
                 fontSize: '12.5px',
-                color: '#FCA5A5',
+                color: isLight ? '#991B1B' : '#FCA5A5',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -951,15 +988,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               style={{
                 marginTop: '18px',
                 padding: '16px',
-                background: 'rgba(15, 32, 50, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
+                background: isLight ? '#FFFFFF' : 'rgba(15, 32, 50, 0.85)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
                 borderRadius: '10px',
+                boxShadow: isLight ? '0 2px 12px rgba(15, 23, 42, 0.05)' : 'none',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <CheckCircle2 size={18} style={{ color: '#10B981' }} />
-                  <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                     AI Analysis Completed
                   </span>
                 </div>
@@ -973,10 +1011,12 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     style={{
                       padding: '4px 10px',
                       fontSize: '11.5px',
-                      color: '#38BDF8',
+                      color: isLight ? '#0284C7' : '#38BDF8',
                       display: 'flex',
                       alignItems: 'center',
                       gap: '4px',
+                      background: isLight ? '#F0F7FC' : undefined,
+                      borderColor: isLight ? '#DCE5EE' : undefined,
                     }}
                   >
                     <span>View on 3D Earth</span>
@@ -995,81 +1035,102 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
           className="card-panel satellite-workflow-card"
           style={{
             marginBottom: 0,
-            background: 'var(--glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
+            background: isLight ? '#FFFFFF' : 'var(--glass-surface)',
+            backdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+            WebkitBackdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--glass-border)',
             borderRadius: '14px',
             padding: '24px 28px',
-            boxShadow: 'var(--glass-shadow)',
-            height: uploadCardHeight ? `${uploadCardHeight}px` : 'auto',
-            maxHeight: uploadCardHeight ? `${uploadCardHeight}px` : 'none',
+            boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
+            height: 'auto',
+            maxHeight: 'none',
             boxSizing: 'border-box',
             alignSelf: 'start',
           }}
         >
           <div className="panel-header" style={{ marginBottom: '16px', borderBottom: 'none', paddingBottom: 0, flexShrink: 0 }}>
             <div>
-              <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: '#FFFFFF' }}>
-                <Cpu size={20} style={{ color: '#38BDF8' }} />
+              <div className="panel-title" style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '16px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF' }}>
+                <Cpu size={20} style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
                 <span>SATRA AUTOMATED PIPELINE WORKFLOW</span>
               </div>
-              <div className="panel-subtitle" style={{ fontSize: '12.5px', marginTop: '4px', color: '#94A3B8' }}>
+              <div className="panel-subtitle" style={{ fontSize: '12.5px', marginTop: '4px', color: isLight ? '#64748B' : '#94A3B8' }}>
                 End-to-end processing pipeline from spaceborne sensor to actionable alert
               </div>
             </div>
           </div>
 
-          <div className="satellite-workflow-scroll">
+          <div className="satellite-workflow-scroll" style={{ overflowY: 'visible', maxHeight: 'none', height: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {[
               {
                 num: '01',
                 title: 'Precision Geocoding & Coordinate Extraction',
                 desc: 'Reads raw satellite telemetry, validates WGS-84 coordinates, and accounts for scan/track spatial distortion.',
                 tag: 'GEODETIC INGESTION',
+                lightBg: '#F0F7FF',
+                lightBorder: '#BFDBFE',
+                lightColor: '#0284C7',
               },
               {
                 num: '02',
                 title: 'Sensor Radiometry & FRP Normalization',
                 desc: 'Calibrates 375m VIIRS I-Bands and 1km MODIS thermal channels, computing normalized Fire Radiative Power (MW).',
                 tag: 'RADIOMETRY',
+                lightBg: '#ECFEFF',
+                lightBorder: '#A5F3FC',
+                lightColor: '#0891B2',
               },
               {
                 num: '03',
                 title: 'Multi-Class AI Thermal Inference',
                 desc: 'Evaluates FRP, brightness temperatures, and background differentials against trained AI classification models.',
                 tag: 'AI CLASSIFICATION',
+                lightBg: '#FAF5FF',
+                lightBorder: '#E9D5FF',
+                lightColor: '#7C3AED',
               },
               {
                 num: '04',
                 title: 'Geographic Context & Asset Buffering',
                 desc: 'Cross-references high-resolution OpenStreetMap industrial boundaries, petrochemical flare stacks, and forest reserves.',
                 tag: 'GIS OVERLAY',
+                lightBg: '#FFF7ED',
+                lightBorder: '#FED7AA',
+                lightColor: '#EA580C',
               },
               {
                 num: '05',
                 title: 'Temporal Persistence & Recurrence Scoring',
                 desc: 'Checks multi-pass historical cluster history to differentiate continuous industrial flaring from sudden wildfire outbreaks.',
                 tag: 'PERSISTENCE',
+                lightBg: '#FEF2F2',
+                lightBorder: '#FECACA',
+                lightColor: '#DC2626',
               },
               {
                 num: '06',
                 title: 'Dynamic Risk & Severity Calculation',
                 desc: 'Synthesizes FRP, asset proximity, and confidence to assign CRITICAL, HIGH, or MEDIUM risk alert statuses.',
                 tag: 'RISK SCORING',
+                lightBg: '#FFFBEB',
+                lightBorder: '#FDE68A',
+                lightColor: '#D97706',
               },
               {
                 num: '07',
                 title: 'Human Verification & Flight Controller Routing',
                 desc: 'Generates automated telemetry briefs, escalating ambiguous or severe anomalies for human-in-the-loop review.',
                 tag: 'MISSION CONTROL',
+                lightBg: '#F0FDF4',
+                lightBorder: '#BBF7D0',
+                lightColor: '#16A34A',
               },
             ].map((step) => (
               <div
                 key={step.num}
                 style={{
-                  background: 'rgba(15, 32, 50, 0.55)',
-                  border: '1px solid rgba(56, 189, 248, 0.18)',
+                  background: isLight ? step.lightBg : 'rgba(15, 32, 50, 0.55)',
+                  border: isLight ? `1px solid ${step.lightBorder}` : '1px solid rgba(56, 189, 248, 0.18)',
                   borderRadius: '10px',
                   padding: '12px 16px',
                   display: 'flex',
@@ -1082,9 +1143,9 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                     fontFamily: 'monospace',
                     fontSize: '13px',
                     fontWeight: 800,
-                    color: '#38BDF8',
-                    background: 'rgba(56, 189, 248, 0.12)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    color: isLight ? step.lightColor : '#38BDF8',
+                    background: isLight ? '#FFFFFF' : 'rgba(56, 189, 248, 0.12)',
+                    border: isLight ? `1px solid ${step.lightBorder}` : '1px solid rgba(56, 189, 248, 0.3)',
                     borderRadius: '6px',
                     padding: '3px 8px',
                     lineHeight: 1.2,
@@ -1096,15 +1157,16 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 </span>
                 <div style={{ minWidth: 0, flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap' }}>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                       {step.title}
                     </div>
                     <span
                       style={{
                         fontSize: '9.5px',
                         fontWeight: 700,
-                        color: 'var(--ice-blue)',
-                        background: 'rgba(56, 189, 248, 0.1)',
+                        color: isLight ? step.lightColor : 'var(--ice-blue)',
+                        background: isLight ? '#FFFFFF' : 'rgba(56, 189, 248, 0.1)',
+                        border: isLight ? `1px solid ${step.lightBorder}` : 'none',
                         padding: '2px 6px',
                         borderRadius: '3px',
                         letterSpacing: '0.04em',
@@ -1113,7 +1175,7 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                       {step.tag}
                     </span>
                   </div>
-                  <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '3px', lineHeight: 1.45 }}>
+                  <div style={{ fontSize: '12px', color: isLight ? '#475569' : '#94A3B8', marginTop: '3px', lineHeight: 1.45 }}>
                     {step.desc}
                   </div>
                 </div>
@@ -1130,8 +1192,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
       */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Globe size={18} style={{ color: '#38BDF8' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
+          <Globe size={18} style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', margin: 0, letterSpacing: '0.02em' }}>
             Active Spaceborne Constellations &amp; Sensors
           </h3>
         </div>
@@ -1143,13 +1205,13 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               className="card-panel"
               style={{
                 marginBottom: 0,
-                background: 'var(--glass-surface)',
-                backdropFilter: 'var(--glass-blur)',
-                WebkitBackdropFilter: 'var(--glass-blur)',
-                border: '1px solid var(--glass-border)',
+                background: isLight ? '#FFFFFF' : 'var(--glass-surface)',
+                backdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+                WebkitBackdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid var(--glass-border)',
                 borderRadius: '14px',
                 padding: '18px 22px',
-                boxShadow: 'var(--glass-shadow)',
+                boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
                 display: 'flex',
                 flexDirection: 'column',
                 justifyContent: 'space-between',
@@ -1158,8 +1220,8 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
                   <div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#FFFFFF' }}>{sat.name}</div>
-                    <div style={{ fontSize: '12px', color: '#38BDF8', letterSpacing: '0.02em', marginTop: '2px' }}>{sat.instrument}</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>{sat.name}</div>
+                    <div style={{ fontSize: '12px', color: isLight ? '#0284C7' : '#38BDF8', letterSpacing: '0.02em', marginTop: '2px', fontWeight: 600 }}>{sat.instrument}</div>
                   </div>
                   <div
                     style={{
@@ -1167,42 +1229,48 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                       borderRadius: '5px',
                       fontSize: '11px',
                       fontWeight: 700,
-                      background: sat.status === 'OPERATIONAL' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                      color: sat.status === 'OPERATIONAL' ? '#10B981' : '#EF4444',
-                      border: `1px solid ${sat.status === 'OPERATIONAL' ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`,
+                      background: sat.status === 'OPERATIONAL'
+                        ? (isLight ? '#ECFDF5' : 'rgba(16, 185, 129, 0.15)')
+                        : (isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.15)'),
+                      color: sat.status === 'OPERATIONAL' ? '#059669' : '#DC2626',
+                      border: `1px solid ${
+                        sat.status === 'OPERATIONAL'
+                          ? (isLight ? '#A7F3D0' : 'rgba(16, 185, 129, 0.35)')
+                          : (isLight ? '#FECACA' : 'rgba(239, 68, 68, 0.35)')
+                      }`,
                     }}
                   >
                     {sat.status}
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '12.5px', color: 'var(--text-secondary)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', fontSize: '12.5px', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
+                    <span style={{ color: isLight ? '#64748B' : 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
                       Agency / Operator
                     </span>
-                    <strong style={{ color: '#F8FAFC' }}>{sat.operator}</strong>
+                    <strong style={{ color: isLight ? '#0F172A' : '#F8FAFC' }}>{sat.operator}</strong>
                   </div>
 
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
+                    <span style={{ color: isLight ? '#64748B' : 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
                       Spatial Resolution
                     </span>
-                    <span className="mono-cell" style={{ color: '#38BDF8', fontWeight: 600 }}>{sat.resolution}</span>
+                    <span className="mono-cell" style={{ color: isLight ? '#0284C7' : '#38BDF8', fontWeight: 600 }}>{sat.resolution}</span>
                   </div>
 
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
+                    <span style={{ color: isLight ? '#64748B' : 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
                       Orbital Regime
                     </span>
                     <span>{sat.orbit}</span>
                   </div>
 
                   <div>
-                    <span style={{ color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
+                    <span style={{ color: isLight ? '#64748B' : 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', display: 'block', letterSpacing: '0.04em' }}>
                       Equatorial Crossing Time
                     </span>
-                    <span className="mono-cell">{sat.crossing}</span>
+                    <span className="mono-cell" style={{ color: isLight ? '#334155' : undefined }}>{sat.crossing}</span>
                   </div>
                 </div>
               </div>
@@ -1211,15 +1279,15 @@ latitude,longitude,brightness,scan,track,acq_date,acq_time,satellite,instrument,
                 style={{
                   marginTop: '18px',
                   paddingTop: '12px',
-                  borderTop: '1px solid rgba(56, 189, 248, 0.15)',
+                  borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(56, 189, 248, 0.15)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
                   fontSize: '12px',
                 }}
               >
-                <span style={{ color: 'var(--text-muted)' }}>{sat.freshness}</span>
-                <strong className="mono-cell" style={{ color: 'var(--primary-cyan)', fontSize: '12.5px' }}>
+                <span style={{ color: isLight ? '#64748B' : 'var(--text-muted)' }}>{sat.freshness}</span>
+                <strong className="mono-cell" style={{ color: isLight ? '#0284C7' : 'var(--primary-cyan)', fontSize: '12.5px' }}>
                   {sat.activeDetections} observations logged
                 </strong>
               </div>

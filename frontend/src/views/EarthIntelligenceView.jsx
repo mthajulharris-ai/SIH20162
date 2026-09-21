@@ -48,6 +48,7 @@ import {
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { ClassBadge, ProvenanceBadge, StatusBadge } from '../components/StatusBadge';
 import { getSatelliteStatus, getNearbyGis } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * SATRA 4-Class Classification Taxonomy & Color Palettes
@@ -184,14 +185,18 @@ export function EarthIntelligenceView({
   deepZoomTarget = null,
   onClearDeepZoomTarget = () => {},
 }) {
-  // Deep zoom animation orchestration state: null | 'LOCATING' (3D) | 'FLYING' (2D) | 'LOCKED' (final)
-  const isDeepZoomFromUpload = Boolean(deepZoomTarget || selectedDetection?.isUploadedDeepZoom);
-  const [viewMode, setViewMode] = useState(isDeepZoomFromUpload ? '3d' : (selectedDetection ? '2d' : '3d'));
-  const [deepZoomStage, setDeepZoomStage] = useState(isDeepZoomFromUpload ? 'LOCATING' : null);
-  const deepZoomHandledRef = useRef(null);
+const { effectiveTheme } = useTheme();
+const isLight = effectiveTheme === 'light';
 
-  // Client-side cache for GIS query responses (lat_lon_radius -> data)
-  const gisClientCacheRef = useRef(new Map());
+// View mode: '3d' (default realistic Earth) | '2d' (high-res Leaflet satellite)
+// Deep zoom animation orchestration state: null | 'LOCATING' (3D) | 'FLYING' (2D) | 'LOCKED' (final)
+const isDeepZoomFromUpload = Boolean(deepZoomTarget || selectedDetection?.isUploadedDeepZoom);
+const [viewMode, setViewMode] = useState(isDeepZoomFromUpload ? '3d' : (selectedDetection ? '2d' : '3d'));
+const [deepZoomStage, setDeepZoomStage] = useState(isDeepZoomFromUpload ? 'LOCATING' : null);
+const deepZoomHandledRef = useRef(null);
+
+// Client-side cache for GIS query responses (lat_lon_radius -> data)
+const gisClientCacheRef = useRef(new Map());
 
   // Search input & feedback state
   const [searchQuery, setSearchQuery] = useState('');
@@ -1247,7 +1252,7 @@ export function EarthIntelligenceView({
         }
       `}</style>
       {/* ============================================================ */}
-      {/* 1. TOP HEADER                                                */}
+      {/* {/* 1. TOP CONTROL & METRICS HEADER BAR                       */}
       {/* ============================================================ */}
       <header
         style={{
@@ -1255,9 +1260,9 @@ export function EarthIntelligenceView({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 24px',
-          background: 'rgba(10, 15, 26, 0.92)',
+          background: isLight ? '#FFFFFF' : 'rgba(10, 15, 26, 0.92)',
           backdropFilter: 'blur(16px)',
-          borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
+          borderBottom: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.15)',
           zIndex: 30,
           flexShrink: 0,
           gap: '16px',
@@ -1272,8 +1277,8 @@ export function EarthIntelligenceView({
                 width: '8px',
                 height: '8px',
                 borderRadius: '50%',
-                background: '#38BDF8',
-                boxShadow: '0 0 8px #38BDF8',
+                background: '#0EA5E9',
+                boxShadow: '0 0 8px #0EA5E9',
               }}
             />
             <h1
@@ -1281,7 +1286,7 @@ export function EarthIntelligenceView({
                 fontSize: '17px',
                 fontWeight: 700,
                 letterSpacing: '0.06em',
-                color: '#FFFFFF',
+                color: isLight ? '#0F172A' : '#FFFFFF',
                 margin: 0,
                 textTransform: 'uppercase',
               }}
@@ -1292,7 +1297,7 @@ export function EarthIntelligenceView({
           <p
             style={{
               fontSize: '11.5px',
-              color: '#94A3B8',
+              color: isLight ? '#64748B' : '#94A3B8',
               margin: '3px 0 0 0',
               fontWeight: 400,
             }}
@@ -1317,7 +1322,7 @@ export function EarthIntelligenceView({
               style={{
                 position: 'absolute',
                 left: '10px',
-                color: isSearching ? '#38BDF8' : '#64748B',
+                color: isSearching ? '#0EA5E9' : (isLight ? '#64748B' : '#64748B'),
                 pointerEvents: 'none',
               }}
             />
@@ -1328,11 +1333,11 @@ export function EarthIntelligenceView({
               placeholder="Search location, coordinates, or Detection ID..."
               style={{
                 width: '320px',
-                background: 'rgba(15, 23, 42, 0.85)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
+                background: isLight ? '#F8FAFC' : 'rgba(15, 23, 42, 0.85)',
+                border: isLight ? '1px solid #CBD5E1' : '1px solid rgba(56, 189, 248, 0.25)',
                 borderRadius: '6px',
                 padding: '7px 32px',
-                color: '#F8FAFC',
+                color: isLight ? '#0F172A' : '#F8FAFC',
                 fontSize: '12px',
                 outline: 'none',
                 transition: 'border-color 0.2s',
@@ -1350,7 +1355,7 @@ export function EarthIntelligenceView({
                   right: '8px',
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: isLight ? '#64748B' : '#94A3B8',
                   cursor: 'pointer',
                   padding: 0,
                 }}
@@ -1364,9 +1369,9 @@ export function EarthIntelligenceView({
           <div
             style={{
               display: 'flex',
-              background: 'rgba(15, 23, 42, 0.85)',
+              background: isLight ? '#F1F5F9' : 'rgba(15, 23, 42, 0.85)',
               borderRadius: '6px',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.25)',
               padding: '2px',
             }}
           >
@@ -1380,14 +1385,15 @@ export function EarthIntelligenceView({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                background: viewMode === '3d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-                color: viewMode === '3d' ? '#38BDF8' : '#94A3B8',
+                background: viewMode === '3d' ? (isLight ? '#FFFFFF' : 'rgba(56, 189, 248, 0.22)') : 'transparent',
+                color: viewMode === '3d' ? (isLight ? '#0284C7' : '#38BDF8') : (isLight ? '#64748B' : '#94A3B8'),
                 border: 'none',
                 borderRadius: '4px',
                 padding: '5px 10px',
                 fontSize: '11.5px',
                 fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: viewMode === '3d' && isLight ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               }}
             >
               <Globe size={13} />
@@ -1399,14 +1405,15 @@ export function EarthIntelligenceView({
                 display: 'flex',
                 alignItems: 'center',
                 gap: '5px',
-                background: viewMode === '2d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
-                color: viewMode === '2d' ? '#38BDF8' : '#94A3B8',
+                background: viewMode === '2d' ? (isLight ? '#FFFFFF' : 'rgba(56, 189, 248, 0.22)') : 'transparent',
+                color: viewMode === '2d' ? (isLight ? '#0284C7' : '#38BDF8') : (isLight ? '#64748B' : '#94A3B8'),
                 border: 'none',
                 borderRadius: '4px',
                 padding: '5px 10px',
                 fontSize: '11.5px',
                 fontWeight: 600,
                 cursor: 'pointer',
+                boxShadow: viewMode === '2d' && isLight ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
               }}
             >
               <MapPin size={13} />
@@ -1509,13 +1516,13 @@ export function EarthIntelligenceView({
           <div
             style={{
               padding: '8px 20px',
-              background: 'rgba(10, 16, 30, 0.65)',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+              background: isLight ? '#FFFFFF' : 'rgba(10, 16, 30, 0.65)',
+              borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.05)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
               fontSize: '11.5px',
-              color: '#94A3B8',
+              color: isLight ? '#64748B' : '#94A3B8',
               zIndex: 15,
               flexShrink: 0,
               overflowX: 'auto',
@@ -1524,11 +1531,11 @@ export function EarthIntelligenceView({
           >
             {breadcrumbItems.map((item, idx) => (
               <React.Fragment key={idx}>
-                {idx > 0 && <ChevronRight size={12} style={{ color: '#475569', flexShrink: 0 }} />}
+                {idx > 0 && <ChevronRight size={12} style={{ color: isLight ? '#CBD5E1' : '#475569', flexShrink: 0 }} />}
                 <span
                   onClick={item.onClick}
                   style={{
-                    color: item.isTarget ? '#38BDF8' : item.onClick ? '#F8FAFC' : '#94A3B8',
+                    color: item.isTarget ? '#0284C7' : item.onClick ? (isLight ? '#0F172A' : '#F8FAFC') : (isLight ? '#64748B' : '#94A3B8'),
                     fontWeight: item.isTarget ? 700 : item.onClick ? 600 : 400,
                     cursor: item.onClick ? 'pointer' : 'default',
                     display: 'flex',
@@ -1652,12 +1659,12 @@ export function EarthIntelligenceView({
                   top: '20px',
                   left: '50%',
                   transform: 'translateX(-50%)',
-                  background: 'rgba(15, 23, 42, 0.94)',
+                  background: isLight ? '#FFFFFF' : 'rgba(15, 23, 42, 0.94)',
                   backdropFilter: 'blur(12px)',
-                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  border: isLight ? '1px solid #FECACA' : '1px solid rgba(239, 68, 68, 0.4)',
                   borderRadius: '8px',
                   padding: '8px 20px',
-                  color: '#F87171',
+                  color: '#EF4444',
                   fontSize: '12px',
                   fontWeight: 600,
                   zIndex: 15,
@@ -1665,6 +1672,7 @@ export function EarthIntelligenceView({
                   alignItems: 'center',
                   gap: '8px',
                   letterSpacing: '0.04em',
+                  boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.08)' : 'none',
                 }}
               >
                 <AlertTriangle size={15} />
@@ -1682,12 +1690,12 @@ export function EarthIntelligenceView({
                 display: 'flex',
                 flexDirection: 'column',
                 gap: '3px',
-                background: 'rgba(15, 23, 42, 0.92)',
+                background: isLight ? '#FFFFFF' : 'rgba(15, 23, 42, 0.92)',
                 backdropFilter: 'blur(16px)',
-                border: '1px solid rgba(56, 189, 248, 0.28)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.28)',
                 borderRadius: '8px',
                 padding: '4px',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+                boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.08)' : '0 8px 32px rgba(0, 0, 0, 0.65)',
               }}
             >
               {/* 1. Zoom In (+) */}
@@ -1703,7 +1711,7 @@ export function EarthIntelligenceView({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#FFFFFF',
+                  color: isLight ? '#0F172A' : '#FFFFFF',
                   cursor: 'pointer',
                   padding: '5px 7px',
                   borderRadius: '6px',
@@ -1734,7 +1742,7 @@ export function EarthIntelligenceView({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#FFFFFF',
+                  color: isLight ? '#0F172A' : '#FFFFFF',
                   cursor: 'pointer',
                   padding: '5px 7px',
                   borderRadius: '6px',
@@ -1752,7 +1760,7 @@ export function EarthIntelligenceView({
                 &minus;
               </button>
 
-              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.12)', margin: '2px 4px' }} />
+              <div style={{ height: '1px', background: isLight ? '#E2E8F0' : 'rgba(255, 255, 255, 0.12)', margin: '2px 4px' }} />
 
               {/* 3. Focus Detection Point (Satellite) */}
               <button
@@ -1776,9 +1784,9 @@ export function EarthIntelligenceView({
                 }}
                 title="Focus Detection Point (Satellite)"
                 style={{
-                  background: selectedDetection ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+                  background: selectedDetection ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.22)') : 'transparent',
                   border: 'none',
-                  color: selectedDetection ? '#38BDF8' : '#FFFFFF',
+                  color: selectedDetection ? '#0284C7' : (isLight ? '#0F172A' : '#FFFFFF'),
                   cursor: 'pointer',
                   padding: '6px',
                   borderRadius: '6px',
@@ -1844,7 +1852,7 @@ export function EarthIntelligenceView({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: isLight ? '#64748B' : '#94A3B8',
                   cursor: 'pointer',
                   padding: '6px',
                   borderRadius: '6px',
@@ -1866,7 +1874,7 @@ export function EarthIntelligenceView({
                 style={{
                   background: 'transparent',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: isLight ? '#64748B' : '#94A3B8',
                   cursor: 'pointer',
                   padding: '6px',
                   borderRadius: '6px',
@@ -1893,9 +1901,9 @@ export function EarthIntelligenceView({
             width: '360px',
             flexShrink: 0,
             height: '100%',
-            background: 'rgba(10, 16, 30, 0.96)',
+            background: isLight ? '#FFFFFF' : 'rgba(10, 16, 30, 0.96)',
             backdropFilter: 'blur(20px)',
-            borderLeft: '1px solid rgba(56, 189, 248, 0.2)',
+            borderLeft: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.2)',
             display: 'flex',
             flexDirection: 'column',
             zIndex: 25,
@@ -1906,7 +1914,7 @@ export function EarthIntelligenceView({
           <div
             style={{
               padding: '16px 20px',
-              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
@@ -1914,13 +1922,13 @@ export function EarthIntelligenceView({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Compass size={16} style={{ color: '#38BDF8' }} />
+              <Compass size={16} style={{ color: '#0EA5E9' }} />
               <span
                 style={{
                   fontSize: '13px',
                   fontWeight: 700,
                   letterSpacing: '0.06em',
-                  color: '#F8FAFC',
+                  color: isLight ? '#0F172A' : '#F8FAFC',
                   textTransform: 'uppercase',
                 }}
               >
@@ -1937,7 +1945,7 @@ export function EarthIntelligenceView({
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94A3B8',
+                  color: isLight ? '#64748B' : '#94A3B8',
                   cursor: 'pointer',
                   padding: '4px',
                   display: 'flex',
@@ -1969,21 +1977,21 @@ export function EarthIntelligenceView({
                   width: '52px',
                   height: '52px',
                   borderRadius: '50%',
-                  background: 'rgba(56, 189, 248, 0.08)',
-                  border: '1px solid rgba(56, 189, 248, 0.2)',
+                  background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.08)',
+                  border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginBottom: '16px',
-                  color: '#38BDF8',
+                  color: '#0EA5E9',
                 }}
               >
                 <Compass size={26} />
               </div>
-              <div style={{ fontSize: '15px', fontWeight: 600, color: '#E2E8F0', marginBottom: '8px' }}>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: isLight ? '#0F172A' : '#E2E8F0', marginBottom: '8px' }}>
                 No Detection Selected
               </div>
-              <p style={{ fontSize: '12.5px', lineHeight: 1.6, margin: 0, maxWidth: '280px', color: '#94A3B8' }}>
+              <p style={{ fontSize: '12.5px', lineHeight: 1.6, margin: 0, maxWidth: '280px', color: isLight ? '#64748B' : '#94A3B8' }}>
                 Select a detection or search for a location to inspect geographic intelligence.
               </p>
             </div>
@@ -2005,7 +2013,7 @@ export function EarthIntelligenceView({
                     fontSize: '11px',
                     fontWeight: 700,
                     letterSpacing: '0.06em',
-                    color: '#38BDF8',
+                    color: isLight ? '#0284C7' : '#38BDF8',
                     textTransform: 'uppercase',
                     marginBottom: '10px',
                     display: 'flex',
@@ -2014,7 +2022,7 @@ export function EarthIntelligenceView({
                   }}
                 >
                   <span>Detection Details</span>
-                  <span style={{ color: '#64748B', fontFamily: 'monospace' }}>
+                  <span style={{ color: isLight ? '#64748B' : '#64748B', fontFamily: 'monospace' }}>
                     ID #{selectedDetection.id || selectedDetection.detection_id || 'N/A'}
                   </span>
                 </div>
@@ -2028,15 +2036,15 @@ export function EarthIntelligenceView({
                 {/* Canonical Coordinates Card with Copy */}
                 <div
                   style={{
-                    background: 'rgba(56, 189, 248, 0.08)',
-                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.08)',
+                    border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.25)',
                     borderRadius: '8px',
                     padding: '10px 12px',
                     marginBottom: '12px',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: isLight ? '#0284C7' : '#38BDF8', letterSpacing: '0.04em' }}>
                       CANONICAL COORDINATES
                     </span>
                     <button
@@ -2047,7 +2055,7 @@ export function EarthIntelligenceView({
                         gap: '4px',
                         background: 'none',
                         border: 'none',
-                        color: copiedCoords ? '#34D399' : '#38BDF8',
+                        color: copiedCoords ? '#10B981' : (isLight ? '#0284C7' : '#38BDF8'),
                         fontSize: '11px',
                         cursor: 'pointer',
                         padding: 0,
@@ -2059,14 +2067,14 @@ export function EarthIntelligenceView({
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
                     <div>
-                      <div style={{ fontSize: '10px', color: '#94A3B8' }}>LATITUDE</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                      <div style={{ fontSize: '10px', color: isLight ? '#64748B' : '#94A3B8' }}>LATITUDE</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                         {parseFloat(selectedDetection.latitude).toFixed(6)}°
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '10px', color: '#94A3B8' }}>LONGITUDE</div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                      <div style={{ fontSize: '10px', color: isLight ? '#64748B' : '#94A3B8' }}>LONGITUDE</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                         {parseFloat(selectedDetection.longitude).toFixed(6)}°
                       </div>
                     </div>
@@ -2083,41 +2091,41 @@ export function EarthIntelligenceView({
                 >
                   <div
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
+                      background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Confidence</div>
-                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', marginTop: '2px' }}>
+                    <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : '#94A3B8' }}>Confidence</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#0284C7', marginTop: '2px' }}>
                       {formatConfidence(selectedDetection.prediction_confidence)}
                     </div>
                   </div>
 
                   <div
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
+                      background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Risk Level</div>
-                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F8FAFC', marginTop: '2px' }}>
+                    <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : '#94A3B8' }}>Risk Level</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: isLight ? '#0F172A' : '#F8FAFC', marginTop: '2px' }}>
                       {selectedDetection.risk_level || selectedDetection.risk || 'N/A'}
                     </div>
                   </div>
 
                   <div
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
+                      background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Radiative Power</div>
+                    <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : '#94A3B8' }}>Radiative Power</div>
                     <div style={{ fontSize: '14px', fontWeight: 700, color: '#F59E0B', marginTop: '2px' }}>
                       {selectedDetection.frp ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}
                     </div>
@@ -2125,14 +2133,14 @@ export function EarthIntelligenceView({
 
                   <div
                     style={{
-                      background: 'rgba(255, 255, 255, 0.03)',
+                      background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
                       padding: '8px 10px',
                       borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                      border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
-                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Satellite Sensor</div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+                    <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : '#94A3B8' }}>Satellite Sensor</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', marginTop: '2px' }}>
                       {selectedDetection.source || selectedDetection.satellite || 'VIIRS'}
                     </div>
                   </div>
@@ -2143,29 +2151,29 @@ export function EarthIntelligenceView({
                   style={{
                     marginTop: '10px',
                     padding: '8px 10px',
-                    background: 'rgba(255, 255, 255, 0.02)',
+                    background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.02)',
                     borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.05)',
                     fontSize: '11px',
-                    color: '#94A3B8',
+                    color: isLight ? '#475569' : '#94A3B8',
                     lineHeight: 1.6,
                   }}
                 >
                   <div>
                     Acquisition Date:{' '}
-                    <strong style={{ color: '#FFFFFF' }}>
+                    <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>
                       {selectedDetection.acq_date || (selectedDetection.timestamp ? selectedDetection.timestamp.split('T')[0] : 'N/A')}
                     </strong>
                   </div>
                   <div>
                     Acquisition Time:{' '}
-                    <strong style={{ color: '#FFFFFF' }}>
+                    <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>
                       {selectedDetection.acq_time ? `${selectedDetection.acq_time} UTC` : 'N/A'}
                     </strong>
                   </div>
                   <div>
                     Data Provenance:{' '}
-                    <strong style={{ color: '#34D399' }}>
+                    <strong style={{ color: '#10B981' }}>
                       {selectedDetection.data_provenance || selectedDetection.source || 'NASA FIRMS'}
                     </strong>
                   </div>
@@ -2310,10 +2318,10 @@ export function EarthIntelligenceView({
                       marginBottom: '6px',
                     }}
                   >
-                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.05em' }}>
+                    <span style={{ fontSize: '10.5px', fontWeight: 700, color: isLight ? '#0284C7' : '#38BDF8', letterSpacing: '0.05em' }}>
                       INVESTIGATION RADIUS
                     </span>
-                    <span style={{ fontSize: '10px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '10px', color: isLight ? '#64748B' : '#94A3B8' }}>
                       Around exact detection
                     </span>
                   </div>
@@ -2332,9 +2340,9 @@ export function EarthIntelligenceView({
                             padding: '6px 8px',
                             fontSize: '11px',
                             fontWeight: isActive ? 700 : 500,
-                            background: isActive ? 'rgba(56, 189, 248, 0.22)' : 'rgba(255, 255, 255, 0.03)',
-                            border: `1px solid ${isActive ? '#38BDF8' : 'rgba(255, 255, 255, 0.08)'}`,
-                            color: isActive ? '#38BDF8' : '#94A3B8',
+                            background: isActive ? (isLight ? '#E0F2FE' : 'rgba(56, 189, 248, 0.22)') : (isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.03)'),
+                            border: `1px solid ${isActive ? '#38BDF8' : (isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.08)')}`,
+                            color: isActive ? '#0284C7' : (isLight ? '#64748B' : '#94A3B8'),
                             borderRadius: '6px',
                             cursor: 'pointer',
                             transition: 'all 0.15s ease',
@@ -2347,15 +2355,32 @@ export function EarthIntelligenceView({
                   </div>
                 </div>
 
+                {/* Location Context */}
+                <div>
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      letterSpacing: '0.06em',
+                      color: isLight ? '#0284C7' : '#38BDF8',
+                      textTransform: 'uppercase',
+                      marginBottom: '8px',
+                    }}
+                  >
+                    Location Context
+                  </div>
+                </div>
+
                 {/* Resolved Administrative Area Banner */}
                 <div
                   style={{
                     padding: '8px 12px',
-                    background: 'rgba(255, 255, 255, 0.03)',
+                    background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
                     borderRadius: '6px',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.06)',
                     fontSize: '12px',
-                    color: '#F8FAFC',
+                    color: isLight ? '#0F172A' : '#F8FAFC',
+                    marginBottom: '10px',
                     lineHeight: 1.45,
                   }}
                 >
@@ -2363,7 +2388,7 @@ export function EarthIntelligenceView({
                     ADMINISTRATIVE REGION
                   </div>
                   {locationContext.loading ? (
-                    <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Resolving spatial geography...</span>
+                    <span style={{ color: isLight ? '#64748B' : '#94A3B8', fontStyle: 'italic' }}>Resolving spatial geography...</span>
                   ) : (
                     locationContext.resolvedAddress || formatCoordinates(selectedDetection.latitude, selectedDetection.longitude)
                   )}
@@ -2534,8 +2559,8 @@ export function EarthIntelligenceView({
                     return (
                       <div
                         style={{
-                          background: 'rgba(239, 68, 68, 0.08)',
-                          border: '1px solid rgba(239, 68, 68, 0.35)',
+                          background: isLight ? '#FEF2F2' : 'rgba(239, 68, 68, 0.08)',
+                          border: isLight ? '1px solid #FECACA' : '1px solid rgba(239, 68, 68, 0.35)',
                           borderRadius: '8px',
                           padding: '12px 14px',
                         }}
@@ -2834,7 +2859,7 @@ export function EarthIntelligenceView({
                   flexDirection: 'column',
                   gap: '8px',
                   paddingTop: '12px',
-                  borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                  borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)',
                 }}
               >
                 {/* Focus Detection Button */}
@@ -2932,7 +2957,33 @@ export function EarthIntelligenceView({
                   }}
                 >
                   <MapPin size={14} />
-                  <span>VIEW DETAILS IN EXPLORER</span>
+                  <span>VIEW DETAILS</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    onFocusDetection(selectedDetection);
+                    onNavigate('gis-investigation');
+                  }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '8.5px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: isLight ? '#F0F9FF' : 'rgba(255, 255, 255, 0.05)',
+                    border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: '6px',
+                    color: isLight ? '#0284C7' : '#38BDF8',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  <Target size={14} />
+                  <span>INVESTIGATE LOCATION</span>
                 </button>
 
                 {/* Optional Google Street View if API key is present */}
@@ -2956,10 +3007,10 @@ export function EarthIntelligenceView({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
-                        background: 'rgba(255, 255, 255, 0.03)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)',
+                        border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(255, 255, 255, 0.08)',
                         borderRadius: '6px',
-                        color: '#94A3B8',
+                        color: isLight ? '#64748B' : '#94A3B8',
                         cursor: 'pointer',
                       }}
                     >
