@@ -97,7 +97,7 @@ class MLInferenceService:
         - Returns status report without exposing credentials
         """
         available = self.is_available()
-        model_ver = "3.0.0-ensemble" if self._is_ensemble else (
+        model_ver = getattr(self._ml_service, "model_version", "4.0.0-operational-ensemble") if self._is_ensemble else (
             getattr(self._ml_service, "model_version", "unknown") if self._ml_service else None
         )
         model_type = "RF_LightGBM_XGBoost_SoftVoting" if self._is_ensemble else "Baseline_Classifier"
@@ -111,7 +111,7 @@ class MLInferenceService:
             "error": self._load_error,
         }
 
-    def predict(self, observation: Dict[str, Any]) -> Dict[str, Any]:
+    def predict(self, observation: Dict[str, Any], db: Optional[Any] = None) -> Dict[str, Any]:
         """
         Executes ML prediction on a validated thermal observation dictionary.
         Returns standardized response containing:
@@ -131,14 +131,15 @@ class MLInferenceService:
         try:
             if self._is_ensemble:
                 from backend.ml.feature_extractor import extract_features_from_observation
-                features = extract_features_from_observation(observation)
+                db_conn = db or observation.get("db")
+                features = extract_features_from_observation(observation, db=db_conn)
                 image_input = (
                     observation.get("image")
                     or observation.get("image_bytes")
                     or observation.get("image_path")
                 )
                 res = service.predict_single(features, image_input=image_input)
-                res["model_version"] = "3.0.0-ensemble"
+                res["model_version"] = getattr(service, "model_version", "4.0.0-operational-ensemble")
                 res["prediction_timestamp"] = datetime.now(timezone.utc).isoformat()
                 return res
             else:
@@ -153,7 +154,7 @@ class MLInferenceService:
             logger.error("[SATRA ERROR] Error during ML inference: %s", str(e), exc_info=True)
             raise MLServiceException(f"ML inference execution failed: {str(e)}")
 
-    def predict_batch(self, observations: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def predict_batch(self, observations: List[Dict[str, Any]], db: Optional[Any] = None) -> List[Dict[str, Any]]:
         """
         Executes ML batch prediction on a list of thermal observation dictionaries.
         """
@@ -161,11 +162,15 @@ class MLInferenceService:
         try:
             if self._is_ensemble:
                 from backend.ml.feature_extractor import extract_features_from_observation
-                features_list = [extract_features_from_observation(obs) for obs in observations]
+                features_list = [
+                    extract_features_from_observation(obs, db=db or obs.get("db"))
+                    for obs in observations
+                ]
                 results = service.predict_batch(features_list)
                 now_iso = datetime.now(timezone.utc).isoformat()
+                model_ver = getattr(service, "model_version", "4.0.0-operational-ensemble")
                 for r in results:
-                    r["model_version"] = "3.0.0-ensemble"
+                    r["model_version"] = model_ver
                     r["prediction_timestamp"] = now_iso
                 return results
             else:

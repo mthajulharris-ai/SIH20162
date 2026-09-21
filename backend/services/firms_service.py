@@ -701,17 +701,17 @@ class FirmsService:
                 }
 
                 try:
-                    prediction = ml_service.predict(obs_dict)
+                    prediction = ml_service.predict(obs_dict, db=db)
                     pred_class = prediction.get("predicted_class", "Other")
                     pred_conf = float(prediction.get("confidence", 0.85))
                     alert_lvl = prediction.get("alert_level", "LOW")
-                    model_ver = prediction.get("model_version", "2.0.0-scientific-prototype")
+                    model_ver = prediction.get("model_version", "4.0.0-operational-ensemble")
                 except Exception as ml_err:
                     logger.warning("ML inference fallback on FIRMS record: %s", ml_err)
                     pred_class = "INSUFFICIENT FEATURES"
                     pred_conf = 0.0
                     alert_lvl = "LOW"
-                    model_ver = "2.0.0-scientific-prototype"
+                    model_ver = "4.0.0-operational-ensemble"
 
                 is_persistent = bool(pred_class == "Persistent Thermal Source")
 

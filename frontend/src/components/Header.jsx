@@ -82,9 +82,17 @@ export function Header({
 
   return (
     <header className="top-header">
-<<<<<<< ours
-      {/* Left: SATRA Identity */}
-      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      {/* Left: Hamburger Menu Toggle + SATRA Logo & Branding */}
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <button
+          onClick={onToggleSidebar}
+          className={`satra-hamburger-btn ${isSidebarOpen ? 'active' : ''}`}
+          aria-label={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+          title={isSidebarOpen ? 'Close Navigation Menu (☰)' : 'Open Navigation Menu (☰)'}
+        >
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
         <div className="header-logo-frame">
           <img
             src={satraLogoDark}
@@ -97,6 +105,7 @@ export function Header({
             className="header-logo-img satra-logo-light"
           />
         </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
@@ -118,26 +127,7 @@ export function Header({
             </span>
           </div>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            AI Satellite Intelligence
-=======
-      {/* Left: Hamburger Menu Toggle + Welcome Title & Subtitle */}
-      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <button
-          onClick={onToggleSidebar}
-          className={`satra-hamburger-btn ${isSidebarOpen ? 'active' : ''}`}
-          aria-label={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
-          title={isSidebarOpen ? 'Close Navigation Menu (☰)' : 'Open Navigation Menu (☰)'}
-        >
-          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
-        </button>
-
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
-            Welcome to SATRA
-          </h1>
-          <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px', fontWeight: 400 }}>
-            Turning satellite data into a safer, smarter tomorrow.
->>>>>>> theirs
+            AI Satellite Intelligence • Turning satellite data into a safer tomorrow
           </div>
         </div>
       </div>

@@ -111,9 +111,7 @@ export function App() {
   const [selectedDetection, setSelectedDetection] = useState(null);
   const [isAiAssistantModalOpen, setIsAiAssistantModalOpen] = useState(false);
   const [isChatbotOpen, setIsChatbotOpen] = useState(false);
-<<<<<<< ours
   const isChatOpen = isAiAssistantModalOpen || isChatbotOpen;
-=======
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Close sidebar drawer on Escape key press
@@ -127,7 +125,6 @@ export function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSidebarOpen]);
 
->>>>>>> theirs
   // ONE shared real-time backend connection state used by Header + Sidebar.
   // Global Application-Level System Connection State: 'checking' | 'online' | 'offline'
   // Default to 'checking' — never default to 'offline' on initial mount or view change
@@ -340,7 +337,7 @@ export function App() {
           alertCount={unverifiedAlertsCount}
           isBackendHealthy={isBackendHealthy}
           connectionStatus={connectionStatus}
-<<<<<<< ours
+          onLogout={handleLogout}
           onRefresh={loadDashboardData}
           detections={detections}
           alerts={alerts}
@@ -349,9 +346,6 @@ export function App() {
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
           onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
-=======
-          onLogout={handleLogout}
->>>>>>> theirs
         />
 
         {/* Main Content Area */}

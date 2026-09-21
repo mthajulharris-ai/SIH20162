@@ -469,3 +469,13 @@ export async function sendChatMessage(message, history = [], language = 'auto') 
   });
 }
 
+// 8. GIS & Nearby Physical Infrastructure (PS 26162)
+export async function getNearbyGis({ lat, lon, radius = 1000 }) {
+  const query = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lon),
+    radius: String(radius),
+  });
+  return request(`${API_V1}/gis/nearby?${query.toString()}`);
+}
+

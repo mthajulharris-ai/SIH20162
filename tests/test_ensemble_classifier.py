@@ -37,11 +37,12 @@ from backend.ml.yolo_fusion import fuse_confidences
 
 
 # =========================================================================
-# 1. Strict Six-Feature Validation Tests
+# =========================================================================
+# 1. Strict Eight-Feature Validation Tests
 # =========================================================================
 
-def test_valid_six_feature_dict():
-    """Verify that a valid dictionary with exact 6 features passes validation."""
+def test_valid_eight_feature_dict():
+    """Verify that a valid dictionary with exact 8 features passes validation."""
     sample = {
         "FRP": 45.0,
         "T4": 340.5,
@@ -49,15 +50,17 @@ def test_valid_six_feature_dict():
         "day_night_flag": 1,
         "observation_density": 120.0,
         "cluster_intensity": 150.0,
+        "recurrence_count": 12.0,
+        "persistence_ratio": 0.25,
     }
     arr = validate_feature_vector(sample)
     assert isinstance(arr, np.ndarray)
-    assert arr.shape == (1, 6)
-    np.testing.assert_allclose(arr[0], [45.0, 340.5, 38.2, 1.0, 120.0, 150.0])
+    assert arr.shape == (1, 8)
+    np.testing.assert_allclose(arr[0], [45.0, 340.5, 38.2, 1.0, 120.0, 150.0, 12.0, 0.25])
 
 
 def test_missing_feature_rejected():
-    """Verify that missing ANY of the 6 features raises FeatureValidationError."""
+    """Verify that missing ANY of the 8 features raises FeatureValidationError."""
     # Missing 'delta_T'
     incomplete = {
         "FRP": 45.0,
@@ -65,6 +68,8 @@ def test_missing_feature_rejected():
         "day_night_flag": 0,
         "observation_density": 120.0,
         "cluster_intensity": 150.0,
+        "recurrence_count": 5.0,
+        "persistence_ratio": 0.10,
     }
     with pytest.raises(FeatureValidationError) as exc_info:
         validate_feature_vector(incomplete)
@@ -84,6 +89,8 @@ def test_invalid_feature_values_rejected():
             "day_night_flag": 0,
             "observation_density": 50.0,
             "cluster_intensity": 50.0,
+            "recurrence_count": 1.0,
+            "persistence_ratio": 0.05,
         })
 
     # Negative FRP
@@ -95,6 +102,8 @@ def test_invalid_feature_values_rejected():
             "day_night_flag": 0,
             "observation_density": 50.0,
             "cluster_intensity": 50.0,
+            "recurrence_count": 1.0,
+            "persistence_ratio": 0.05,
         })
 
     # Invalid day_night_flag
@@ -106,11 +115,26 @@ def test_invalid_feature_values_rejected():
             "day_night_flag": 99,
             "observation_density": 50.0,
             "cluster_intensity": 50.0,
+            "recurrence_count": 1.0,
+            "persistence_ratio": 0.05,
+        })
+
+    # Invalid persistence_ratio (> 1.0)
+    with pytest.raises(FeatureValidationError):
+        validate_feature_vector({
+            "FRP": 10.0,
+            "T4": 320.0,
+            "delta_T": 10.0,
+            "day_night_flag": 0,
+            "observation_density": 50.0,
+            "cluster_intensity": 50.0,
+            "recurrence_count": 1.0,
+            "persistence_ratio": 1.5,
         })
 
 
 def test_extract_features_from_raw_observation():
-    """Verify mapping of raw satellite telemetry fields to 6 canonical features."""
+    """Verify mapping of raw satellite telemetry fields to 8 canonical features."""
     raw_obs = {
         "frp": 85.0,
         "brightness": 365.0,
@@ -119,6 +143,7 @@ def test_extract_features_from_raw_observation():
         "scan": 0.5,
         "track": 0.5,
         "recurrence_count": 5,
+        "persistence_ratio": 0.20,
         "frp_local_mean": 20.0,
     }
     extracted = extract_features_from_observation(raw_obs)
@@ -128,6 +153,8 @@ def test_extract_features_from_raw_observation():
     assert extracted["day_night_flag"] == 1.0
     assert extracted["observation_density"] == 85.0 / (0.5 * 0.5)
     assert extracted["cluster_intensity"] == 5 * 20.0
+    assert extracted["recurrence_count"] == 5.0
+    assert extracted["persistence_ratio"] == 0.20
 
 
 # =========================================================================
@@ -182,7 +209,7 @@ def test_confidence_thresholding_high():
     mock_rf = MockClassifier([0.05, 0.85, 0.05, 0.05])
     wrapper = SoftVotingEnsembleWrapper(mock_rf)
 
-    features = [50.0, 345.0, 40.0, 0, 100.0, 100.0]
+    features = [50.0, 345.0, 40.0, 0, 100.0, 100.0, 2.0, 0.05]
     result = wrapper.predict_single(features)
 
     assert result["classification"] == "Forest Fire"
@@ -197,7 +224,7 @@ def test_confidence_thresholding_low():
     mock_rf = MockClassifier([0.20, 0.15, 0.18, 0.47])
     wrapper = SoftVotingEnsembleWrapper(mock_rf)
 
-    features = [10.0, 310.0, 15.0, 0, 20.0, 20.0]
+    features = [10.0, 310.0, 15.0, 0, 20.0, 20.0, 1.0, 0.01]
     result = wrapper.predict_single(features)
 
     assert result["classification"] == "Other"
@@ -250,17 +277,19 @@ def test_training_pipeline_stops_when_classes_missing():
     Verify training pipeline STOPS with MissingLabelsError when the dataset
     lacks any of the 4 required classes (e.g. Forest Fire).
     """
-    # Prototype dataset lacks Forest Fire
-    proto_csv = Path("data/samples/prototype_labeled_dataset.csv")
-    if proto_csv.exists():
-        with pytest.raises(MissingLabelsError) as exc_info:
-            train_ensemble_pipeline(
-                dataset_path=proto_csv,
-                output_model_path="models/test_should_not_save.pkl"
-            )
+    incomplete_df = pd.DataFrame([
+        {"FRP": 10.0, "T4": 310.0, "delta_T": 10.0, "day_night_flag": 0, "observation_density": 50.0, "cluster_intensity": 50.0, "recurrence_count": 1.0, "persistence_ratio": 0.01, "target_class": 0},
+        {"FRP": 10.0, "T4": 310.0, "delta_T": 10.0, "day_night_flag": 0, "observation_density": 50.0, "cluster_intensity": 50.0, "recurrence_count": 15.0, "persistence_ratio": 0.25, "target_class": 2},
+        {"FRP": 10.0, "T4": 310.0, "delta_T": 10.0, "day_night_flag": 0, "observation_density": 50.0, "cluster_intensity": 50.0, "recurrence_count": 1.0, "persistence_ratio": 0.01, "target_class": 3},
+    ])
+    with pytest.raises(MissingLabelsError) as exc_info:
+        train_ensemble_pipeline(
+            dataset_path=incomplete_df,
+            output_model_path="models/test_should_not_save.pkl"
+        )
 
-        assert "Dataset does not contain all required 4 classes" in str(exc_info.value)
-        assert "Forest Fire" in str(exc_info.value)
+    assert "Dataset does not contain all required 4 classes" in str(exc_info.value)
+    assert "Forest Fire" in str(exc_info.value)
 
 
 # =========================================================================
@@ -270,14 +299,14 @@ def test_training_pipeline_stops_when_classes_missing():
 def test_validate_feature_vector_list_of_dicts():
     """Verify that validate_feature_vector handles a list of dicts without TypeError."""
     records = [
-        {"FRP": 10.0, "T4": 320.0, "delta_T": 15.0, "day_night_flag": 0, "observation_density": 50.0, "cluster_intensity": 60.0},
-        {"FRP": 25.0, "T4": 345.0, "delta_T": 25.0, "day_night_flag": 1, "observation_density": 80.0, "cluster_intensity": 90.0},
+        {"FRP": 10.0, "T4": 320.0, "delta_T": 15.0, "day_night_flag": 0, "observation_density": 50.0, "cluster_intensity": 60.0, "recurrence_count": 1.0, "persistence_ratio": 0.01},
+        {"FRP": 25.0, "T4": 345.0, "delta_T": 25.0, "day_night_flag": 1, "observation_density": 80.0, "cluster_intensity": 90.0, "recurrence_count": 10.0, "persistence_ratio": 0.15},
     ]
     arr = validate_feature_vector(records)
     assert isinstance(arr, np.ndarray)
-    assert arr.shape == (2, 6)
-    np.testing.assert_allclose(arr[0], [10.0, 320.0, 15.0, 0.0, 50.0, 60.0])
-    np.testing.assert_allclose(arr[1], [25.0, 345.0, 25.0, 1.0, 80.0, 90.0])
+    assert arr.shape == (2, 8)
+    np.testing.assert_allclose(arr[0], [10.0, 320.0, 15.0, 0.0, 50.0, 60.0, 1.0, 0.01])
+    np.testing.assert_allclose(arr[1], [25.0, 345.0, 25.0, 1.0, 80.0, 90.0, 10.0, 0.15])
 
 
 def test_extract_features_without_t31_and_batch_prediction():

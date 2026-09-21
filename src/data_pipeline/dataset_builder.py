@@ -24,11 +24,12 @@ from src.data_pipeline.feature_engineering import engineer_all_features
 
 logger = logging.getLogger("satellite_pipeline.dataset_builder")
 
-# Class Names mapping
+# Canonical 4-Class Taxonomy for SATRA (PS 26162)
 CLASS_MAP = {
-    0: "Other",
-    1: "Persistent Thermal Source",
-    2: "Industrial Fire"
+    0: "Industrial Fire",
+    1: "Forest Fire",
+    2: "Persistent Thermal Source",
+    3: "Other",
 }
 
 CLASS_REVERSE_MAP = {v: k for k, v in CLASS_MAP.items()}
@@ -82,14 +83,16 @@ class PrototypeLabelingConfig:
     Ensures zero arbitrary thresholds, explicit scientific traceability,
     and optional marking of uncertain observations.
     """
-    persistence_threshold: float = 0.35
+    persistence_threshold: float = 0.20
     recurrence_min: int = 3
     industrial_loc_recurrence_min: int = 2
-    industrial_loc_persistence_min: float = 0.25
-    frp_spike_ratio_threshold: float = 2.2
+    industrial_loc_persistence_min: float = 0.15
+    frp_spike_ratio_threshold: float = 2.0
     frp_spike_zscore_threshold: float = 2.0
-    absolute_fire_frp_min: float = 80.0
-    absolute_fire_brightness_min: float = 350.0
+    absolute_fire_frp_min: float = 60.0
+    absolute_fire_brightness_min: float = 345.0
+    forest_fire_frp_min: float = 15.0
+    forest_fire_delta_t_min: float = 30.0
     min_confidence_for_labeled: float = 0.30
     allow_unverified: bool = False
 
@@ -106,30 +109,18 @@ def assign_prototype_labels(
     frp_spike_zscore_threshold: Optional[float] = None
 ) -> pd.DataFrame:
     """
-    Applies the transparent prototype labeling strategy for model development.
-    
+    Applies the transparent prototype labeling strategy for SATRA 4-class taxonomy:
+    0 = Industrial Fire
+    1 = Forest Fire
+    2 = Persistent Thermal Source
+    3 = Other
+
     IMPORTANT NOTICE:
     Real NASA FIRMS data records only raw thermal detections and does NOT provide
-    ground-truth labels. This heuristic rule-engine provides a reproducible development
-    benchmark while ground truth or external industrial GIS layers are collected.
-    
-    Rules:
-    1. 'Persistent Thermal Source' (Class 1):
-       - High recurrence across time (recurrence_count >= 3 OR persistence_ratio >= 0.35)
-       - Detected regularly during both day and night
-       - Moderate/steady FRP profile
-       
-    2. 'Industrial Fire' (Class 2):
-       - Occurs at an industrial/persistent location (recurrence_count >= 2 OR persistence_ratio >= 0.25)
-       - Exhibits an acute anomalous heat/power surge:
-         (frp_to_mean_ratio >= 2.2 OR frp_zscore >= 2.0 OR (frp > 80 MW and brightness > 350K))
-         
-    3. 'Other' (Class 0):
-       - Transient single-day hotspots, moving fire fronts, vegetation/wildfires,
-         agricultural stubble burning with low persistence.
+    ground-truth labels. This rule-engine provides reproducible development labels
+    with explicit provenance (PROTOTYPE_LABELLED).
     """
     cfg = config or PrototypeLabelingConfig()
-    # Override from individual arguments if passed
     p_thresh = persistence_threshold if persistence_threshold is not None else cfg.persistence_threshold
     rec_min = recurrence_min if recurrence_min is not None else cfg.recurrence_min
     spike_ratio = frp_spike_ratio_threshold if frp_spike_ratio_threshold is not None else cfg.frp_spike_ratio_threshold
@@ -137,43 +128,50 @@ def assign_prototype_labels(
 
     df = df.copy()
 
-    # Default class: 0 (Other)
-    target = np.zeros(len(df), dtype=int)
+    # Default class: 3 (Other)
+    target = np.full(len(df), 3, dtype=int)
     rationale = ["RULE_TRANSIENT_OTHER"] * len(df)
 
-    # Condition for Persistent Thermal Source
-    is_persistent_rec = df["recurrence_count"] >= rec_min
-    is_persistent_ratio = df["persistence_ratio"] >= p_thresh
-    is_persistent = is_persistent_rec | is_persistent_ratio
+    rec_col = df["recurrence_count"] if "recurrence_count" in df.columns else pd.Series(1.0, index=df.index)
+    pers_col = df["persistence_ratio"] if "persistence_ratio" in df.columns else pd.Series(0.01, index=df.index)
+    frp_col = df["frp"] if "frp" in df.columns else df.get("FRP", pd.Series(10.0, index=df.index))
+    t4_col = df["brightness"] if "brightness" in df.columns else df.get("T4", df.get("bright_ti4", pd.Series(320.0, index=df.index)))
+    dt_col = df["temp_diff"] if "temp_diff" in df.columns else df.get("delta_T", pd.Series(20.0, index=df.index))
+
+    ratio_col = df["frp_to_mean_ratio"] if "frp_to_mean_ratio" in df.columns else pd.Series(1.0, index=df.index)
+    zscore_col = df["frp_zscore"] if "frp_zscore" in df.columns else pd.Series(0.0, index=df.index)
+
+    # 1. Persistent Thermal Source (Class 2)
+    is_persistent = (rec_col >= rec_min) | (pers_col >= p_thresh)
 
     for i in range(len(df)):
         if is_persistent.iloc[i]:
-            target[i] = 1
-            if is_persistent_rec.iloc[i]:
-                rationale[i] = "RULE_PERSISTENT_HIGH_RECURRENCE"
-            else:
-                rationale[i] = "RULE_PERSISTENT_HIGH_RATIO"
+            target[i] = 2
+            rationale[i] = "RULE_PERSISTENT_SPATIAL_CLUSTER"
 
-    # Condition for Industrial Fire: acute flare-up at persistent/industrial location
-    is_ind_loc = (
-        (df["recurrence_count"] >= cfg.industrial_loc_recurrence_min) |
-        (df["persistence_ratio"] >= cfg.industrial_loc_persistence_min)
+    # 2. Forest Fire (Class 1): Non-persistent, elevated thermal signature
+    is_transient = (rec_col <= 2) & (pers_col < 0.15)
+    is_forest = is_transient & (
+        (frp_col >= cfg.forest_fire_frp_min) |
+        (dt_col >= cfg.forest_fire_delta_t_min) |
+        (t4_col >= 335.0)
     )
-    is_spike_ratio = df["frp_to_mean_ratio"] >= spike_ratio
-    is_spike_zscore = df["frp_zscore"] >= spike_z
-    is_extreme_rad = (df["frp"] >= cfg.absolute_fire_frp_min) & (df["brightness"] >= cfg.absolute_fire_brightness_min)
 
-    is_industrial_fire = is_ind_loc & (is_spike_ratio | is_spike_zscore | is_extreme_rad)
+    for i in range(len(df)):
+        if is_forest.iloc[i]:
+            target[i] = 1
+            rationale[i] = "RULE_FOREST_FIRE_THERMAL_SIGNATURE"
+
+    # 3. Industrial Fire (Class 0): Acute surge at persistent/industrial facility
+    is_ind_loc = (rec_col >= cfg.industrial_loc_recurrence_min) | (pers_col >= cfg.industrial_loc_persistence_min)
+    is_surge = (ratio_col >= spike_ratio) | (zscore_col >= spike_z) | (frp_col >= cfg.absolute_fire_frp_min)
+
+    is_industrial_fire = is_ind_loc & is_surge
 
     for i in range(len(df)):
         if is_industrial_fire.iloc[i]:
-            target[i] = 2
-            if is_spike_ratio.iloc[i]:
-                rationale[i] = "RULE_INDUSTRIAL_FIRE_SURGE_RATIO"
-            elif is_spike_zscore.iloc[i]:
-                rationale[i] = "RULE_INDUSTRIAL_FIRE_ZSCORE"
-            else:
-                rationale[i] = "RULE_INDUSTRIAL_FIRE_EXTREME_RADIANCE"
+            target[i] = 0
+            rationale[i] = "RULE_INDUSTRIAL_FIRE_FACILITY_SURGE"
 
     # Optional uncertainty marking
     if cfg.allow_unverified and "confidence_score" in df.columns:
@@ -190,8 +188,8 @@ def assign_prototype_labels(
     df["data_provenance"] = PROVENANCE_PROTOTYPE_LABELLED
 
     logger.info(
-        "Assigned prototype labels: Other=%d, Persistent=%d, Industrial Fire=%d",
-        (target == 0).sum(), (target == 1).sum(), (target == 2).sum()
+        "Assigned prototype labels: Ind=%d, Forest=%d, Persistent=%d, Other=%d",
+        (target == 0).sum(), (target == 1).sum(), (target == 2).sum(), (target == 3).sum()
     )
     return df
 
