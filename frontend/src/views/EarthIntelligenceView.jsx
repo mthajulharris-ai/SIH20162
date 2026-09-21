@@ -1,3 +1,17 @@
+// Haversine geodesic distance calculation between two points in meters (Client-side, Section 7)
+function calculateHaversineDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -167,9 +181,17 @@ export function EarthIntelligenceView({
   onNavigate = () => {},
   onFocusDetection = () => {},
   onOpenAiAssistant = () => {},
+  deepZoomTarget = null,
+  onClearDeepZoomTarget = () => {},
 }) {
-  // View mode: '3d' (default realistic Earth) | '2d' (high-res Leaflet satellite)
-  const [viewMode, setViewMode] = useState(selectedDetection ? '2d' : '3d');
+  // Deep zoom animation orchestration state: null | 'LOCATING' (3D) | 'FLYING' (2D) | 'LOCKED' (final)
+  const isDeepZoomFromUpload = Boolean(deepZoomTarget || selectedDetection?.isUploadedDeepZoom);
+  const [viewMode, setViewMode] = useState(isDeepZoomFromUpload ? '3d' : (selectedDetection ? '2d' : '3d'));
+  const [deepZoomStage, setDeepZoomStage] = useState(isDeepZoomFromUpload ? 'LOCATING' : null);
+  const deepZoomHandledRef = useRef(null);
+
+  // Client-side cache for GIS query responses (lat_lon_radius -> data)
+  const gisClientCacheRef = useRef(new Map());
 
   // Search input & feedback state
   const [searchQuery, setSearchQuery] = useState('');
@@ -228,15 +250,189 @@ export function EarthIntelligenceView({
   // 2D Leaflet map references
   const leafletContainerRef = useRef(null);
   const leafletMapRef = useRef(null);
+  const [leafletMapInstance, setLeafletMapInstance] = useState(null);
   const leafletMarkersRef = useRef(null);
 
-  // Automatically switch to 2D Satellite GIS View whenever a detection is selected
+  // User Current Device Geolocation (Google Maps-like location dot, Section 1, 2, 3, 9)
+  const [userLocation, setUserLocation] = useState(null); // { latitude, longitude, accuracy, timestamp }
+  const [isLocatingUser, setIsLocatingUser] = useState(false);
+  const [locationError, setLocationError] = useState(null);
+  const [focusUserTrigger, setFocusUserTrigger] = useState(0);
+  const geoWatchIdRef = useRef(null);
+  const lastCenteredDetIdRef = useRef(null);
+
+  // Native Browser/Device Geolocation Handler (Section 1, 4, 5, 9, 10, 15)
+  const handleActivateMyLocation = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationError('Geolocation is not supported by your browser.');
+      return;
+    }
+
+    setLocationError(null);
+    setIsLocatingUser(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocatingUser(false);
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy || null;
+
+        const loc = {
+          latitude: lat,
+          longitude: lon,
+          accuracy: accuracy,
+          timestamp: pos.timestamp,
+        };
+        setUserLocation(loc);
+
+        // Smooth camera transition to user location (Section 5, 11, 12, 13)
+        if (viewMode === '2d' && leafletMapRef.current) {
+          leafletMapRef.current.flyTo([lat, lon], 15, { duration: 1.8, easeLinearity: 0.25 });
+        } else if (viewMode === '3d') {
+          setFocusUserTrigger((p) => p + 1);
+        }
+
+        // Start continuous watcher to update blue dot if user moves (Section 9, 11)
+        if (geoWatchIdRef.current == null) {
+          geoWatchIdRef.current = navigator.geolocation.watchPosition(
+            (watchPos) => {
+              setUserLocation({
+                latitude: watchPos.coords.latitude,
+                longitude: watchPos.coords.longitude,
+                accuracy: watchPos.coords.accuracy || null,
+                timestamp: watchPos.timestamp,
+              });
+            },
+            (watchErr) => {
+              console.warn('[SATRA Geolocation] Watch update error:', watchErr);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 15000,
+              maximumAge: 5000,
+            }
+          );
+        }
+      },
+      (err) => {
+        setIsLocatingUser(false);
+        let msg = 'Unable to obtain current location. Try again.';
+        if (err.code === 1) {
+          msg = 'Location permission denied. Enable location access in your browser to show your current position.';
+        } else if (err.code === 2) {
+          msg = 'Current location unavailable.';
+        } else if (err.code === 3) {
+          msg = 'Unable to obtain current location. Try again.';
+        }
+        setLocationError(msg);
+        setTimeout(() => setLocationError(null), 6500);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0,
+      }
+    );
+  }, [viewMode]);
+
+  // Clean up geolocation watcher on unmount (Section 9)
+  useEffect(() => {
+    return () => {
+      if (geoWatchIdRef.current != null) {
+        navigator.geolocation.clearWatch(geoWatchIdRef.current);
+        geoWatchIdRef.current = null;
+      }
+    };
+  }, []);
+
+  // Calculate actual geodesic distance between User Location and Selected Detection (Section 7)
+  const userToDetectionDistance = useMemo(() => {
+    if (!userLocation || !selectedDetection) return null;
+    const uLat = parseFloat(userLocation.latitude);
+    const uLon = parseFloat(userLocation.longitude);
+    const dLat = parseFloat(selectedDetection.latitude);
+    const dLon = parseFloat(selectedDetection.longitude);
+    if (isNaN(uLat) || isNaN(uLon) || isNaN(dLat) || isNaN(dLon)) return null;
+    return calculateHaversineDistanceMeters(uLat, uLon, dLat, dLon);
+  }, [userLocation, selectedDetection]);
+
+  // Automatically switch to 2D Satellite GIS View whenever a detection is selected (unless 3D deep zoom is running)
   useEffect(() => {
     if (selectedDetection) {
-      setViewMode('2d');
-      setActiveFeature(null);
+      if (deepZoomStage === 'LOCATING') {
+        // Allow 3D globe to smoothly orient and zoom toward target region first
+        return;
+      }
+      if (!selectedDetection.isUploadedDeepZoom && !deepZoomTarget) {
+        setViewMode('2d');
+        setActiveFeature(null);
+      }
     }
-  }, [selectedDetection]);
+  }, [selectedDetection, deepZoomStage, deepZoomTarget]);
+
+  // Deep Zoom Orchestrator: Multi-stage geographic transition (Sections 2, 3, 4, 12)
+  useEffect(() => {
+    const target = deepZoomTarget || (selectedDetection?.isUploadedDeepZoom ? selectedDetection : null);
+    if (!target) return;
+    if (deepZoomHandledRef.current === target.id) return;
+    deepZoomHandledRef.current = target.id;
+
+    const lat = parseFloat(target.latitude);
+    const lon = parseFloat(target.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    if (viewMode === '3d') {
+      // Step 1: Smoothly rotate 3D Earth toward target region
+      setDeepZoomStage('LOCATING');
+      setFocusTrigger((p) => p + 1);
+
+      // Step 2: After 1.3s of 3D globe flight, switch to 2D Leaflet Satellite
+      const t = setTimeout(() => {
+        setViewMode('2d');
+        setDeepZoomStage('FLYING');
+      }, 1300);
+
+      return () => clearTimeout(t);
+    } else {
+      // Already in 2D GIS: fly directly
+      setDeepZoomStage('FLYING');
+    }
+  }, [deepZoomTarget, selectedDetection, viewMode]);
+
+  // Step 3: Cinematic Leaflet flyTo down to local investigation level (zoom 15)
+  useEffect(() => {
+    const map = leafletMapInstance || leafletMapRef.current;
+    if (deepZoomStage !== 'FLYING' || !map || !selectedDetection) return;
+
+    const lat = parseFloat(selectedDetection.latitude);
+    const lon = parseFloat(selectedDetection.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
+
+    // Start at regional scale (zoom 6) to show country/regional context
+    map.setView([lat, lon], 6, { animate: false });
+
+    // Multi-stage deep flyTo sequence down to zoom 15
+    map.flyTo([lat, lon], 15, {
+      duration: 2.2,
+      easeLinearity: 0.25,
+    });
+
+    const handleFlyEnd = () => {
+      map.off('moveend', handleFlyEnd);
+      setDeepZoomStage('LOCKED');
+      if (onClearDeepZoomTarget) onClearDeepZoomTarget();
+      setTimeout(() => {
+        setDeepZoomStage(null);
+      }, 3500);
+    };
+
+    map.on('moveend', handleFlyEnd);
+
+    return () => {
+      map.off('moveend', handleFlyEnd);
+    };
+  }, [deepZoomStage, selectedDetection, leafletMapInstance, onClearDeepZoomTarget]);
 
   // 1. Resolve Administrative Geography (Nominatim) and Real Physical GIS Features (Backend Service)
   useEffect(() => {
@@ -315,22 +511,32 @@ export function EarthIntelligenceView({
         resolvedSummary = formatCoordinates(lat, lon);
       }
 
-      // B. Fetch Real Physical Infrastructure from Backend GIS Service (Zero Mock Data)
-      try {
-        const res = await getNearbyGis({ lat, lon, radius: investigationRadius });
+      // B. Fetch Real Physical Infrastructure from Backend GIS Service (Zero Mock Data, Cached)
+      const cacheKey = `${lat.toFixed(4)}_${lon.toFixed(4)}_${investigationRadius}`;
+      if (gisClientCacheRef.current.has(cacheKey)) {
+        const cached = gisClientCacheRef.current.get(cacheKey);
         if (isMounted) {
-          if (res && res.status === 'success') {
-            setGisData(res);
-            setGisError(null);
-          } else if (res && res.status === 'unavailable') {
-            setGisData(res);
-            setGisError(res.message || 'Nearby GIS context unavailable');
-          }
+          setGisData(cached);
+          setIsGisLoading(false);
+          setGisError(null);
         }
-      } catch (err) {
-        if (isMounted) {
+      } else {
+        try {
+          const res = await getNearbyGis({ lat, lon, radius: investigationRadius });
+          if (isMounted) {
+            if (res && res.status === 'success') {
+              gisClientCacheRef.current.set(cacheKey, res);
+              setGisData(res);
+              setGisError(null);
+            } else if (res && res.status === 'unavailable') {
+              setGisData(res);
+              setGisError(res.message || 'Nearby GIS context temporarily unavailable.');
+            }
+          }
+        } catch (err) {
+          if (!isMounted) return;
           console.warn('Backend GIS query error:', err);
-          setGisError('Nearby GIS context unavailable');
+          setGisError('Nearby GIS context temporarily unavailable.');
           setGisData({
             status: 'unavailable',
             radius_m: investigationRadius,
@@ -345,22 +551,25 @@ export function EarthIntelligenceView({
               other: 0,
             },
             features: [],
-            message: 'Nearby GIS context unavailable',
+            message: 'Nearby GIS context temporarily unavailable.',
           });
+        } finally {
+          if (isMounted) {
+            setIsGisLoading(false);
+          }
         }
-      } finally {
-        if (isMounted) {
-          setIsGisLoading(false);
-          setLocationContext({
-            resolvedAddress: resolvedSummary,
-            continent: getContinent(lat, lon, resolvedCountry),
-            country: resolvedCountry,
-            state: resolvedState,
-            city: resolvedCity,
-            loading: false,
-            source: 'OpenStreetMap GIS Service',
-          });
-        }
+      }
+
+      if (isMounted) {
+        setLocationContext({
+          resolvedAddress: resolvedSummary,
+          continent: getContinent(lat, lon, resolvedCountry),
+          country: resolvedCountry,
+          state: resolvedState,
+          city: resolvedCity,
+          loading: false,
+          source: 'OpenStreetMap GIS Service',
+        });
       }
     };
 
@@ -526,14 +735,24 @@ export function EarthIntelligenceView({
 
   // 3. Initialize & Update 2D Leaflet Satellite Map when viewMode === '2d'
   useEffect(() => {
-    if (viewMode !== '2d' || !leafletContainerRef.current) return;
+    if (viewMode !== '2d') {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.remove();
+        leafletMapRef.current = null;
+        leafletMarkersRef.current = null;
+        setLeafletMapInstance(null);
+      }
+      return;
+    }
+    if (!leafletContainerRef.current) return;
 
     if (!leafletMapRef.current) {
       const centerLat = selectedDetection ? parseFloat(selectedDetection.latitude) : 22.3;
       const centerLon = selectedDetection ? parseFloat(selectedDetection.longitude) : 75.0;
+      const initialZoom = deepZoomStage === 'FLYING' ? 6 : (selectedDetection ? 15 : 5);
       const map = L.map(leafletContainerRef.current, {
         center: [centerLat, centerLon],
-        zoom: selectedDetection ? 15 : 5,
+        zoom: initialZoom,
         zoomControl: false,
         attributionControl: false,
       });
@@ -552,6 +771,7 @@ export function EarthIntelligenceView({
 
       leafletMapRef.current = map;
       leafletMarkersRef.current = L.layerGroup().addTo(map);
+      setLeafletMapInstance(map);
     }
 
     const map = leafletMapRef.current;
@@ -612,21 +832,40 @@ export function EarthIntelligenceView({
         });
         radiusCircle.addTo(markersGroup);
 
-        // 2. Exact Detection Marker with pulsing animation
+        // 2. Exact Detection Marker with distinctive label banner & pulsing radar (Section 7)
         const pulseIcon = L.divIcon({
           className: 'satra-detection-marker-node',
           html: `
-            <div style="position: relative; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
-              <div style="position: absolute; width: 36px; height: 36px; border-radius: 50%; background: ${color}; opacity: 0.4; animation: satraPulse 2s infinite ease-out;"></div>
-              <div style="position: absolute; width: 22px; height: 22px; border-radius: 50%; background: ${color}; border: 2.5px solid #FFFFFF; box-shadow: 0 0 14px ${color};"></div>
+            <div style="position: relative; width: 44px; height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer;">
+              <div style="
+                position: absolute;
+                top: -24px;
+                background: rgba(239, 68, 68, 0.95);
+                color: #FFFFFF;
+                font-family: sans-serif;
+                font-size: 9.5px;
+                font-weight: 800;
+                letter-spacing: 0.05em;
+                padding: 2px 7px;
+                border-radius: 4px;
+                border: 1px solid #FCA5A5;
+                box-shadow: 0 0 10px rgba(239, 68, 68, 0.6);
+                white-space: nowrap;
+                text-transform: uppercase;
+                pointer-events: none;
+              ">
+                🔥 EXACT DETECTION
+              </div>
+              <div style="position: absolute; width: 44px; height: 44px; border-radius: 50%; background: ${color}; opacity: 0.35; animation: satraPulse 2s infinite ease-out;"></div>
+              <div style="position: absolute; width: 22px; height: 22px; border-radius: 50%; background: ${color}; border: 2.5px solid #FFFFFF; box-shadow: 0 0 16px ${color};"></div>
               <div style="position: absolute; width: 6px; height: 6px; border-radius: 50%; background: #FFFFFF;"></div>
             </div>
           `,
-          iconSize: [36, 36],
-          iconAnchor: [18, 18],
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
         });
 
-        const detMarker = L.marker([detLat, detLon], { icon: pulseIcon, zIndexOffset: 2000 });
+        const detMarker = L.marker([detLat, detLon], { icon: pulseIcon, zIndexOffset: 3000 });
         detMarker.bindTooltip(
           `<div style="font-family: sans-serif; font-size: 11.5px; color: #FFFFFF; background: #0B1320; padding: 8px 12px; border-radius: 6px; border: 1.5px solid ${color}; line-height: 1.5;">
             <div style="font-weight: 800; color: ${color}; text-transform: uppercase; margin-bottom: 2px;">
@@ -700,21 +939,224 @@ export function EarthIntelligenceView({
 
           fMarker.on('click', () => {
             setActiveFeature(feat);
-            map.setView([feat.latitude, feat.longitude], Math.max(map.getZoom(), 16), { animate: true });
+            // Pan smoothly while keeping detection coordinate in visible view bounds (Section 9)
+            if (map) {
+              const bounds = L.latLngBounds([
+                [detLat, detLon],
+                [feat.latitude, feat.longitude],
+              ]).pad(0.3);
+              map.fitBounds(bounds, { maxZoom: 16, animate: true });
+            }
           });
 
           fMarker.addTo(markersGroup);
         });
 
-        // Center on detection or active feature
-        if (activeFeature && activeFeature.latitude && activeFeature.longitude) {
-          map.setView([activeFeature.latitude, activeFeature.longitude], Math.max(map.getZoom(), 16), { animate: true });
-        } else {
-          map.setView([detLat, detLon], 15, { animate: true });
+        // 4. Tactical Proximity Distance Lines to Nearby Mapped Infrastructure (Section 6)
+        if (gisData.features && gisData.features.length > 0) {
+          const sortedFeats = [...gisData.features].sort((a, b) => (a.distance_m || 0) - (b.distance_m || 0));
+          const keyFeats = sortedFeats
+            .filter((f) => {
+              if (activeFeature && activeFeature.id === f.id) return true;
+              return f.type === 'industrial' || f.type === 'roads' || f.type === 'forest';
+            })
+            .slice(0, 4);
+          const featsToConnect = keyFeats.length >= 2 ? keyFeats : sortedFeats.slice(0, 3);
+
+          featsToConnect.forEach((feat) => {
+            if (feat.latitude == null || feat.longitude == null) return;
+            const isFeatActive = activeFeature && activeFeature.id === feat.id;
+
+            // Dashed connection polyline
+            const line = L.polyline([[detLat, detLon], [feat.latitude, feat.longitude]], {
+              color: isFeatActive ? '#38BDF8' : 'rgba(56, 189, 248, 0.45)',
+              weight: isFeatActive ? 2.5 : 1.5,
+              dashArray: isFeatActive ? '6, 6' : '4, 6',
+              opacity: isFeatActive ? 1.0 : 0.65,
+            });
+            line.addTo(markersGroup);
+
+            // Midpoint distance badge with real calculated geodesic distance
+            const midLat = (detLat + feat.latitude) / 2;
+            const midLon = (detLon + feat.longitude) / 2;
+            const distBadge = L.divIcon({
+              className: 'satra-dist-line-badge',
+              html: `
+                <div style="
+                  background: rgba(11, 23, 38, 0.94);
+                  border: 1px solid ${isFeatActive ? '#38BDF8' : 'rgba(56, 189, 248, 0.45)'};
+                  border-radius: 4px;
+                  padding: 1px 6px;
+                  font-family: monospace;
+                  font-size: 10px;
+                  font-weight: 700;
+                  color: ${isFeatActive ? '#FFFFFF' : '#38BDF8'};
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+                  white-space: nowrap;
+                  pointer-events: none;
+                  transform: translate(-50%, -50%);
+                ">
+                  ${feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(1)} km`}
+                </div>
+              `,
+              iconSize: [40, 16],
+              iconAnchor: [20, 8],
+            });
+            L.marker([midLat, midLon], { icon: distBadge, interactive: false }).addTo(markersGroup);
+          });
+        }
+
+        // Center on detection or active feature (only when detection/feature changes, never on user background movement)
+        if (deepZoomStage !== 'FLYING') {
+          if (activeFeature && activeFeature.latitude && activeFeature.longitude) {
+            const bounds = L.latLngBounds([
+              [detLat, detLon],
+              [activeFeature.latitude, activeFeature.longitude],
+            ]).pad(0.3);
+            map.fitBounds(bounds, { maxZoom: 16, animate: true });
+          } else if (lastCenteredDetIdRef.current !== selectedDetection.id) {
+            lastCenteredDetIdRef.current = selectedDetection.id;
+            map.setView([detLat, detLon], 15, { animate: true });
+          }
         }
       }
     }
-  }, [viewMode, detections, selectedDetection, gisData, activeFeature, investigationRadius, onSelectDetection]);
+
+    // 4. Plot User Current Location (Google Maps-style blue location dot + accuracy circle, Section 2, 3, 6, 13)
+    if (userLocation && userLocation.latitude != null && userLocation.longitude != null) {
+      const uLat = parseFloat(userLocation.latitude);
+      const uLon = parseFloat(userLocation.longitude);
+
+      if (!isNaN(uLat) && !isNaN(uLon)) {
+        // A. Accuracy Circle (Translucent blue)
+        if (userLocation.accuracy && userLocation.accuracy > 0) {
+          const accCircle = L.circle([uLat, uLon], {
+            radius: userLocation.accuracy,
+            color: '#3B82F6',
+            weight: 1,
+            dashArray: '3, 4',
+            fillColor: '#3B82F6',
+            fillOpacity: 0.12,
+            interactive: false,
+          });
+          accCircle.addTo(markersGroup);
+        }
+
+        // B. Google Maps-like Blue Location Marker (Section 2)
+        const userIcon = L.divIcon({
+          className: 'satra-user-location-node',
+          html: `
+            <div style="position: relative; width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+              <!-- Pulsing outer halo -->
+              <div style="
+                position: absolute;
+                width: 34px;
+                height: 34px;
+                border-radius: 50%;
+                background: rgba(59, 130, 246, 0.45);
+                animation: satraUserPulse 2s infinite ease-out;
+                pointer-events: none;
+              "></div>
+              <!-- Crisp white rim with vibrant blue core -->
+              <div style="
+                position: relative;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: #2563EB;
+                border: 3px solid #FFFFFF;
+                box-shadow: 0 0 12px rgba(37, 99, 235, 0.95), 0 2px 6px rgba(0, 0, 0, 0.6);
+              "></div>
+              <div style="
+                position: absolute;
+                width: 6px;
+                height: 6px;
+                border-radius: 50%;
+                background: #FFFFFF;
+              "></div>
+            </div>
+          `,
+          iconSize: [34, 34],
+          iconAnchor: [17, 17],
+        });
+
+        const uMarker = L.marker([uLat, uLon], {
+          icon: userIcon,
+          zIndexOffset: 2500,
+        });
+
+        uMarker.bindTooltip(
+          `<div style="font-family: sans-serif; font-size: 11.5px; color: #FFFFFF; background: #0B1320; padding: 7px 11px; border-radius: 6px; border: 1.5px solid #3B82F6; line-height: 1.5;">
+            <div style="font-weight: 800; color: #60A5FA; text-transform: uppercase; margin-bottom: 2px;">
+              🔵 Your Current Device Location
+            </div>
+            <strong>Coordinates:</strong> ${uLat.toFixed(6)}°, ${uLon.toFixed(6)}°<br/>
+            ${userLocation.accuracy ? `<strong>Accuracy:</strong> &plusmn;${Math.round(userLocation.accuracy)} m<br/>` : ''}
+            <span style="font-size: 10px; color: #94A3B8;">Source: Native Browser Geolocation</span>
+          </div>`,
+          { direction: 'top', className: 'tactical-map-tooltip' }
+        );
+
+        uMarker.on('click', () => {
+          if (map) {
+            map.flyTo([uLat, uLon], Math.max(map.getZoom(), 15), { duration: 1.2 });
+          }
+        });
+
+        uMarker.addTo(markersGroup);
+
+        // C. Distance Vector connecting User to Selected Detection (Section 6, 7)
+        if (selectedDetection) {
+          const dLat = parseFloat(selectedDetection.latitude);
+          const dLon = parseFloat(selectedDetection.longitude);
+          if (!isNaN(dLat) && !isNaN(dLon)) {
+            const distMeters = calculateHaversineDistanceMeters(uLat, uLon, dLat, dLon);
+            const userLine = L.polyline([[uLat, uLon], [dLat, dLon]], {
+              color: '#3B82F6',
+              weight: 2,
+              dashArray: '5, 6',
+              opacity: 0.8,
+              interactive: false,
+            });
+            userLine.addTo(markersGroup);
+
+            // Midpoint distance badge
+            const midLat = (uLat + dLat) / 2;
+            const midLon = (uLon + dLon) / 2;
+            const distText = distMeters < 1000 ? `${distMeters} m` : `${(distMeters / 1000).toFixed(2)} km`;
+            const userDistBadge = L.divIcon({
+              className: 'satra-user-dist-badge',
+              html: `
+                <div style="
+                  background: rgba(11, 23, 38, 0.95);
+                  border: 1.5px solid #3B82F6;
+                  border-radius: 4px;
+                  padding: 2px 7px;
+                  font-family: monospace;
+                  font-size: 10px;
+                  font-weight: 700;
+                  color: #60A5FA;
+                  box-shadow: 0 2px 8px rgba(0,0,0,0.7);
+                  white-space: nowrap;
+                  pointer-events: none;
+                  transform: translate(-50%, -50%);
+                  display: flex;
+                  align-items: center;
+                  gap: 4px;
+                ">
+                  <span>🔵 ➔ 🔥</span>
+                  <span>${distText} from you</span>
+                </div>
+              `,
+              iconSize: [95, 18],
+              iconAnchor: [47, 9],
+            });
+            L.marker([midLat, midLon], { icon: userDistBadge, interactive: false }).addTo(markersGroup);
+          }
+        }
+      }
+    }
+  }, [viewMode, detections, selectedDetection, gisData, activeFeature, investigationRadius, onSelectDetection, userLocation]);
 
   // 4. Zoom control for 3D Earth and 2D Satellite
   const handleZoom = (delta) => {
@@ -750,7 +1192,16 @@ export function EarthIntelligenceView({
 
   // 7. Dynamic Geographic Breadcrumb Computation
   const breadcrumbItems = useMemo(() => {
-    const items = [{ label: '🌍 Global', onClick: () => { onSelectDetection(null); setFocusTrigger((p) => p + 1); } }];
+    const items = [
+      {
+        label: '🌍 Global',
+        onClick: () => {
+          onSelectDetection(null);
+          setResetTrigger((p) => p + 1);
+          setViewMode('3d');
+        },
+      },
+    ];
 
     if (selectedDetection) {
       const lat = parseFloat(selectedDetection.latitude);
@@ -788,6 +1239,13 @@ export function EarthIntelligenceView({
         fontFamily: "'Inter', -apple-system, sans-serif",
       }}
     >
+      <style>{`
+        @keyframes satraUserPulse {
+          0% { transform: scale(0.6); opacity: 0.9; }
+          70% { transform: scale(1.9); opacity: 0.15; }
+          100% { transform: scale(2.3); opacity: 0; }
+        }
+      `}</style>
       {/* ============================================================ */}
       {/* 1. TOP HEADER                                                */}
       {/* ============================================================ */}
@@ -913,7 +1371,11 @@ export function EarthIntelligenceView({
             }}
           >
             <button
-              onClick={() => setViewMode('3d')}
+              onClick={() => {
+                setViewMode('3d');
+                onSelectDetection(null);
+                setResetTrigger((p) => p + 1);
+              }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1082,6 +1544,35 @@ export function EarthIntelligenceView({
 
           {/* Primary Visualization Viewport (3D Earth or 2D Satellite) */}
           <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {/* Tactical Deep Zoom Status Indicator (Section 2 & 3) */}
+            {deepZoomStage && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  zIndex: 100,
+                  background: 'rgba(11, 23, 38, 0.94)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid #38BDF8',
+                  borderRadius: '24px',
+                  padding: '8px 22px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.35)',
+                  pointerEvents: 'none',
+                }}
+              >
+                <Crosshair size={15} className={deepZoomStage !== 'LOCKED' ? 'spin' : ''} style={{ color: '#38BDF8' }} />
+                <span style={{ fontSize: '11.5px', fontWeight: 700, letterSpacing: '0.05em', color: '#F8FAFC' }}>
+                  {deepZoomStage === 'LOCATING' && 'LOCATING DETECTION... TARGET REGION ACQUISITION'}
+                  {deepZoomStage === 'FLYING' && 'DEEP ZOOM TO EXACT COORDINATES... SATELLITE PASS'}
+                  {deepZoomStage === 'LOCKED' && 'EXACT DETECTION REACHED • REAL GIS CONTEXT LOADED'}
+                </span>
+              </div>
+            )}
             {/* 3D Realistic Earth Canvas */}
             {viewMode === '3d' && (
               <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
@@ -1097,6 +1588,10 @@ export function EarthIntelligenceView({
                   hideSidePanel={true}
                   isEarthIntelligence={true}
                   palette="thermal"
+                  autoRotate={true}
+                  userLocation={userLocation}
+                  onActivateMyLocation={handleActivateMyLocation}
+                  focusUserLocationTrigger={focusUserTrigger}
                 />
               </div>
             )}
@@ -1259,7 +1754,7 @@ export function EarthIntelligenceView({
 
               <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.12)', margin: '2px 4px' }} />
 
-              {/* 3. Focus Location */}
+              {/* 3. Focus Detection Point (Satellite) */}
               <button
                 onClick={() => {
                   if (selectedDetection) {
@@ -1279,7 +1774,7 @@ export function EarthIntelligenceView({
                     }
                   }
                 }}
-                title="Focus Location"
+                title="Focus Detection Point (Satellite)"
                 style={{
                   background: selectedDetection ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
                   border: 'none',
@@ -1298,12 +1793,50 @@ export function EarthIntelligenceView({
                 <Crosshair size={16} />
               </button>
 
+              {/* 3b. My Current Location (Device Geolocation - Section 4, 5) */}
+              <button
+                onClick={handleActivateMyLocation}
+                title={
+                  isLocatingUser
+                    ? 'Acquiring device geolocation...'
+                    : userLocation
+                    ? 'My Location (Active - Click to center)'
+                    : 'My Location (Browser Geolocation)'
+                }
+                style={{
+                  background: userLocation
+                    ? 'rgba(59, 130, 246, 0.25)'
+                    : isLocatingUser
+                    ? 'rgba(56, 189, 248, 0.2)'
+                    : 'transparent',
+                  border: userLocation ? '1px solid rgba(59, 130, 246, 0.5)' : 'none',
+                  color: userLocation ? '#60A5FA' : '#FFFFFF',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Navigation
+                  size={16}
+                  className={isLocatingUser ? 'spin' : ''}
+                  style={{ transform: userLocation ? 'none' : 'rotate(-45deg)' }}
+                />
+              </button>
+
               {/* 4. Reset / Global View */}
               <button
                 onClick={() => {
                   onSelectDetection(null);
                   setResetTrigger((p) => p + 1);
-                  if (viewMode === '2d' && leafletMapRef.current) {
+                  if (viewMode === '2d') {
+                    setViewMode('3d');
+                  } else if (leafletMapRef.current) {
                     leafletMapRef.current.setView([21, 78], 4, { animate: true });
                   }
                 }}
@@ -1396,7 +1929,10 @@ export function EarthIntelligenceView({
             </div>
             {selectedDetection && (
               <button
-                onClick={() => onSelectDetection(null)}
+                onClick={() => {
+                  onSelectDetection(null);
+                  setResetTrigger((p) => p + 1);
+                }}
                 title="Deselect Location"
                 style={{
                   background: 'none',
@@ -1634,6 +2170,132 @@ export function EarthIntelligenceView({
                     </strong>
                   </div>
                 </div>
+
+                {/* Section 1b: User Device Geolocation & Proximity (Section 7, 14) */}
+                <div
+                  style={{
+                    marginTop: '10px',
+                    background: userLocation ? 'rgba(59, 130, 246, 0.08)' : 'rgba(255, 255, 255, 0.02)',
+                    border: `1px solid ${userLocation ? 'rgba(59, 130, 246, 0.35)' : 'rgba(255, 255, 255, 0.06)'}`,
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: userLocation ? '#60A5FA' : '#94A3B8', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                      <span style={{
+                        display: 'inline-block',
+                        width: '7px',
+                        height: '7px',
+                        borderRadius: '50%',
+                        background: userLocation ? '#3B82F6' : '#64748B',
+                        boxShadow: userLocation ? '0 0 8px #3B82F6' : 'none',
+                      }}></span>
+                      YOUR DEVICE LOCATION
+                    </span>
+                    <button
+                      onClick={handleActivateMyLocation}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#38BDF8',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: 0,
+                      }}
+                      title="Request / Update current browser location"
+                    >
+                      <Navigation size={11} className={isLocatingUser ? 'spin' : ''} />
+                      <span>{isLocatingUser ? 'Locating...' : userLocation ? 'Update' : 'Locate Device'}</span>
+                    </button>
+                  </div>
+
+                  {userLocation ? (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
+                        <div>
+                          <div style={{ fontSize: '9.5px', color: '#94A3B8' }}>YOUR LATITUDE</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                            {userLocation.latitude.toFixed(6)}°
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: '9.5px', color: '#94A3B8' }}>YOUR LONGITUDE</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '12.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                            {userLocation.longitude.toFixed(6)}°
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '10.5px' }}>
+                        <span style={{ color: '#94A3B8' }}>
+                          Accuracy: <strong style={{ color: '#93C5FD' }}>{userLocation.accuracy ? `±${Math.round(userLocation.accuracy)} m` : 'Standard'}</strong>
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (viewMode === '2d' && leafletMapRef.current) {
+                              leafletMapRef.current.flyTo([userLocation.latitude, userLocation.longitude], 15, { duration: 1.5 });
+                            } else if (viewMode === '3d') {
+                              setFocusUserTrigger((p) => p + 1);
+                            }
+                          }}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            borderRadius: '4px',
+                            color: '#60A5FA',
+                            fontSize: '10px',
+                            padding: '2px 6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Center on Me
+                        </button>
+                      </div>
+
+                      {userToDetectionDistance != null && (
+                        <div style={{
+                          marginTop: '8px',
+                          paddingTop: '6px',
+                          borderTop: '1px dashed rgba(59, 130, 246, 0.25)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                        }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#CBD5E1', letterSpacing: '0.03em' }}>
+                            DISTANCE FROM YOU:
+                          </span>
+                          <span style={{
+                            fontFamily: 'monospace',
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            color: '#60A5FA',
+                            background: 'rgba(59, 130, 246, 0.15)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            border: '1px solid rgba(59, 130, 246, 0.4)',
+                          }}>
+                            {userToDetectionDistance < 1000 ? `${userToDetectionDistance} m` : `${(userToDetectionDistance / 1000).toFixed(2)} km`}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '4px' }}>
+                      <span>Distance from you: </span>
+                      <span style={{ color: '#64748B', fontStyle: 'italic' }}>Your location unavailable</span>
+                      {locationError && (
+                        <div style={{ color: '#F87171', fontSize: '10.5px', marginTop: '4px' }}>
+                          {locationError}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Section 2: Investigation Radius & Geographic Context (PS 26162) */}
@@ -1727,6 +2389,50 @@ export function EarthIntelligenceView({
                       Radius: {investigationRadius / 1000} km
                     </span>
                   </div>
+
+                  {/* Active Selected Nearby Feature Card (Section 9) */}
+                  {activeFeature && (
+                    <div
+                      style={{
+                        background: 'rgba(56, 189, 248, 0.12)',
+                        border: '1px solid #38BDF8',
+                        borderRadius: '8px',
+                        padding: '10px 12px',
+                        marginBottom: '10px',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: '10px', color: '#38BDF8', fontWeight: 800, letterSpacing: '0.04em' }}>
+                            INVESTIGATED NEARBY FEATURE
+                          </div>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>
+                            {activeFeature.name || (activeFeature.type === 'industrial' ? 'Unnamed industrial feature' : `Unnamed ${activeFeature.category_label || 'feature'}`)}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#E2E8F0', marginTop: '3px' }}>
+                            <strong>{activeFeature.category_label}</strong> &bull; <span style={{ color: '#38BDF8', fontWeight: 700 }}>
+                              {activeFeature.distance_m < 1000 ? `${activeFeature.distance_m} m from detection` : `${(activeFeature.distance_m / 1000).toFixed(2)} km from detection`}
+                            </span> ({activeFeature.direction})
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setActiveFeature(null)}
+                          style={{
+                            background: 'rgba(255,255,255,0.08)',
+                            border: '1px solid rgba(255,255,255,0.15)',
+                            borderRadius: '4px',
+                            color: '#94A3B8',
+                            cursor: 'pointer',
+                            padding: '2px 6px',
+                            fontSize: '11px',
+                          }}
+                          title="Clear feature focus"
+                        >
+                          ✕ Reset
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div
                     style={{
@@ -2030,8 +2736,16 @@ export function EarthIntelligenceView({
                               key={idx}
                               onClick={() => {
                                 setActiveFeature(feat);
-                                if (leafletMapRef.current) {
-                                  leafletMapRef.current.setView([feat.latitude, feat.longitude], Math.max(leafletMapRef.current.getZoom(), 16), { animate: true });
+                                if (leafletMapRef.current && selectedDetection) {
+                                  const detLat = parseFloat(selectedDetection.latitude);
+                                  const detLon = parseFloat(selectedDetection.longitude);
+                                  const bounds = L.latLngBounds([
+                                    [detLat, detLon],
+                                    [feat.latitude, feat.longitude],
+                                  ]).pad(0.35);
+                                  leafletMapRef.current.fitBounds(bounds, { maxZoom: 16, animate: true });
+                                } else if (leafletMapRef.current) {
+                                  leafletMapRef.current.setView([feat.latitude, feat.longitude], 16, { animate: true });
                                 }
                               }}
                               style={{
@@ -2156,6 +2870,44 @@ export function EarthIntelligenceView({
                   <Target size={14} />
                   <span>FOCUS DETECTION POINT</span>
                 </button>
+
+                {/* Fit View: You & Detection (When both are available) */}
+                {userLocation && selectedDetection && (
+                  <button
+                    onClick={() => {
+                      if (leafletMapRef.current) {
+                        const dlat = parseFloat(selectedDetection.latitude);
+                        const dlon = parseFloat(selectedDetection.longitude);
+                        const ulat = parseFloat(userLocation.latitude);
+                        const ulon = parseFloat(userLocation.longitude);
+                        if (!isNaN(dlat) && !isNaN(dlon) && !isNaN(ulat) && !isNaN(ulon)) {
+                          const bounds = L.latLngBounds([[dlat, dlon], [ulat, ulon]]).pad(0.35);
+                          leafletMapRef.current.fitBounds(bounds, { maxZoom: 16, animate: true });
+                        }
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      justifyContent: 'center',
+                      padding: '8px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(59, 130, 246, 0.12)',
+                      border: '1px solid rgba(59, 130, 246, 0.35)',
+                      borderRadius: '6px',
+                      color: '#60A5FA',
+                      cursor: 'pointer',
+                      letterSpacing: '0.04em',
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <Compass size={13} />
+                    <span>FIT VIEW: YOU & DETECTION</span>
+                  </button>
+                )}
 
                 <button
                   onClick={() => {

@@ -143,8 +143,13 @@ export function App() {
   const [recentAlerts, setRecentAlerts] = useState([]);
 
   // Focus a detection on 3D Earth / Global Command Deck
-  const handleFocusDetection = (detection) => {
+  const [deepZoomTarget, setDeepZoomTarget] = useState(null);
+
+  const handleFocusDetection = (detection, options = {}) => {
     setSelectedDetection(detection);
+    if (options.isDeepZoom || detection?.isUploadedDeepZoom) {
+      setDeepZoomTarget(detection);
+    }
     handleTabChange('earth-intel');
   };
 
@@ -380,6 +385,8 @@ export function App() {
                 onNavigate={handleTabChange}
                 onFocusDetection={handleFocusDetection}
                 onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
+                deepZoomTarget={deepZoomTarget}
+                onClearDeepZoomTarget={() => setDeepZoomTarget(null)}
               />
             )}
 
@@ -505,8 +512,8 @@ export function App() {
             }
             loadDashboardData();
           }}
-          onViewExactLocation={(detection) => {
-            handleFocusDetection(detection);
+          onViewExactLocation={(detection, options) => {
+            handleFocusDetection(detection, options);
           }}
         />
 

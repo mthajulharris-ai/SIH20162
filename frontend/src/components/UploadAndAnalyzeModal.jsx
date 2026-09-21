@@ -139,6 +139,7 @@ export function UploadAndAnalyzeModal({
   const [filePreviews, setFilePreviews] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
+  const [autoNavCountdown, setAutoNavCountdown] = useState(null);
 
   // Manual Form State
   const [manualForm, setManualForm] = useState({
@@ -617,28 +618,50 @@ export function UploadAndAnalyzeModal({
     }
   };
 
-  const handleFocusClick = (detectionTarget) => {
+  // Automatic navigation to deep zoom on upload analysis success (Section 2)
+  useEffect(() => {
+    if (uiState === 'SUCCESS') {
+      setAutoNavCountdown(3);
+      const timer = setInterval(() => {
+        setAutoNavCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            handleFocusClick(null, { isDeepZoom: true });
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    } else {
+      setAutoNavCountdown(null);
+    }
+  }, [uiState]);
+
+  const handleFocusClick = (detectionTarget, options = { isDeepZoom: true }) => {
     let det = detectionTarget || analysisResult?.detection;
     if (!det && analysisResult?.all_detections && analysisResult.all_detections.length > 0) {
       det = analysisResult.all_detections[0];
     }
     if (!det && analysisResult?.exact_location) {
       det = {
-        id: 'uploaded-1',
-        latitude: analysisResult.exact_location.latitude,
-        longitude: analysisResult.exact_location.longitude,
+        id: 'uploaded-' + Date.now(),
+        latitude: parseFloat(analysisResult.exact_location.latitude),
+        longitude: parseFloat(analysisResult.exact_location.longitude),
         predicted_class: analysisResult.prediction?.predicted_class || 'Other',
         prediction_confidence: analysisResult.prediction?.confidence || 0.95,
         frp: analysisResult.thermal_data?.frp,
         brightness: analysisResult.thermal_data?.brightness,
         source: analysisResult.observation?.satellite || 'UPLOADED',
-        acq_date: analysisResult.observation?.acq_date,
-        acq_time: analysisResult.observation?.acq_time,
+        acq_date: analysisResult.observation?.acq_date || new Date().toISOString().split('T')[0],
+        acq_time: analysisResult.observation?.acq_time || new Date().toISOString().split('T')[1].slice(0, 5),
+        data_provenance: 'UPLOADED_ANALYSIS',
       };
     }
     if (det) {
+      det.isUploadedDeepZoom = true;
       if (onViewExactLocation) {
-        onViewExactLocation(det);
+        onViewExactLocation(det, options);
       }
       onClose();
     }
@@ -1718,6 +1741,54 @@ export function UploadAndAnalyzeModal({
                     </button>
                   );
                 })}
+              </div>
+
+              {/* Automatic Deep Zoom Navigation Status Indicator (Section 2) */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.08) 100%)',
+                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <Compass size={18} className="spin" style={{ color: '#38BDF8' }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.05em' }}>
+                      LOCATING DETECTION...
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#94A3B8' }}>
+                      {autoNavCountdown !== null && autoNavCountdown > 0
+                        ? `Auto-launching Earth deep zoom investigation in ${autoNavCountdown}s`
+                        : 'Initiating deep zoom satellite pass...'}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleFocusClick(null, { isDeepZoom: true })}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: '#0284C7',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: '#FFFFFF',
+                    fontWeight: 700,
+                    fontSize: '11.5px',
+                    padding: '6px 14px',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
+                  }}
+                >
+                  <Globe size={13} />
+                  <span>START NOW →</span>
+                </button>
               </div>
 
               {/* TAB CONTENT: Summary & Hotspots */}

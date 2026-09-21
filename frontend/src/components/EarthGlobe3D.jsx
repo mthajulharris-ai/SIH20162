@@ -23,6 +23,7 @@ import {
   Globe,
   Plus,
   Minus,
+  Navigation,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from './StatusBadge';
 
@@ -349,6 +350,10 @@ export function EarthGlobe3D({
   zoomInTrigger = null,
   zoomOutTrigger = null,
   palette = 'thermal',
+  autoRotate: autoRotateProp = true,
+  userLocation = null,
+  onActivateMyLocation = null,
+  focusUserLocationTrigger = null,
 }) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
@@ -382,8 +387,8 @@ export function EarthGlobe3D({
   // Interaction State Refs
   const isDraggingRef = useRef(false);
   const previousMousePositionRef = useRef({ x: 0, y: 0 });
-  const autoRotateRef = useRef(false);
-  const lastInteractionTimeRef = useRef(Date.now());
+  const autoRotateRef = useRef(autoRotateProp);
+  const lastInteractionTimeRef = useRef(0);
   const cameraDistanceRef = useRef(CAMERA_DIST_GLOBAL);
   const targetCameraDistanceRef = useRef(CAMERA_DIST_GLOBAL);
 
@@ -403,13 +408,18 @@ export function EarthGlobe3D({
   }, [selectedDetection]);
 
   // UI States
-  const [autoRotate, setAutoRotate] = useState(false);
+  const [autoRotate, setAutoRotate] = useState(autoRotateProp);
   const [hoveredDetection, setHoveredDetection] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [copiedCoords, setCopiedCoords] = useState(false);
   const [cameraState, setCameraState] = useState('GLOBAL'); // 'GLOBAL', 'TRANSITION', 'DETECTION', 'MANUAL'
 
-  // Sync autoRotate state to ref
+  // Sync autoRotate state to ref and prop
+  useEffect(() => {
+    setAutoRotate(autoRotateProp);
+    autoRotateRef.current = autoRotateProp;
+  }, [autoRotateProp]);
+
   useEffect(() => {
     autoRotateRef.current = autoRotate;
   }, [autoRotate]);
@@ -653,9 +663,8 @@ export function EarthGlobe3D({
     };
 
     const onPointerMove = (e) => {
-      lastInteractionTimeRef.current = Date.now();
-
       if (isDraggingRef.current) {
+        lastInteractionTimeRef.current = Date.now();
         const deltaX = e.clientX - previousMousePositionRef.current.x;
         const deltaY = e.clientY - previousMousePositionRef.current.y;
 
@@ -826,11 +835,13 @@ export function EarthGlobe3D({
         const canAutoRotate =
           autoRotateRef.current &&
           !isDraggingRef.current &&
-          timeSinceInteraction > 4000 &&
+          timeSinceInteraction > 1800 &&
           !selectedDetectionRef.current;
 
         if (canAutoRotate) {
-          const rotDelta = 0.00075; // Subtle, elegant rotation (~85s/rev) around polar axis
+          // Continuous, smooth rotation around vertical/polar Y axis
+          // 0.045 rad/sec (~140s per full 360 revolution) * delta seconds
+          const rotDelta = 0.045 * delta;
           const qRotate = new THREE.Quaternion().setFromAxisAngle(
             new THREE.Vector3(0, 1, 0),
             rotDelta
@@ -882,11 +893,18 @@ export function EarthGlobe3D({
       renderer.render(scene, camera);
     };
 
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
+    }
     animate();
 
     // Cleanup on unmount
     return () => {
-      cancelAnimationFrame(animFrameIdRef.current);
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
       if (!isOverview) {
         container.removeEventListener('pointerdown', onPointerDown);
         window.removeEventListener('pointermove', onPointerMove);
@@ -1086,7 +1104,57 @@ export function EarthGlobe3D({
 
       group.add(markerRoot);
     });
-  }, [detections, selectedDetection, palette]);
+
+    // User Current Device Location Indicator on 3D Earth (Section 12)
+    if (userLocation && userLocation.latitude != null && userLocation.longitude != null) {
+      const uLat = parseFloat(userLocation.latitude);
+      const uLon = parseFloat(userLocation.longitude);
+      if (!isNaN(uLat) && !isNaN(uLon) && uLat >= -90 && uLat <= 90 && uLon >= -180 && uLon <= 180) {
+        const uPos = latLngToVector3(uLat, uLon, surfaceRadius + 0.15);
+        const uNormal = uPos.clone().normalize();
+        const userRoot = new THREE.Group();
+        userRoot.position.copy(uPos);
+        userRoot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), uNormal);
+        userRoot.userData = { isUserLocation: true };
+
+        // Soft blue pulse halo
+        const uGlowGeo = new THREE.PlaneGeometry(5.2, 5.2);
+        const uGlowMat = new THREE.MeshBasicMaterial({
+          map: heatTex,
+          color: 0x3b82f6,
+          transparent: true,
+          opacity: 0.75,
+          depthWrite: false,
+          blending: THREE.AdditiveBlending,
+          side: THREE.DoubleSide,
+        });
+        const uGlowMesh = new THREE.Mesh(uGlowGeo, uGlowMat);
+        userRoot.add(uGlowMesh);
+
+        // Core blue circle
+        const uCoreGeo = new THREE.CircleGeometry(1.4, 32);
+        const uCoreMat = new THREE.MeshBasicMaterial({
+          color: 0x2563eb,
+          side: THREE.DoubleSide,
+        });
+        const uCoreMesh = new THREE.Mesh(uCoreGeo, uCoreMat);
+        uCoreMesh.position.z = 0.05;
+        userRoot.add(uCoreMesh);
+
+        // Crisp white border rim
+        const uRimGeo = new THREE.RingGeometry(1.3, 1.6, 32);
+        const uRimMat = new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          side: THREE.DoubleSide,
+        });
+        const uRimMesh = new THREE.Mesh(uRimGeo, uRimMat);
+        uRimMesh.position.z = 0.06;
+        userRoot.add(uRimMesh);
+
+        group.add(userRoot);
+      }
+    }
+  }, [detections, selectedDetection, palette, userLocation]);
 
   // Smooth Globe Rotation & Controlled Zoom on Selected Detection
   useEffect(() => {
@@ -1134,6 +1202,45 @@ export function EarthGlobe3D({
     setCameraState('TRANSITION');
   }, [focusTrigger]);
 
+  // Dedicated Focus on User Current Location Trigger (Section 12)
+  useEffect(() => {
+    if (!focusUserLocationTrigger || !userLocation || !earthGroupRef.current || !cameraRef.current) return;
+    const uLat = parseFloat(userLocation.latitude);
+    const uLon = parseFloat(userLocation.longitude);
+    if (isNaN(uLat) || isNaN(uLon)) return;
+
+    const targetQ = getUprightOrientationForLatLng(uLat, uLon);
+    startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
+    targetQuaternionRef.current.copy(targetQ);
+    startDistanceRef.current = cameraDistanceRef.current;
+    targetDistanceRef.current = CAMERA_DIST_DETECTION;
+    transitionProgressRef.current = 0;
+    isTransitioningRef.current = true;
+    lastInteractionTimeRef.current = Date.now();
+    setCameraState('TRANSITION');
+  }, [focusUserLocationTrigger, userLocation]);
+
+  const handleFocusUserLocation = useCallback(() => {
+    if (onActivateMyLocation) {
+      onActivateMyLocation();
+    }
+    if (userLocation && userLocation.latitude != null && earthGroupRef.current && cameraRef.current) {
+      const uLat = parseFloat(userLocation.latitude);
+      const uLon = parseFloat(userLocation.longitude);
+      if (!isNaN(uLat) && !isNaN(uLon)) {
+        const targetQ = getUprightOrientationForLatLng(uLat, uLon);
+        startQuaternionRef.current.copy(earthGroupRef.current.quaternion);
+        targetQuaternionRef.current.copy(targetQ);
+        startDistanceRef.current = cameraDistanceRef.current;
+        targetDistanceRef.current = CAMERA_DIST_DETECTION;
+        transitionProgressRef.current = 0;
+        isTransitioningRef.current = true;
+        lastInteractionTimeRef.current = Date.now();
+        setCameraState('TRANSITION');
+      }
+    }
+  }, [userLocation, onActivateMyLocation]);
+
   // Handle Reset Global View
   const handleResetView = useCallback(() => {
     if (!earthGroupRef.current) return;
@@ -1149,14 +1256,13 @@ export function EarthGlobe3D({
 
     transitionProgressRef.current = 0;
     isTransitioningRef.current = true;
-    lastInteractionTimeRef.current = Date.now();
+    lastInteractionTimeRef.current = 0;
     setCameraState('TRANSITION');
   }, [onSelectDetection]);
 
   // Handle Zoom In / Zoom Out Buttons (Operational and responsive)
   const handleZoomIn = () => {
     isTransitioningRef.current = false;
-    lastInteractionTimeRef.current = Date.now();
     targetCameraDistanceRef.current = THREE.MathUtils.clamp(
       targetCameraDistanceRef.current - 32,
       CAMERA_DIST_MIN,
@@ -1165,7 +1271,6 @@ export function EarthGlobe3D({
   };
   const handleZoomOut = () => {
     isTransitioningRef.current = false;
-    lastInteractionTimeRef.current = Date.now();
     targetCameraDistanceRef.current = THREE.MathUtils.clamp(
       targetCameraDistanceRef.current + 32,
       CAMERA_DIST_MIN,
@@ -1797,7 +1902,7 @@ export function EarthGlobe3D({
           &minus;
         </button>
 
-        {/* 3. Focus / Target Hotspot */}
+        {/* 3. Focus Detection Point */}
         <button
           onClick={() => {
             const targetDet = selectedDetection || (detections.length > 0 ? detections[0] : null);
@@ -1833,9 +1938,31 @@ export function EarthGlobe3D({
             width: '32px',
             height: '32px',
           }}
-          title="Focus / Target Active Hotspot"
+          title="Focus Detection Point (Satellite)"
         >
           <Target size={16} />
+        </button>
+
+        {/* 3b. My Current Location (Device Geolocation) */}
+        <button
+          onClick={handleFocusUserLocation}
+          style={{
+            background: userLocation ? 'rgba(59, 130, 246, 0.25)' : 'transparent',
+            border: userLocation ? '1px solid rgba(59, 130, 246, 0.5)' : 'none',
+            borderRadius: '6px',
+            color: userLocation ? '#60A5FA' : '#FFFFFF',
+            padding: '7px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '32px',
+            height: '32px',
+            transition: 'all 0.15s ease',
+          }}
+          title="My Location (Browser Geolocation)"
+        >
+          <Navigation size={15} style={{ transform: userLocation ? 'none' : 'rotate(-45deg)' }} />
         </button>
 
         {/* 4. Globe / Reset View */}
