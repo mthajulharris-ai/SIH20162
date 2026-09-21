@@ -528,6 +528,10 @@ SCOPE_MESSAGES = {
         "ମୁଁ SATRA AI ସହାୟକ। ମୁଁ ଶିଳ୍ପ ଅଗ୍ନିକାଣ୍ଡ ଚିହ୍ନଟ, ଥର୍ମାଲ ବିସଙ୍ଗତି, ଉପଗ୍ରହ ଡାଟା, "
         "ଅଗ୍ନି ବର୍ଗୀକରଣ, ଆଲର୍ଟ, GIS ବିଶ୍ଳେଷଣ ଏବଂ SATRA ସିଷ୍ଟମ ସୂଚନାରେ ବିଶେଷଜ୍ଞ।"
     ),
+    "as": (
+        "মই SATRA AI সহায়ক। মই বিশেষভাৱে উদ্যোগিক জুই চিনাক্তকৰণ, তাপীয় অসঙ্গতি, "
+        "উপগ্ৰহ তথ্য, জুই শ্ৰেণীবিভাজন, সতৰ্কবাৰ্তা, GIS বিশ্লেষণ আৰু SATRA ব্যৱস্থাৰ তথ্যৰ বাবে প্ৰশিক্ষিত।"
+    ),
     "ur": (
         "میں SATRA AI اسسٹنٹ ہوں۔ میں صنعتی آگ کا پتہ لگانے، تھرمل بے ضابطگیوں، "
         "سیٹلائٹ ڈیٹا، آگ کی درجہ بندی، الرٹس، GIS تجزیہ اور SATRA سسٹم کی معلومات میں مہارت رکھتا ہوں۔"
@@ -535,6 +539,15 @@ SCOPE_MESSAGES = {
 }
 
 GREETING_RESPONSES = {
+    "as": (
+        "নমস্কাৰ! 👋\n\nমই **SATRA AI Assistant** — আপোনাৰ Satellite Intelligence Copilot।\n\n"
+        "মই আপোনাক কেনেকৈ সহায় কৰিব পাৰোঁ?\n\n"
+        "### মই সহায় কৰিব পৰা বিষয়সমূহ:\n"
+        "- **প্ৰত্যক্ষ তথ্য আৰু সতৰ্কবাৰ্তা**: \"*আজিৰ জুই চিনাক্তকৰণ দেখুৱাওক*\", \"*শেহতীয়া সতৰ্কবাৰ্তা*\"\n"
+        "- **হটস্পট বিশ্লেষণ**: \"*এই চিনাক্তকৰণ কিয় উদ্যোগিক জুই হিচাপে শ্ৰেণীবদ্ধ কৰা হৈছে?*\"\n"
+        "- **NASA FIRMS তথ্য**: \"*NASA FIRMS কি?*\", \"*FRP কি?*\"\n"
+        "- **মেচিন লাৰ্নিং**: \"*SATRA কি AI মডেল ব্যৱহাৰ কৰে?*\""
+    ),
     "ta": (
         "வணக்கம்! 👋\n\nநான் **SATRA AI Assistant** — உங்கள் Satellite Intelligence Copilot.\n\n"
         "நான் உங்களுக்கு எப்படி உதவலாம்?\n\n"
@@ -768,6 +781,24 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "- **VIIRS**: 375m ਪਿਕਸਲ ਰੈਜ਼ੋਲੂਸ਼ਨ (S-NPP, NOAA-20, NOAA-21).\n"
                 "- **MODIS**: 1 km ਰੈਜ਼ੋਲੂਸ਼ਨ, 20+ ਸਾਲਾਂ ਦਾ ਇਤਿਹਾਸਕ ਰਿਕਾਰਡ।"
             )
+        elif target_lang == "or":
+            return (
+                "**SATRA ଜ୍ଞାନ ଆଧାରରୁ (NASA FIRMS ସମୀକ୍ଷା):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** ଉପଗ୍ରହ ମାଧ୍ୟମରେ ସକ୍ରିୟ ଅଗ୍ନିକାଣ୍ଡ ଏବଂ "
+                "ଥର୍ମାଲ ବିସଙ୍ଗତି (thermal anomalies) ନିରୀକ୍ଷଣ କରେ ଏବଂ ଉପଗ୍ରହ ପାସ୍ ହେବାର ୩ ଘଣ୍ଟା ମଧ୍ୟରେ Near Real-Time (NRT) ତଥ୍ୟ ପ୍ରଦାନ କରେ।\n\n"
+                "### SATRA ରେ ବ୍ୟବହୃତ ସେନ୍ସର:\n"
+                "- **VIIRS**: 375 ମିଟର ପିକ୍ସେଲ ରିଜୋଲ୍ୟୁସନ (ଶିଳ୍ପ ଫ୍ଲେୟାର ଏବଂ କାରଖାନା ନିଆଁର ସଠିକ ଚିହ୍ନଟ)।\n"
+                "- **MODIS**: 1 କିମି ପିକ୍ସେଲ ରିଜୋଲ୍ୟୁସନ (୨୦ ବର୍ଷରୁ ଅଧିକ ଐତିହାସିକ ରେକର୍ଡ)।"
+            )
+        elif target_lang == "as":
+            return (
+                "**SATRA জ্ঞান আধাৰৰ পৰা (NASA FIRMS সমীক্ষা):**\n\n"
+                "**NASA FIRMS (Fire Information for Resource Management System)** উপগ্ৰহৰ জৰিয়তে সক্ৰিয় জুই আৰু "
+                "তাপীয় অসঙ্গতি (thermal anomalies) নিৰীক্ষণ কৰে আৰু উপগ্ৰহ পাৰ হোৱাৰ ৩ ঘণ্টাৰ ভিতৰত Near Real-Time (NRT) তথ্য প্ৰদান কৰে।\n\n"
+                "### SATRA ত ব্যৱহৃত চেন্সৰ:\n"
+                "- **VIIRS**: 375m পিক্সেল ৰিজলিউচন (উদ্যোগিক ফ্লেয়াৰ আৰু কাৰখানাৰ জুইৰ তাৎক্ষণিক চিনাক্তকৰণ)।\n"
+                "- **MODIS**: 1 km পিক্সেল ৰিজলিউচন (২০ বছৰতকৈ অধিক ঐতিহাসিক তথ্য)।"
+            )
         elif target_lang == "ur":
             return (
                 "**SATRA نالج بیس سے (NASA FIRMS جائزہ):**\n\n"
@@ -870,6 +901,22 @@ def localize_response(english_response: str, target_lang: str, original_query: s
                 "**Fire Radiative Power (FRP)** ਮੈਗਾਵਾਟ (Megawatts - MW) ਵਿੱਚ ਮਾਪੀ ਜਾਣ ਵਾਲੀ ਰੇਡੀਐਂਟ ਹੀਟ ਐਨਰਜੀ ਹੈ। "
                 "ਇਹ ਥਰਮਲ ਅਸੰਗਤੀ ਤੋਂ ਗਰਮੀ ਨਿਕਲਣ ਦੀ ਦਰ ਨੂੰ ਦਰਸਾਉਂਦਾ ਹੈ।\n\n"
                 "- ਬ੍ਰਾਈਟਨੈੱਸ ਤਾਪਮਾਨ ਕੈਲਵਿਨ (Kelvin - K) ਵਿੱਚ ਮਾਪਿਆ ਜਾਂਦਾ ਹੈ।"
+            )
+        elif target_lang == "or":
+            return (
+                "**SATRA ଜ୍ଞାନ ଆଧାରରୁ (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** ହେଉଛି ମେଗାୱାଟ (Megawatts - MW) ରେ ମାପ କରାଯାଉଥିବା ଥର୍ମାଲ ରେଡିଆଣ୍ଟ ଉତ୍ତାପ ଶକ୍ତି। "
+                "ଏହା ନିଆଁର ତୀବ୍ରତା ଏବଂ ଇନ୍ଧନ ଜଳିବା ହାରକୁ ସୂଚିତ କରେ।\n\n"
+                "- **Planck's radiation law** ଏବଂ **Stefan-Boltzmann $T^4$ ନିୟମ** ଉପରେ ଆଧାରିତ।\n"
+                "- ବ୍ରାଇଟନେସ ତାପମାତ୍ରା କେଲଭିନ (Kelvin - K) ରେ ମାପ କରାଯାଏ (ଶିଳ୍ପ ଅଗ୍ନିକାଣ୍ଡରେ 340–400+ K)।"
+            )
+        elif target_lang == "as":
+            return (
+                "**SATRA ज्ञान আধাৰৰ পৰা (Fire Radiative Power - FRP):**\n\n"
+                "**Fire Radiative Power (FRP)** মেগাৱাটত (Megawatts - MW) জোখা বিকিৰণশীল তাপ শক্তিৰ পৰিমাণ। "
+                "ই তাপীয় অসঙ্গতিৰ পৰা নিৰ্গত হোৱা তাপৰ হাৰ সূচায়।\n\n"
+                "- **Planck's radiation law** আৰু **Stefan-Boltzmann $T^4$ সূত্ৰ** ৰ ওপৰত আধাৰিত।\n"
+                "- উজ্জ্বলতা উষ্ণতা কেলভিনত (Kelvin - K) জোখা হয়।"
             )
         elif target_lang == "ur":
             return (
