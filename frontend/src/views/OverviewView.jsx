@@ -82,11 +82,7 @@ export function OverviewView({
   useEffect(() => {
     let isMounted = true;
 
-<<<<<<< Updated upstream
     const checkSystemAndTelemetry = async () => {
-=======
-    const checkSystem = async () => {
->>>>>>> Stashed changes
       try {
         const [healthRes, modelRes, satRes] = await Promise.allSettled([
           getHealth(),
@@ -133,11 +129,7 @@ export function OverviewView({
       }
     };
 
-<<<<<<< Updated upstream
     checkSystemAndTelemetry();
-=======
-    checkSystem();
->>>>>>> Stashed changes
     return () => {
       isMounted = false;
     };
@@ -245,10 +237,12 @@ export function OverviewView({
 
       {/* ============================================================ */}
       {/* 2. AI CLASSIFICATION SECTION (Interactive 4-Class Filters)  */}
+      {/*    Dominant Classification banner hidden on Overview only.   */}
       {/* ============================================================ */}
       <AiClassificationSection
         detections={detections}
         analytics={analytics}
+        showDominantBanner={false}
         onFocusDetection={onFocusDetection}
         onNavigate={onNavigate}
       />

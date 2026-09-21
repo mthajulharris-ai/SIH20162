@@ -82,11 +82,7 @@ export function Header({
 
   return (
     <header className="top-header">
-<<<<<<< Updated upstream
       {/* Left: Hamburger Menu Toggle + SATRA Logo & Identity */}
-=======
-      {/* Left: Hamburger Menu Toggle + SATRA Identity */}
->>>>>>> Stashed changes
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         {onToggleSidebar && (
           <button

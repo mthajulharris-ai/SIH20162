@@ -2306,11 +2306,7 @@ const gisClientCacheRef = useRef(new Map());
                 </div>
               </div>
 
-<<<<<<< Updated upstream
               {/* Section 2: Investigation Radius & Geographic Context (PS 26162) */}
-=======
-              {/* Section 2: Investigation Radius & Geographic Context */}
->>>>>>> Stashed changes
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {/* Investigation Radius Selector */}
                 <div>
@@ -2344,15 +2340,10 @@ const gisClientCacheRef = useRef(new Map());
                             padding: '6px 8px',
                             fontSize: '11px',
                             fontWeight: isActive ? 700 : 500,
-<<<<<<< Updated upstream
-                            background: isActive ? (isLight ? '#E0F2FE' : 'rgba(56, 189, 248, 0.22)') : (isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.03)'),
-                            border: `1px solid ${isActive ? '#38BDF8' : (isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.08)')}`,
-=======
                             background: isActive
                               ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.22)')
                               : (isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.03)'),
                             border: `1px solid ${isActive ? '#38BDF8' : (isLight ? '#DCE5EE' : 'rgba(255, 255, 255, 0.08)')}`,
->>>>>>> Stashed changes
                             color: isActive ? '#0284C7' : (isLight ? '#64748B' : '#94A3B8'),
                             borderRadius: '6px',
                             cursor: 'pointer',
@@ -2366,22 +2357,7 @@ const gisClientCacheRef = useRef(new Map());
                   </div>
                 </div>
 
-<<<<<<< Updated upstream
                 {/* Location Context */}
-                <div>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 700,
-                      letterSpacing: '0.06em',
-                      color: isLight ? '#0284C7' : '#38BDF8',
-                      textTransform: 'uppercase',
-                      marginBottom: '8px',
-                    }}
-                  >
-                    Location Context
-                  </div>
-=======
                 <div
                   style={{
                     fontSize: '11px',
@@ -2393,7 +2369,6 @@ const gisClientCacheRef = useRef(new Map());
                   }}
                 >
                   Location Context
->>>>>>> Stashed changes
                 </div>
 
                 {/* Resolved Administrative Area Banner */}
@@ -2982,11 +2957,7 @@ const gisClientCacheRef = useRef(new Map());
                   }}
                 >
                   <MapPin size={14} />
-<<<<<<< Updated upstream
-                  <span>VIEW DETAILS</span>
-=======
                   <span>VIEW DETAILS IN EXPLORER</span>
->>>>>>> Stashed changes
                 </button>
 
                 <button

@@ -121,10 +121,7 @@ export function App() {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSidebarOpen]);
-<<<<<<< Updated upstream
-=======
 
->>>>>>> Stashed changes
   // ONE shared real-time backend connection state used by Header + Sidebar.
   // Global Application-Level System Connection State: 'checking' | 'online' | 'offline'
   // Default to 'checking' — never default to 'offline' on initial mount or view change
@@ -343,7 +340,6 @@ export function App() {
           isBackendHealthy={isBackendHealthy}
           connectionStatus={connectionStatus}
           onLogout={handleLogout}
-<<<<<<< Updated upstream
           onRefresh={loadDashboardData}
           detections={detections}
           alerts={alerts}
@@ -352,8 +348,6 @@ export function App() {
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
           onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
-=======
->>>>>>> Stashed changes
         />
 
         {/* Main Content Area */}

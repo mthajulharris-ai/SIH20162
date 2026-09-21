@@ -107,6 +107,10 @@ export function AiClassificationSection({
   analytics,
   totalRecords,
   compact = false,
+  // The "DOMINANT CLASSIFICATION" highlight banner is opt-out: the Overview page
+  // renders the four classification cards only, while Satellite Data / Upload &
+  // Analyze keep the banner exactly as before.
+  showDominantBanner = true,
   onFocusDetection,
   onNavigate,
 }) {
@@ -506,7 +510,9 @@ export function AiClassificationSection({
 
       {/* ============================================================ */}
       {/* 2. DOMINANT CLASSIFICATION HIGHLIGHT BANNER                  */}
+      {/*    (optional — rendered only when showDominantBanner=true)   */}
       {/* ============================================================ */}
+      {showDominantBanner && (
       <div
         style={{
           background: isLight
@@ -647,6 +653,7 @@ export function AiClassificationSection({
           </div>
         </div>
       </div>
+      )}
 
       {/* ============================================================ */}
       {/* 3. FOUR CLICKABLE CLASSIFICATION CARDS                      */}
