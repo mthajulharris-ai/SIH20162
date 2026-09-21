@@ -1,41 +1,36 @@
 /* ==========================================================================
-   SENTRIX LOGIN PAGE — EXACT MOTIONBGS DARK GALAXY VIDEO & GLASSMORPHISM
+   SATRA FLIGHT DECK LOGIN — 60/40 SPLIT LAYOUT + DARK GALAXY VIDEO BACKGROUND
    ========================================================================== */
 
-.sentrix-login-root {
+.satra-login-root {
   position: relative;
   width: 100vw;
   height: 100vh;
-  min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background-color: #02040a;
+  background-color: #050b14;
   color: #ffffff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Inter', Helvetica, Arial, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   box-sizing: border-box;
 }
 
-.sentrix-login-root *,
-.sentrix-login-root *::before,
-.sentrix-login-root *::after {
+.satra-login-root *,
+.satra-login-root *::before,
+.satra-login-root *::after {
   box-sizing: border-box;
-}
-
-.sentrix-login-root.fallback-bg {
-  background-color: #02040a;
 }
 
 /* ==========================================================================
-   1. BACKGROUND VIDEO (EXACT DARK GALAXY MP4 FROM MOTIONBGS)
+   1. CONTINUOUS MOVING DARK GALAXY VIDEO BACKGROUND
    ========================================================================== */
 
-.sentrix-bg-video {
+.satra-bg-video {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   z-index: 0;
   pointer-events: none;
@@ -44,221 +39,353 @@
   outline: none;
 }
 
-/* ==========================================================================
-   2. VERY SUBTLE DARK TRANSPARENT OVERLAY
-   ========================================================================== */
-
-.sentrix-bg-overlay {
+/* Subtle Dark Cinematic Overlay: galaxy stays visible while boosting text legibility */
+.satra-bg-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: radial-gradient(
-    circle at center,
-    rgba(2, 6, 18, 0.28) 0%,
-    rgba(2, 6, 18, 0.62) 100%
-  );
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(
+      circle at 35% 45%,
+      rgba(5, 11, 20, 0.22) 0%,
+      rgba(5, 11, 20, 0.55) 60%,
+      rgba(5, 11, 20, 0.72) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(5, 11, 20, 0.4) 0%,
+      rgba(5, 11, 20, 0.55) 100%
+    );
   z-index: 1;
   pointer-events: none;
 }
 
 /* ==========================================================================
-   3. LOGIN WRAPPER & CENTERED GLASSMORPHISM CARD
+   2. 60/40 SPLIT LAYOUT CONTAINER
    ========================================================================== */
 
-.sentrix-login-wrapper {
+.satra-login-wrapper {
   position: relative;
   z-index: 2;
-  width: 100vw;
-  height: 100vh;
-  min-height: 100vh;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+}
+
+/* --------------------------------------------------------------------------
+   LEFT SIDE (60%): Moving Galaxy + SATRA Aerospace Branding & Telemetry
+   -------------------------------------------------------------------------- */
+
+.satra-visual-panel {
+  position: relative;
+  flex: 0 0 60%;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px 56px;
+  color: #ffffff;
+}
+
+.satra-visual-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.satra-visual-eyebrow svg {
+  color: #38bdf8;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.45));
+}
+
+.satra-visual-branding {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 540px;
+  margin-top: auto;
+  margin-bottom: auto;
+}
+
+.satra-brand-rule {
+  align-self: flex-start;
+  width: 4px;
+  height: 36px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #38bdf8 0%, #2563eb 100%);
+  box-shadow: 0 0 12px rgba(56, 189, 248, 0.6);
+}
+
+.satra-hero-title {
+  font-size: 60px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #ffffff;
+  margin: 0;
+  text-transform: uppercase;
+  line-height: 1;
+  text-shadow: 0 8px 32px rgba(0, 0, 0, 0.85);
+}
+
+.satra-hero-subtitle {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #38bdf8;
+  margin: -2px 0 0;
+  text-transform: uppercase;
+  text-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+}
+
+.satra-hero-description {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: #cbd5e1;
+  margin: 4px 0 8px;
+  font-weight: 400;
+  max-width: 480px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.65);
+}
+
+/* Subtle Telemetry Badges */
+.satra-telemetry-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.satra-telemetry-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #e2e8f0;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.satra-visual-footer {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 24px;
+  justify-content: space-between;
+  padding-top: 24px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.satra-telemetry-status-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.satra-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  box-shadow: 0 0 10px #10b981;
+  animation: satraPulse 2s ease-in-out infinite;
+}
+
+@keyframes satraPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.3);
+    opacity: 0.7;
+  }
+}
+
+.satra-build-tag {
+  font-family: 'JetBrains Mono', monospace, sans-serif;
+  font-size: 10.5px;
+  color: #64748b;
+  letter-spacing: 0.06em;
+}
+
+/* --------------------------------------------------------------------------
+   RIGHT SIDE (40%): Dark SATRA Login Panel
+   -------------------------------------------------------------------------- */
+
+.satra-login-panel {
+  position: relative;
+  flex: 0 0 40%;
+  min-width: 0;
+  height: 100%;
+  min-height: 100dvh;
+  background: rgba(7, 14, 25, 0.95);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  box-shadow:
+    -16px 0 54px rgba(0, 0, 0, 0.8),
+    inset 1px 0 0 rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  padding: 40px 42px 30px;
+  color: #ffffff;
   overflow-y: auto;
 }
 
-.sentrix-login-card {
-  position: relative;
-  width: 100%;
-  max-width: 440px;
-  background: rgba(9, 14, 28, 0.65);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  box-shadow: 
-    0 24px 48px -12px rgba(0, 0, 0, 0.75),
-    0 0 32px rgba(14, 165, 233, 0.08);
-  padding: 38px 34px 28px;
-  color: #ffffff;
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
-}
-
-.sentrix-login-card:hover {
-  border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 
-    0 28px 56px -12px rgba(0, 0, 0, 0.82),
-    0 0 40px rgba(14, 165, 233, 0.12);
-}
-
-/* ==========================================================================
-   CARD HEADER & BRANDING
-   ========================================================================== */
-
-.sentrix-card-header {
-  text-align: center;
-  margin-bottom: 26px;
+/* Header Brand */
+.satra-panel-brand {
   display: flex;
-  flex-direction: column;
   align-items: center;
-}
-
-.satra-login-card-header {
-  text-align: center;
+  gap: 14px;
   margin-bottom: 22px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
-.satra-login-logo-wrapper {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 12px;
-}
-
-.satra-login-logo {
-  height: 125px;
-  width: auto;
-  aspect-ratio: 546 / 680;
-  object-fit: contain;
-  border-radius: 12px;
-  border: 1px solid rgba(56, 189, 248, 0.35);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5), 0 0 20px rgba(56, 189, 248, 0.2);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.satra-login-logo:hover {
-  transform: scale(1.02);
-  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.6), 0 0 28px rgba(56, 189, 248, 0.35);
-}
-
-.satra-login-tagline {
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: #94a3b8;
-  margin: 0;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  font-weight: 500;
-  text-align: center;
-}
-
-.sentrix-emblem-badge {
+.satra-emblem-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
-  background: rgba(14, 165, 233, 0.1);
-  border: 1px solid rgba(56, 189, 248, 0.3);
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.2);
-  margin-bottom: 14px;
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.22);
 }
 
-.sentrix-emblem-icon {
+.satra-emblem-icon {
   color: #38bdf8;
 }
 
-.sentrix-brand-title {
-  font-size: 26px;
+.satra-brand-title {
+  font-size: 22px;
   font-weight: 800;
   letter-spacing: 0.18em;
   color: #ffffff;
-  margin: 0 0 8px;
+  margin: 0;
   text-transform: uppercase;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.7);
+  line-height: 1.1;
 }
 
-.sentrix-brand-tagline {
-  font-size: 12.5px;
+.satra-brand-caption {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: #38bdf8;
+  text-transform: uppercase;
+  margin: 2px 0 0;
+}
+
+/* Form Content Region */
+.satra-login-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  max-width: 400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.satra-form-header {
+  margin-bottom: 22px;
+}
+
+.satra-welcome-title {
+  font-size: 27px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.satra-brand-tagline {
+  font-size: 13.5px;
   line-height: 1.5;
   color: #94a3b8;
   margin: 0;
   font-weight: 400;
-  max-width: 320px;
 }
 
-/* ==========================================================================
-   ERROR ALERT BANNER
-   ========================================================================== */
-
-.sentrix-error-alert {
+/* Error Banner */
+.satra-error-alert {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(239, 68, 68, 0.12);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.14);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 9px;
   padding: 10px 14px;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   font-size: 12.5px;
   color: #fca5a5;
   line-height: 1.4;
 }
 
-.sentrix-error-icon {
+.satra-error-icon {
   flex-shrink: 0;
   color: #ef4444;
 }
 
-/* ==========================================================================
-   FORM INPUTS
-   ========================================================================== */
-
-.sentrix-form {
+/* Form Inputs */
+.satra-form {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
-.sentrix-field-group {
+.satra-field-group {
   display: flex;
   flex-direction: column;
 }
 
-.sentrix-field-label {
+.satra-field-label {
   display: block;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   color: #cbd5e1;
   margin-bottom: 7px;
   text-transform: uppercase;
 }
 
-.sentrix-input-box {
+.satra-input-box {
   position: relative;
   display: flex;
   align-items: center;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 10px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
 }
 
-.sentrix-input-box:focus-within {
+.satra-input-box:focus-within {
   border-color: #38bdf8;
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.16);
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18);
 }
 
-.sentrix-input-icon {
+.satra-input-icon {
   position: absolute;
   left: 14px;
   color: #64748b;
@@ -266,11 +393,11 @@
   transition: color 0.2s ease;
 }
 
-.sentrix-input-box:focus-within .sentrix-input-icon {
+.satra-input-box:focus-within .satra-input-icon {
   color: #38bdf8;
 }
 
-.sentrix-input-field {
+.satra-input-field {
   width: 100%;
   height: 44px;
   padding: 0 14px 0 42px;
@@ -282,12 +409,16 @@
   outline: none;
 }
 
-.sentrix-input-field::placeholder {
+.satra-password-field {
+  padding-right: 38px;
+}
+
+.satra-input-field::placeholder {
   color: #64748b;
   font-size: 13px;
 }
 
-.sentrix-password-toggle {
+.satra-password-toggle {
   position: absolute;
   right: 12px;
   background: transparent;
@@ -302,24 +433,21 @@
   transition: color 0.2s ease;
 }
 
-.sentrix-password-toggle:hover {
+.satra-password-toggle:hover {
   color: #cbd5e1;
 }
 
-/* ==========================================================================
-   OPTIONS ROW
-   ========================================================================== */
-
-.sentrix-options-row {
+/* Options Row */
+.satra-options-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: -4px;
-  margin-bottom: 4px;
+  margin-top: -2px;
+  margin-bottom: 2px;
   font-size: 12px;
 }
 
-.sentrix-remember-wrap {
+.satra-remember-wrap {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -328,14 +456,14 @@
   user-select: none;
 }
 
-.sentrix-checkbox {
+.satra-checkbox {
   accent-color: #0284c7;
   width: 14px;
   height: 14px;
   cursor: pointer;
 }
 
-.sentrix-forgot-link {
+.satra-forgot-link {
   background: none;
   border: none;
   padding: 0;
@@ -346,16 +474,13 @@
   transition: color 0.2s ease, text-decoration 0.2s ease;
 }
 
-.sentrix-forgot-link:hover {
+.satra-forgot-link:hover {
   color: #7dd3fc;
   text-decoration: underline;
 }
 
-/* ==========================================================================
-   SUBMIT BUTTON
-   ========================================================================== */
-
-.sentrix-submit-btn {
+/* Sign In Button */
+.satra-submit-btn {
   width: 100%;
   height: 46px;
   border: none;
@@ -364,76 +489,167 @@
   color: #ffffff;
   font-size: 13.5px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   transition: all 0.25s ease;
-  box-shadow: 0 4px 14px rgba(2, 132, 199, 0.35);
+  box-shadow: 0 4px 16px rgba(2, 132, 199, 0.4);
   margin-top: 4px;
 }
 
-.sentrix-submit-btn:hover:not(:disabled) {
+.satra-submit-btn:hover:not(:disabled) {
   background: linear-gradient(135deg, #0369a1 0%, #1d4ed8 100%);
-  box-shadow: 0 6px 20px rgba(2, 132, 199, 0.5);
+  box-shadow: 0 6px 22px rgba(2, 132, 199, 0.55);
   transform: translateY(-1px);
 }
 
-.sentrix-submit-btn:active:not(:disabled) {
+.satra-submit-btn:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.sentrix-submit-btn:disabled {
+.satra-submit-btn:disabled {
   opacity: 0.65;
   cursor: not-allowed;
 }
 
-.sentrix-btn-loading {
+.satra-btn-loading {
   display: inline-flex;
   align-items: center;
   gap: 10px;
 }
 
-.sentrix-btn-spinner {
+.satra-btn-spinner {
   width: 16px;
   height: 16px;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-top-color: #ffffff;
   border-radius: 50%;
-  animation: sentrixSpin 0.75s linear infinite;
+  animation: satraSpin 0.75s linear infinite;
 }
 
-@keyframes sentrixSpin {
+@keyframes satraSpin {
   to {
     transform: rotate(360deg);
   }
 }
 
-/* ==========================================================================
-   CARD FOOTER STATUS
-   ========================================================================== */
+/* OR Divider */
+.satra-divider {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0;
+}
 
-.sentrix-card-footer {
+.satra-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.satra-divider-text {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.08em;
+}
+
+/* Continue with Google Button */
+.satra-google-btn {
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.satra-google-btn:hover:not(:disabled) {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.satra-google-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Create Account link */
+.satra-create-account-wrap {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 12.5px;
+}
+
+.satra-no-account-text {
+  color: #94a3b8;
+}
+
+.satra-signup-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #38bdf8;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.2s ease, text-decoration 0.2s ease;
+}
+
+.satra-signup-link:hover {
+  color: #7dd3fc;
+  text-decoration: underline;
+}
+
+/* Bottom Status Footer */
+.satra-panel-footer {
   margin-top: 24px;
   padding-top: 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
   color: #64748b;
   text-transform: uppercase;
 }
 
-.sentrix-telemetry-status {
+.satra-gateway-status {
   display: flex;
   align-items: center;
   gap: 7px;
+  color: #94a3b8;
+  font-weight: 600;
 }
 
-.sentrix-status-dot {
+.satra-gateway-status svg {
+  color: #38bdf8;
+}
+
+.satra-system-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.satra-status-dot {
+  display: inline-block;
   width: 6px;
   height: 6px;
   border-radius: 50%;
@@ -441,57 +657,72 @@
   box-shadow: 0 0 8px #10b981;
 }
 
-.sentrix-system-indicator {
-  color: #94a3b8;
-  font-weight: 500;
-}
-
 /* ==========================================================================
-   RESPONSIVE DESIGN (Desktop, Laptop, Tablet, Mobile)
+   3. RESPONSIVE DESIGN — Desktop (60/40) → Tablet → Mobile
    ========================================================================== */
 
-@media (max-width: 768px) {
-  .sentrix-login-wrapper {
-    padding: 20px 16px;
+@media (max-width: 1080px) {
+  .satra-visual-panel {
+    flex: 0 0 54%;
+    padding: 38px 38px;
   }
-
-  .sentrix-login-card {
-    max-width: 400px;
-    padding: 32px 24px 24px;
+  .satra-login-panel {
+    flex: 0 0 46%;
+    padding: 36px 32px 26px;
   }
-
-  .satra-login-logo {
-    height: 110px;
-  }
-
-  .sentrix-brand-title {
-    font-size: 24px;
-  }
-
-  .sentrix-brand-tagline {
-    font-size: 12px;
+  .satra-hero-title {
+    font-size: 48px;
   }
 }
 
-@media (max-width: 480px) {
-  .sentrix-login-card {
-    max-width: 100%;
-    padding: 26px 18px 20px;
-    border-radius: 16px;
+@media (max-width: 860px) {
+  .satra-login-wrapper {
+    flex-direction: column;
   }
-
-  .satra-login-logo {
-    height: 95px;
+  .satra-visual-panel {
+    flex: none;
+    width: 100%;
+    height: 38vh;
+    min-height: 270px;
+    max-height: 42vh;
+    padding: 28px 28px;
   }
-
-  .sentrix-brand-title {
-    font-size: 22px;
+  .satra-hero-title {
+    font-size: 38px;
   }
-
-  .sentrix-card-footer {
+  .satra-hero-subtitle {
+    font-size: 13px;
+  }
+  .satra-hero-description {
+    display: none;
+  }
+  .satra-login-panel {
+    flex: none;
+    width: 100%;
+    min-height: calc(100vh - 270px);
+    height: auto;
+    padding: 32px 26px 26px;
+  }
+  .satra-panel-footer {
     flex-direction: column;
     gap: 8px;
     align-items: center;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .satra-visual-panel {
+    padding: 22px 18px;
+    min-height: 230px;
+  }
+  .satra-hero-title {
+    font-size: 32px;
+  }
+  .satra-login-panel {
+    padding: 28px 18px 22px;
+  }
+  .satra-welcome-title {
+    font-size: 22px;
   }
 }

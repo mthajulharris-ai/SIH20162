@@ -15,9 +15,14 @@ import {
   Settings,
   UploadCloud,
   Bot,
+  Sun,
+  Moon,
+  Menu,
+  X,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge } from './StatusBadge';
 import { useLiveClock } from '../services/useLiveClock';
+import { useTheme } from '../context/ThemeContext';
 
 export function Header({
   pageTitle,
@@ -31,8 +36,11 @@ export function Header({
   onOpenUploadModal,
   onToggleChatbot,
   onOpenAiAssistant,
+  isSidebarOpen = false,
+  onToggleSidebar,
 }) {
   const { dateStr, timeStr } = useLiveClock();
+  const { effectiveTheme, toggleTheme } = useTheme();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -74,6 +82,7 @@ export function Header({
 
   return (
     <header className="top-header">
+<<<<<<< ours
       {/* Left: SATRA Identity */}
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div className="header-logo-frame">
@@ -110,6 +119,25 @@ export function Header({
           </div>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
             AI Satellite Intelligence
+=======
+      {/* Left: Hamburger Menu Toggle + Welcome Title & Subtitle */}
+      <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+        <button
+          onClick={onToggleSidebar}
+          className={`satra-hamburger-btn ${isSidebarOpen ? 'active' : ''}`}
+          aria-label={isSidebarOpen ? 'Close Navigation Menu' : 'Open Navigation Menu'}
+          title={isSidebarOpen ? 'Close Navigation Menu (☰)' : 'Open Navigation Menu (☰)'}
+        >
+          {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <h1 style={{ fontSize: '18px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
+            Welcome to SATRA
+          </h1>
+          <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '2px', fontWeight: 400 }}>
+            Turning satellite data into a safer, smarter tomorrow.
+>>>>>>> theirs
           </div>
         </div>
       </div>
@@ -123,7 +151,7 @@ export function Header({
         <input
           type="text"
           className="satra-search-input"
-          placeholder="Search location (e.g., city, coordinates)"
+          placeholder="Search location, detection ID, or keyword..."
           value={searchQuery}
           onChange={(e) => {
             setSearchQuery(e.target.value);
@@ -347,7 +375,18 @@ export function Header({
         </div>
 
 
-        {/* SATRA AI Copilot Quick Launcher */}
+        {/* Theme / Light Mode Toggle */}
+        <button
+          type="button"
+          onClick={toggleTheme}
+          className="satra-icon-btn"
+          title={effectiveTheme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          style={{ color: effectiveTheme === 'dark' ? '#FDE047' : '#38BDF8' }}
+        >
+          {effectiveTheme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
+        </button>
+
+        {/* SATRA Copilot Quick Launcher */}
         {onToggleChatbot && (
           <button
             className="satra-icon-btn"
@@ -377,7 +416,39 @@ export function Header({
           </button>
         )}
 
-
+        {/* User / Profile Area: SATRA Team */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            paddingLeft: '10px',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+            cursor: 'pointer',
+          }}
+          title="SATRA Team Operator"
+        >
+          <div
+            style={{
+              width: 32,
+              height: 32,
+              borderRadius: '8px',
+              background: 'linear-gradient(135deg, #0284C7 0%, #0EA5E9 100%)',
+              border: '1px solid rgba(56, 189, 248, 0.35)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#FFFFFF',
+              boxShadow: '0 0 10px rgba(2, 132, 199, 0.3)',
+            }}
+          >
+            <User size={15} />
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.15 }}>
+            <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#FFFFFF' }}>SATRA</span>
+            <span style={{ fontSize: '10px', color: '#94A3B8' }}>Team</span>
+          </div>
+        </div>
       </div>
     </header>
   );

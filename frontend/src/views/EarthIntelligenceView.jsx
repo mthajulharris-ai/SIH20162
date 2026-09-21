@@ -2,1302 +2,1685 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
-  Layers,
-  MapPin,
+  Globe,
   Crosshair,
-  Compass,
-  ArrowRight,
-  Target,
   Flame,
-  Factory,
   Trees,
-  Activity,
-  AlertTriangle,
+  Factory,
+  Target,
+  Search,
+  X,
   ZoomIn,
   ZoomOut,
-  Maximize2,
-  FileText,
-  TrendingUp,
-  Download,
-  Scissors,
-  Check,
   RotateCcw,
+  Maximize2,
+  Minimize2,
+  MapPin,
+  Sparkles,
+  Radio,
+  Copy,
+  Check,
+  Compass,
+  Layers,
+  AlertTriangle,
+  ChevronRight,
+  ExternalLink,
+  ShieldAlert,
 } from 'lucide-react';
 
-// Known industrial facilities in South Asia / India for the Industrial Facilities layer
-const INDUSTRIAL_FACILITIES_SOUTH_ASIA = [
-  { id: 'ind-1', name: 'Jamnagar Refining & Petrochemical Complex', state: 'Gujarat', lat: 22.3039, lon: 70.8022, type: 'Petrochemical / Refining', capacity: '1.24 Mbpd' },
-  { id: 'ind-2', name: 'Hazira LNG & Chemical Complex', state: 'Gujarat', lat: 21.1702, lon: 72.8311, type: 'LNG Terminal / Fertilizer', capacity: 'High Output' },
-  { id: 'ind-3', name: 'Dahej SEZ & Chemical Port', state: 'Gujarat', lat: 21.7051, lon: 72.9959, type: 'Chemical / Petrochemical', capacity: 'Active SEZ' },
-  { id: 'ind-4', name: 'Vatva Chemical Industrial Estate', state: 'Gujarat', lat: 23.0225, lon: 72.5714, type: 'Chemical Manufacturing', capacity: 'Medium Complex' },
-  { id: 'ind-5', name: 'Haldia Petrochemicals & Refinery', state: 'West Bengal', lat: 22.0624, lon: 88.0863, type: 'Petrochemicals', capacity: '700 ktpa' },
-  { id: 'ind-6', name: 'Paradip Refinery & Industrial Zone', state: 'Odisha', lat: 20.3164, lon: 86.6085, type: 'Crude Oil Refining', capacity: '300 kbpd' },
-  { id: 'ind-7', name: 'Visakhapatnam Steel & Hydrocarbon Belt', state: 'Andhra Pradesh', lat: 17.6868, lon: 83.2185, type: 'Integrated Steel & Oil', capacity: 'Major Terminal' },
-  { id: 'ind-8', name: 'Mumbai Chembur-Trombay Industrial Belt', state: 'Maharashtra', lat: 19.0176, lon: 72.8943, type: 'Refinery / Fertilizer', capacity: 'Heavy Industry' },
-  { id: 'ind-9', name: 'Manali Petrochemical Corridor Chennai', state: 'Tamil Nadu', lat: 13.1672, lon: 80.2597, type: 'Petrochemical / Refining', capacity: 'Major Zone' },
-  { id: 'ind-10', name: 'Karachi Port Industrial Zone', state: 'Sindh, Pakistan', lat: 24.8607, lon: 67.0011, type: 'Port / Industrial Belt', capacity: 'Heavy Zone' },
-];
+import { EarthGlobe3D } from '../components/EarthGlobe3D';
+import { ClassBadge, ProvenanceBadge, StatusBadge } from '../components/StatusBadge';
+import { getSatelliteStatus } from '../services/api';
+
+/**
+ * SATRA 4-Class Classification Taxonomy & Color Palettes
+ * Strictly:
+ *   Industrial Fire           -> Red (#EF4444)
+ *   Forest Fire               -> Green (#10B981)
+ *   Persistent Thermal Source -> Purple (#A855F7)
+ *   Other                     -> Yellow (#FACC15)
+ */
+const TAXONOMY = {
+  industrial: {
+    key: 'industrial',
+    label: 'Industrial Fire',
+    color: '#EF4444',
+    bg: 'rgba(239, 68, 68, 0.15)',
+    border: 'rgba(239, 68, 68, 0.4)',
+    icon: Flame,
+  },
+  forest: {
+    key: 'forest',
+    label: 'Forest Fire',
+    color: '#10B981',
+    bg: 'rgba(16, 185, 129, 0.15)',
+    border: 'rgba(16, 185, 129, 0.4)',
+    icon: Trees,
+  },
+  persistent: {
+    key: 'persistent',
+    label: 'Persistent Thermal Source',
+    color: '#A855F7',
+    bg: 'rgba(168, 85, 247, 0.15)',
+    border: 'rgba(168, 85, 247, 0.4)',
+    icon: Factory,
+  },
+  other: {
+    key: 'other',
+    label: 'Other',
+    color: '#FACC15',
+    bg: 'rgba(250, 204, 21, 0.15)',
+    border: 'rgba(250, 204, 21, 0.4)',
+    icon: Target,
+  },
+};
+
+function normalizeClassKey(cls) {
+  const c = (cls || '').toLowerCase();
+  if (c.includes('industrial')) return 'industrial';
+  if (c.includes('forest') || c.includes('wildfire') || c.includes('vegetation') || c.includes('bushfire')) {
+    return 'forest';
+  }
+  if (c.includes('persistent') || c.includes('flare')) return 'persistent';
+  return 'other';
+}
+
+/**
+ * Great-circle Haversine distance in meters
+ */
+function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371000;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c);
+}
+
+/**
+ * Dynamically resolves continent from coordinates and country name
+ */
+function getContinent(lat, lon, country = '') {
+  const c = (country || '').toLowerCase();
+  if (
+    c.includes('india') ||
+    c.includes('china') ||
+    c.includes('japan') ||
+    c.includes('indonesia') ||
+    c.includes('vietnam') ||
+    c.includes('pakistan') ||
+    c.includes('bangladesh') ||
+    c.includes('saudi') ||
+    c.includes('uae') ||
+    c.includes('korea') ||
+    c.includes('thailand') ||
+    c.includes('iran') ||
+    c.includes('iraq') ||
+    c.includes('turkey') ||
+    c.includes('russia') ||
+    c.includes('singapore') ||
+    c.includes('malaysia')
+  ) {
+    return 'Asia';
+  }
+  if (c.includes('united states') || c.includes('canada') || c.includes('mexico')) return 'North America';
+  if (c.includes('brazil') || c.includes('argentina') || c.includes('chile') || c.includes('colombia') || c.includes('peru')) return 'South America';
+  if (c.includes('france') || c.includes('germany') || c.includes('united kingdom') || c.includes('spain') || c.includes('italy') || c.includes('greece') || c.includes('poland') || c.includes('ukraine') || c.includes('sweden') || c.includes('norway')) return 'Europe';
+  if (c.includes('australia') || c.includes('new zealand')) return 'Oceania';
+  if (c.includes('egypt') || c.includes('south africa') || c.includes('nigeria') || c.includes('kenya') || c.includes('morocco') || c.includes('algeria') || c.includes('congo') || c.includes('ethiopia')) return 'Africa';
+
+  // Geographic bounding box approximations
+  if (lat < -60) return 'Antarctica';
+  if (lat >= -10 && lat <= 80 && lon >= 25 && lon <= 180) return 'Asia';
+  if (lat >= 35 && lat <= 72 && lon >= -25 && lon <= 45) return 'Europe';
+  if (lat >= -35 && lat <= 38 && lon >= -18 && lon <= 52) return 'Africa';
+  if (lat >= 7 && lat <= 85 && lon >= -170 && lon <= -50) return 'North America';
+  if (lat >= -56 && lat <= 13 && lon >= -82 && lon <= -34) return 'South America';
+  if (lat >= -50 && lat <= 0 && lon >= 110 && lon <= 180) return 'Oceania';
+  return 'Global';
+}
+
+function formatConfidence(val) {
+  const v = parseFloat(val);
+  if (isNaN(v)) return 'N/A';
+  return `${(v <= 1 ? v * 100 : v).toFixed(1)}%`;
+}
+
+function formatCoordinates(lat, lon) {
+  const nLat = parseFloat(lat);
+  const nLon = parseFloat(lon);
+  if (isNaN(nLat) || isNaN(nLon)) return 'N/A';
+  return `${Math.abs(nLat).toFixed(4)}° ${nLat >= 0 ? 'N' : 'S'}, ${Math.abs(nLon).toFixed(4)}° ${nLon >= 0 ? 'E' : 'W'}`;
+}
 
 export function EarthIntelligenceView({
   detections = [],
   analytics,
-  selectedDetection,
-  onSelectDetection,
-  onNavigate,
+  selectedDetection = null,
+  onSelectDetection = () => {},
+  onNavigate = () => {},
+  onFocusDetection = () => {},
+  onOpenAiAssistant = () => {},
 }) {
-  // Basemap State: 'Satellite' (default) | 'Dark' | 'Terrain' | 'Light'
-  const [basemap, setBasemap] = useState('Satellite');
+  // View mode: '3d' (default realistic Earth) | '2d' (high-res Leaflet satellite)
+  const [viewMode, setViewMode] = useState('3d');
 
-  // Time Filter State: 'Live' (default) | '24h' | '7d' | '30d'
-  const [timeFilter, setTimeFilter] = useState('Live');
+  // Search input & feedback state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchFeedback, setSearchFeedback] = useState(null);
 
-  // Region Selector State: default 'India'
-  const [selectedRegion, setSelectedRegion] = useState('India');
+  // Triggers for EarthGlobe3D camera actions
+  const [focusTrigger, setFocusTrigger] = useState(0);
+  const [resetTrigger, setResetTrigger] = useState(0);
+  const [zoomInTrigger, setZoomInTrigger] = useState(0);
+  const [zoomOutTrigger, setZoomOutTrigger] = useState(0);
 
-  // Layer Controls State
-  const [layers, setLayers] = useState({
-    satelliteImagery: true,
-    viirsHotspots: true,
-    modisHotspots: true,
-    industrialFacilities: true,
-    countryBoundaries: true,
-    stateBoundaries: true,
-    placeLabels: true,
-    cloudCover: false,
+  // Fullscreen state
+  const containerRef = useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Copied coordinates state
+  const [copiedCoords, setCopiedCoords] = useState(false);
+
+  // Real Reverse Geocoding & Local OSM Infrastructure State
+  const [locationContext, setLocationContext] = useState({
+    resolvedAddress: null,
+    continent: '',
+    country: '',
+    state: '',
+    city: '',
+    features: [],
+    loading: false,
+    source: '',
   });
 
-  const [showLayerPanel, setShowLayerPanel] = useState(false);
-  const [measureMode, setMeasureMode] = useState(false);
-  const [drawingMode, setDrawingMode] = useState(false);
-  const [drawnAreaAlert, setDrawnAreaAlert] = useState(null);
+  // 2D Leaflet map references
+  const leafletContainerRef = useRef(null);
+  const leafletMapRef = useRef(null);
+  const leafletMarkersRef = useRef(null);
 
-  // Live Map Coordinates Readout
-  const [mapCoords, setMapCoords] = useState({
-    lat: '20.5937',
-    lng: '78.9629',
-    zoom: 5,
-  });
-
-  // Map Instance References
-  const mapContainerRef = useRef(null);
-  const mapInstanceRef = useRef(null);
-  const baseTileLayerRef = useRef(null);
-  const boundariesTileLayerRef = useRef(null);
-  const cloudTileLayerRef = useRef(null);
-  const markersLayerGroupRef = useRef(null);
-  const facilitiesLayerGroupRef = useRef(null);
-  const measureLayerGroupRef = useRef(null);
-
-  // Filter detections based on timeFilter
-  const filteredDetections = useMemo(() => {
-    if (!detections || detections.length === 0) return [];
-    if (timeFilter === 'Live') return detections;
-
-    const now = Date.now();
-    const hours = timeFilter === '24h' ? 24 : timeFilter === '7d' ? 24 * 7 : 24 * 30;
-    const cutoff = now - hours * 60 * 60 * 1000;
-
-    return detections.filter((d) => {
-      const dtStr = d.timestamp || d.created_at || d.acq_date;
-      if (!dtStr) return true;
-      const t = Date.parse(dtStr);
-      return isNaN(t) || t >= cutoff;
-    });
-  }, [detections, timeFilter]);
-
-  // Compute Real Region Statistics
-  const regionStats = useMemo(() => {
-    const total = filteredDetections.length > 0 ? filteredDetections.length : (analytics?.total_detections ?? 432);
-    const industrial = filteredDetections.filter((d) =>
-      (d.predicted_class || '').toLowerCase().includes('industrial')
-    ).length || (analytics?.industrial_fire_predictions ?? 3);
-
-    const forest = filteredDetections.filter((d) => {
-      const c = (d.predicted_class || '').toLowerCase();
-      return c.includes('forest') || c.includes('wildfire') || c.includes('vegetation');
-    }).length || 11;
-
-    const other = Math.max(0, total - (industrial + forest));
-
-    return {
-      totalHotspots: total,
-      industrialFires: industrial,
-      forestFires: forest,
-      otherSources: other,
-    };
-  }, [filteredDetections, analytics]);
-
-  // 1. Initialize 2D Leaflet Map
+  // 1. Resolve Location Context and Real Overpass Nearby Features
   useEffect(() => {
-    if (!mapContainerRef.current || mapInstanceRef.current) return;
+    if (!selectedDetection) {
+      setLocationContext({
+        resolvedAddress: null,
+        continent: '',
+        country: '',
+        state: '',
+        city: '',
+        features: [],
+        loading: false,
+        source: '',
+      });
+      return;
+    }
 
-    // South Asia / India-focused center [20.5937, 78.9629], zoom 5
-    const map = L.map(mapContainerRef.current, {
-      center: [20.5937, 78.9629],
-      zoom: 5,
-      minZoom: 3,
-      maxZoom: 18,
-      zoomControl: false,
-      attributionControl: false,
-    });
+    const lat = parseFloat(selectedDetection.latitude);
+    const lon = parseFloat(selectedDetection.longitude);
+    if (isNaN(lat) || isNaN(lon)) return;
 
-    mapInstanceRef.current = map;
+    let isMounted = true;
+    const controller = new AbortController();
+    setLocationContext((prev) => ({ ...prev, loading: true }));
 
-    // Base Tile Layer (Default: Esri Satellite)
-    const esriSat = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        maxZoom: 18,
-        attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
+    const fetchGeoData = async () => {
+      let resolvedCountry = '';
+      let resolvedState = '';
+      let resolvedCity = '';
+      let resolvedSummary = '';
+      let featuresList = [];
+
+      // A. Fetch Nominatim Reverse Geocode
+      try {
+        const nomRes = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`,
+          {
+            signal: controller.signal,
+            headers: { 'Accept-Language': 'en' },
+          }
+        );
+        if (nomRes.ok) {
+          const nomData = await nomRes.json();
+          if (nomData && nomData.address) {
+            const a = nomData.address;
+            resolvedCountry = a.country || '';
+            resolvedState = a.state || a.region || a.province || a.state_district || '';
+            resolvedCity = a.city || a.town || a.village || a.county || a.municipality || a.suburb || '';
+            resolvedSummary = [resolvedCity, resolvedState, resolvedCountry].filter(Boolean).join(', ');
+          }
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        console.warn('Nominatim reverse lookup failed:', err);
       }
-    );
-    esriSat.on('tileerror', (e) => {
-      if (e.tile) e.tile.style.display = 'none';
-    });
-    esriSat.addTo(map);
-    baseTileLayerRef.current = esriSat;
 
-    // Boundaries & Labels Tile Layer
-    const boundariesTiles = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-      { maxZoom: 18, opacity: 0.85 }
-    );
-    boundariesTiles.addTo(map);
-    boundariesTileLayerRef.current = boundariesTiles;
+      if (!resolvedSummary) {
+        resolvedSummary = formatCoordinates(lat, lon);
+      }
 
-    // Cloud Tile Layer (GIBS MODIS TrueColor)
-    const cloudTiles = L.tileLayer(
-      'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/MODIS_Terra_CorrectedReflectance_TrueColor/default/default/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg',
-      { maxZoom: 9, opacity: 0.45 }
-    );
-    cloudTileLayerRef.current = cloudTiles;
+      // B. Fetch Real Overpass Infrastructure Nearby
+      const overpassQuery = `[out:json][timeout:8];
+(
+  nwr["landuse"="industrial"](around:2500,${lat},${lon});
+  nwr["man_made"="works"](around:2500,${lat},${lon});
+  nwr["industrial"](around:2500,${lat},${lon});
+  nwr["building"](around:1200,${lat},${lon});
+  nwr["highway"~"primary|secondary|tertiary|trunk|motorway|residential"](around:1500,${lat},${lon});
+  nwr["landuse"~"forest|wood"](around:2500,${lat},${lon});
+  nwr["natural"~"wood|scrub|water"](around:2500,${lat},${lon});
+  nwr["place"~"city|town|village|suburb"](around:4000,${lat},${lon});
+);
+out center 25;`;
 
-    // Markers Groups
-    markersLayerGroupRef.current = L.layerGroup().addTo(map);
-    facilitiesLayerGroupRef.current = L.layerGroup().addTo(map);
-    measureLayerGroupRef.current = L.layerGroup().addTo(map);
+      try {
+        const opRes = await fetch('https://overpass-api.de/api/interpreter', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'data=' + encodeURIComponent(overpassQuery),
+          signal: controller.signal,
+        });
 
-    // Track Coordinates on Mouse Move & Pan
-    map.on('mousemove', (e) => {
-      setMapCoords({
-        lat: e.latlng.lat.toFixed(4),
-        lng: e.latlng.lng.toFixed(4),
-        zoom: map.getZoom(),
-      });
-    });
+        if (opRes.ok) {
+          const opData = await opRes.json();
+          const elements = opData.elements || [];
 
-    map.on('moveend', () => {
-      const c = map.getCenter();
-      setMapCoords({
-        lat: c.lat.toFixed(4),
-        lng: c.lng.toFixed(4),
-        zoom: map.getZoom(),
-      });
-    });
+          for (const el of elements) {
+            const clat = el.lat || (el.center && el.center.lat);
+            const clon = el.lon || (el.center && el.center.lon);
+            if (!clat || !clon) continue;
 
-    // Cleanup on unmount
+            const dist = calculateHaversineMeters(lat, lon, clat, clon);
+            const tags = el.tags || {};
+            let categoryLabel = 'Infrastructure';
+
+            if (
+              tags.landuse === 'industrial' ||
+              tags.man_made === 'works' ||
+              tags.industrial ||
+              (tags.building && tags.building.toLowerCase().includes('industrial'))
+            ) {
+              categoryLabel = 'Industrial Facility';
+            } else if (tags.highway) {
+              categoryLabel = 'Road';
+            } else if (tags.building) {
+              categoryLabel = 'Building';
+            } else if (tags.landuse === 'forest' || tags.natural === 'wood' || tags.natural === 'scrub') {
+              categoryLabel = 'Forest / Vegetation';
+            } else if (tags.natural === 'water' || tags.water) {
+              categoryLabel = 'Water Body';
+            } else if (tags.place) {
+              categoryLabel = 'Settlement';
+            }
+
+            const rawName =
+              tags.name ||
+              tags['name:en'] ||
+              (tags.highway ? `${tags.highway.charAt(0).toUpperCase() + tags.highway.slice(1)} Road` : null) ||
+              tags.place ||
+              tags.operator;
+
+            const name = rawName || `${categoryLabel} Asset`;
+
+            featuresList.push({
+              categoryLabel,
+              name,
+              distance_m: dist,
+            });
+          }
+
+          featuresList.sort((a, b) => a.distance_m - b.distance_m);
+          // Keep closest unique items (max 5)
+          const seen = new Set();
+          featuresList = featuresList.filter((f) => {
+            const key = `${f.categoryLabel}-${f.name}`;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          }).slice(0, 5);
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        console.warn('Overpass spatial query fallback:', err);
+      }
+
+      if (isMounted) {
+        setLocationContext({
+          resolvedAddress: resolvedSummary,
+          continent: getContinent(lat, lon, resolvedCountry),
+          country: resolvedCountry,
+          state: resolvedState,
+          city: resolvedCity,
+          features: featuresList,
+          loading: false,
+          source: featuresList.length > 0 ? 'OpenStreetMap Overpass API' : 'Nominatim Geocoding',
+        });
+      }
+    };
+
+    fetchGeoData();
+
     return () => {
-      map.remove();
-      mapInstanceRef.current = null;
+      isMounted = false;
+      controller.abort();
     };
-  }, []);
+  }, [selectedDetection]);
 
-  // 2. Handle Basemap Switcher (Real geographic layers with no CARTO dependency)
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
+  // 2. Search Bar Handler: Supports Coordinates, ID, or Geocoded Location
+  const handleSearchSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    const query = (searchQuery || '').trim();
+    if (!query) return;
 
-    if (baseTileLayerRef.current) {
-      map.removeLayer(baseTileLayerRef.current);
-    }
+    setIsSearching(true);
+    setSearchFeedback(null);
 
-    let url;
-    let layerOptions = { maxZoom: 18 };
+    // A. Coordinate match (e.g. "11.0168, 76.9558" or "11.0168 76.9558")
+    const coordRegex = /^([-+]?(?:[1-8]?\d(?:\.\d+)?|90(?:\.0+)?))[,\s]+([-+]?(?:180(?:\.0+)?|(?:1[0-7]\d|\d{1,2})(?:\.\d+)?))$/;
+    const coordMatch = query.match(coordRegex);
 
-    switch (basemap) {
-      case 'Dark':
-        // Esri World Dark Gray Base (Tactical dark canvas)
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}';
-        layerOptions = {
-          maxZoom: 18,
-          maxNativeZoom: 16,
-          attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
-        };
-        break;
-      case 'Terrain':
-        // Esri World Topographic Map
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}';
-        layerOptions = {
-          maxZoom: 18,
-          maxNativeZoom: 17,
-          attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ, TomTom, USGS',
-        };
-        break;
-      case 'Light':
-        // OpenStreetMap Standard Map (High-contrast light street / terrain)
-        url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-        layerOptions = {
-          maxZoom: 19,
-          subdomains: ['a', 'b', 'c'],
-          attribution: '&copy; OpenStreetMap contributors',
-        };
-        break;
-      case 'Satellite':
-      default:
-        // Esri World Imagery (High-resolution satellite view)
-        url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
-        layerOptions = {
-          maxZoom: 18,
-          attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP',
-        };
-        break;
-    }
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1]);
+      const lon = parseFloat(coordMatch[2]);
 
-    if (layers.satelliteImagery || basemap !== 'Satellite') {
-      const newLayer = L.tileLayer(url, layerOptions);
-      newLayer.on('tileerror', (e) => {
-        if (e.tile) e.tile.style.display = 'none';
-      });
-      newLayer.addTo(map);
-      baseTileLayerRef.current = newLayer;
-    }
-  }, [basemap, layers.satelliteImagery]);
+      if (lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+        // Look for existing real detection within 35 km
+        let closest = null;
+        let minDist = Infinity;
+        (detections || []).forEach((d) => {
+          const dlat = parseFloat(d.latitude);
+          const dlon = parseFloat(d.longitude);
+          if (!isNaN(dlat) && !isNaN(dlon)) {
+            const dist = calculateHaversineMeters(lat, lon, dlat, dlon);
+            if (dist < minDist) {
+              minDist = dist;
+              closest = d;
+            }
+          }
+        });
 
-  // 3. Handle Overlay Layers (Boundaries, Clouds)
-  useEffect(() => {
-    const map = mapInstanceRef.current;
-    if (!map) return;
-
-    // Boundaries & Labels
-    const shouldShowBoundaries = layers.countryBoundaries || layers.stateBoundaries || layers.placeLabels;
-    if (boundariesTileLayerRef.current) {
-      if (shouldShowBoundaries) {
-        if (!map.hasLayer(boundariesTileLayerRef.current)) {
-          boundariesTileLayerRef.current.addTo(map);
+        if (closest && minDist <= 35000) {
+          onSelectDetection(closest);
+          setFocusTrigger((p) => p + 1);
+          setSearchFeedback({
+            type: 'success',
+            text: `Centered on Detection #${closest.id} at [${lat.toFixed(4)}, ${lon.toFixed(4)}] (${(minDist / 1000).toFixed(1)} km away).`,
+          });
+        } else {
+          // Custom coordinate target object
+          const customTarget = {
+            id: `coord-${lat.toFixed(3)}-${lon.toFixed(3)}`,
+            latitude: lat,
+            longitude: lon,
+            predicted_class: 'Geographic Search Target',
+            prediction_confidence: 1.0,
+            risk_level: 'TARGET_LOCKED',
+            data_provenance: 'USER_COORDINATES',
+            source: 'EXACT_COORDINATES',
+            acq_date: new Date().toISOString().split('T')[0],
+            acq_time: new Date().toISOString().split('T')[1].slice(0, 5),
+          };
+          onSelectDetection(customTarget);
+          setFocusTrigger((p) => p + 1);
+          setSearchFeedback({
+            type: 'info',
+            text: `Orbit camera oriented to coordinate [${lat.toFixed(4)}, ${lon.toFixed(4)}].`,
+          });
         }
-      } else {
-        if (map.hasLayer(boundariesTileLayerRef.current)) {
-          map.removeLayer(boundariesTileLayerRef.current);
-        }
+        setIsSearching(false);
+        return;
       }
     }
 
-    // Cloud Cover
-    if (cloudTileLayerRef.current) {
-      if (layers.cloudCover) {
-        if (!map.hasLayer(cloudTileLayerRef.current)) {
-          cloudTileLayerRef.current.addTo(map);
-        }
-      } else {
-        if (map.hasLayer(cloudTileLayerRef.current)) {
-          map.removeLayer(cloudTileLayerRef.current);
+    // B. Detection ID match (e.g. "#12" or "12")
+    const idClean = query.replace(/^#/, '');
+    const matchedById = (detections || []).find((d) => String(d.id) === idClean || String(d.detection_id) === idClean);
+    if (matchedById) {
+      onSelectDetection(matchedById);
+      setFocusTrigger((p) => p + 1);
+      setSearchFeedback({
+        type: 'success',
+        text: `Target locked: Detection #${matchedById.id} (${matchedById.predicted_class || 'Hotspot'}).`,
+      });
+      setIsSearching(false);
+      return;
+    }
+
+    // C. Nominatim Place Geocode (city, country, region)
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&addressdetails=1`,
+        { headers: { 'Accept-Language': 'en' } }
+      );
+      if (res.ok) {
+        const results = await res.json();
+        if (results && results.length > 0) {
+          const lat = parseFloat(results[0].lat);
+          const lon = parseFloat(results[0].lon);
+
+          // Find closest detection to this location
+          let closest = null;
+          let minDist = Infinity;
+          (detections || []).forEach((d) => {
+            const dlat = parseFloat(d.latitude);
+            const dlon = parseFloat(d.longitude);
+            if (!isNaN(dlat) && !isNaN(dlon)) {
+              const dist = calculateHaversineMeters(lat, lon, dlat, dlon);
+              if (dist < minDist) {
+                minDist = dist;
+                closest = d;
+              }
+            }
+          });
+
+          if (closest && minDist <= 50000) {
+            onSelectDetection(closest);
+            setFocusTrigger((p) => p + 1);
+            setSearchFeedback({
+              type: 'success',
+              text: `Located ${results[0].display_name.split(',')[0]}: focused on nearest detection (${(minDist / 1000).toFixed(1)} km away).`,
+            });
+          } else {
+            const locTarget = {
+              id: `geo-${Date.now()}`,
+              latitude: lat,
+              longitude: lon,
+              predicted_class: 'Geographic Place Target',
+              location_name: results[0].display_name,
+              prediction_confidence: 1.0,
+              risk_level: 'EXPLORATION',
+              data_provenance: 'NOMINATIM_GEOCODE',
+              source: 'OPENSTREETMAP',
+              acq_date: new Date().toISOString().split('T')[0],
+              acq_time: new Date().toISOString().split('T')[1].slice(0, 5),
+            };
+            onSelectDetection(locTarget);
+            setFocusTrigger((p) => p + 1);
+            setSearchFeedback({
+              type: 'info',
+              text: `Camera focused on ${results[0].display_name.split(',')[0]} [${lat.toFixed(4)}, ${lon.toFixed(4)}].`,
+            });
+          }
+        } else {
+          setSearchFeedback({
+            type: 'warn',
+            text: `No matching geographic location or detection found for "${query}".`,
+          });
         }
       }
+    } catch {
+      setSearchFeedback({
+        type: 'warn',
+        text: 'Geocoding service unavailable. Enter numeric coordinates (e.g. 22.30, 70.80).',
+      });
+    } finally {
+      setIsSearching(false);
     }
-  }, [layers.countryBoundaries, layers.stateBoundaries, layers.placeLabels, layers.cloudCover]);
+  };
 
-  // 4. Render Industrial Facilities Layer
+  // 3. Initialize 2D Leaflet Satellite Map when viewMode === '2d'
   useEffect(() => {
-    if (!facilitiesLayerGroupRef.current) return;
-    facilitiesLayerGroupRef.current.clearLayers();
+    if (viewMode !== '2d' || !leafletContainerRef.current) return;
 
-    if (!layers.industrialFacilities) return;
-
-    INDUSTRIAL_FACILITIES_SOUTH_ASIA.forEach((fac) => {
-      const marker = L.circleMarker([fac.lat, fac.lon], {
-        radius: 6,
-        color: '#0284C7',
-        fillColor: '#38BDF8',
-        fillOpacity: 0.85,
-        weight: 2,
+    if (!leafletMapRef.current) {
+      const centerLat = selectedDetection ? parseFloat(selectedDetection.latitude) : 22.3;
+      const centerLon = selectedDetection ? parseFloat(selectedDetection.longitude) : 75.0;
+      const map = L.map(leafletContainerRef.current, {
+        center: [centerLat, centerLon],
+        zoom: selectedDetection ? 11 : 5,
+        zoomControl: false,
+        attributionControl: false,
       });
 
-      marker.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px; color: #0F172A; min-width: 200px;">
-          <div style="font-weight: 800; font-size: 13px; color: #0284C7; margin-bottom: 2px;">
-            🏭 ${fac.name}
-          </div>
-          <div style="font-size: 11px; color: #64748B;">${fac.state}</div>
-          <hr style="margin: 6px 0; border: none; border-top: 1px solid #E2E8F0;" />
-          <div><strong>Type:</strong> ${fac.type}</div>
-          <div><strong>Capacity:</strong> ${fac.capacity}</div>
-          <div style="margin-top: 4px; font-family: monospace; font-size: 10.5px; color: #475569;">
-            ${fac.lat.toFixed(4)}° N, ${fac.lon.toFixed(4)}° E
-          </div>
-        </div>
-      `);
+      // Real ESRI World Imagery Satellite Basemap
+      L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 18,
+      }).addTo(map);
 
-      marker.addTo(facilitiesLayerGroupRef.current);
-    });
-  }, [layers.industrialFacilities]);
+      // CartoDB Dark Matter Labels overlay
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', {
+        maxZoom: 18,
+        subdomains: 'abcd',
+        opacity: 0.85,
+      }).addTo(map);
 
-  // 5. Render Thermal Hotspots (VIIRS & MODIS)
-  useEffect(() => {
-    if (!markersLayerGroupRef.current) return;
-    markersLayerGroupRef.current.clearLayers();
+      leafletMapRef.current = map;
+      leafletMarkersRef.current = L.layerGroup().addTo(map);
+    }
 
-    filteredDetections.forEach((d) => {
+    const map = leafletMapRef.current;
+    const markersGroup = leafletMarkersRef.current;
+    if (markersGroup) markersGroup.clearLayers();
+
+    // Plot real detections
+    (detections || []).forEach((d) => {
       const lat = parseFloat(d.latitude);
       const lon = parseFloat(d.longitude);
       if (isNaN(lat) || isNaN(lon)) return;
 
-      const sensor = (d.source || d.sensor || 'VIIRS').toUpperCase();
-      const isViirs = sensor.includes('VIIRS');
-      const isModis = sensor.includes('MODIS');
-
-      if (isViirs && !layers.viirsHotspots) return;
-      if (isModis && !layers.modisHotspots) return;
-
-      const isInd = (d.predicted_class || '').toLowerCase().includes('industrial');
-      const markerColor = isInd ? '#EF4444' : isModis ? '#F59E0B' : '#FF6B00';
-      const radius = isInd ? 7 : 5;
+      const key = normalizeClassKey(d.predicted_class || d.classification);
+      const color = TAXONOMY[key]?.color || '#FACC15';
+      const isSelected = selectedDetection && String(selectedDetection.id) === String(d.id);
 
       const marker = L.circleMarker([lat, lon], {
-        radius: radius,
-        color: markerColor,
-        fillColor: markerColor,
+        radius: isSelected ? 10 : 6,
+        color: isSelected ? '#FFFFFF' : color,
+        weight: isSelected ? 3 : 1.5,
+        fillColor: color,
         fillOpacity: 0.85,
-        weight: 2,
       });
 
-      marker.bindPopup(`
-        <div style="font-family: sans-serif; font-size: 12px; color: #0F172A; min-width: 220px;">
-          <div style="font-weight: 800; font-size: 13px; color: ${markerColor}; margin-bottom: 3px;">
-            🔥 ${d.predicted_class || 'Thermal Hotspot'}
-          </div>
-          <div style="font-size: 11px; color: #64748B;">
-            ${d.location_name || 'South Asia Regional Point'}
-          </div>
-          <hr style="margin: 6px 0; border: none; border-top: 1px solid #E2E8F0;" />
-          <div><strong>Sensor:</strong> ${sensor}</div>
-          <div><strong>Radiative Power (FRP):</strong> ${d.frp ? parseFloat(d.frp).toFixed(1) + ' MW' : 'N/A'}</div>
-          <div><strong>Brightness Temp:</strong> ${d.brightness ? parseFloat(d.brightness).toFixed(1) + ' K' : 'N/A'}</div>
-          <div><strong>AI Confidence:</strong> ${d.prediction_confidence ? (parseFloat(d.prediction_confidence) * 100).toFixed(1) + '%' : 'Nominal'}</div>
-          <div style="margin-top: 4px; font-family: monospace; font-size: 10.5px; color: #475569;">
-            ${lat.toFixed(4)}° N, ${lon.toFixed(4)}° E
-          </div>
-        </div>
-      `);
+      marker.bindTooltip(
+        `<div style="font-family: sans-serif; font-size: 11px; color: #FFFFFF; background: #0B1320; padding: 6px 10px; border-radius: 4px; border: 1px solid ${color};">
+          <strong>${d.predicted_class || 'Thermal Anomaly'}</strong><br/>
+          Lat: ${lat.toFixed(4)}°, Lon: ${lon.toFixed(4)}°<br/>
+          Confidence: ${formatConfidence(d.prediction_confidence)}
+        </div>`,
+        { direction: 'top', className: 'tactical-map-tooltip' }
+      );
 
       marker.on('click', () => {
-        if (onSelectDetection) onSelectDetection(d);
+        onSelectDetection(d);
       });
 
-      marker.addTo(markersLayerGroupRef.current);
+      marker.addTo(markersGroup);
     });
-  }, [filteredDetections, layers.viirsHotspots, layers.modisHotspots, onSelectDetection]);
 
-  // Handle Layer Toggle
-  const toggleLayer = (key) => {
-    setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+    if (selectedDetection) {
+      const lat = parseFloat(selectedDetection.latitude);
+      const lon = parseFloat(selectedDetection.longitude);
+      if (!isNaN(lat) && !isNaN(lon)) {
+        map.setView([lat, lon], 12, { animate: true });
+      }
+    }
+  }, [viewMode, detections, selectedDetection, onSelectDetection]);
 
-  // Map Action Helpers
-  const handleZoomIn = () => mapInstanceRef.current?.zoomIn();
-  const handleZoomOut = () => mapInstanceRef.current?.zoomOut();
-  const handleRecenter = () => {
-    mapInstanceRef.current?.setView([20.5937, 78.9629], 5, { animate: true });
-  };
-
-  // Draw & Analyze Quick Tool
-  const handleDrawAndAnalyze = () => {
-    setDrawingMode(true);
-    if (!mapInstanceRef.current) return;
-    const center = mapInstanceRef.current.getCenter();
-    const bounds = L.latLngBounds(
-      [center.lat - 1.5, center.lng - 2],
-      [center.lat + 1.5, center.lng + 2]
-    );
-
-    if (measureLayerGroupRef.current) {
-      measureLayerGroupRef.current.clearLayers();
-      const rect = L.rectangle(bounds, {
-        color: '#38BDF8',
-        weight: 2,
-        fillColor: '#38BDF8',
-        fillOpacity: 0.15,
-        dashArray: '5, 5',
-      });
-      rect.addTo(measureLayerGroupRef.current);
-
-      // Count anomalies inside bounds
-      const insideCount = filteredDetections.filter((d) =>
-        bounds.contains([parseFloat(d.latitude), parseFloat(d.longitude)])
-      ).length;
-
-      setDrawnAreaAlert({
-        areaSqKm: '~95,400 km²',
-        detectedCount: insideCount,
-      });
+  // 4. Zoom control for 3D Earth and 2D Satellite
+  const handleZoom = (delta) => {
+    if (viewMode === '2d' && leafletMapRef.current) {
+      if (delta < 0) leafletMapRef.current.zoomIn();
+      else leafletMapRef.current.zoomOut();
+    } else {
+      const canvas = containerRef.current?.querySelector('canvas');
+      if (canvas) {
+        canvas.dispatchEvent(new WheelEvent('wheel', { deltaY: delta, bubbles: true, cancelable: true }));
+      }
     }
   };
 
-  // Export Data Action
-  const handleExportData = () => {
-    const dataStr = JSON.stringify(filteredDetections.slice(0, 100), null, 2);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `satra_earth_intel_export_${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+  // 5. Fullscreen Toggle
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return;
+    if (!document.fullscreenElement) {
+      containerRef.current.requestFullscreen?.().then(() => setIsFullscreen(true)).catch(() => {});
+    } else {
+      document.exitFullscreen?.().then(() => setIsFullscreen(false)).catch(() => {});
+    }
   };
 
-  // Sample Recent Detections with visual infrared thumbnail
-  const recentDetectionsList = [
-    {
-      id: 'det-1',
-      title: 'High Temperature',
-      category: 'Industrial Fire',
-      location: 'Jamnagar Refinery, Gujarat',
-      coords: '22.3039° N, 70.8022° E',
-      time: '12 min ago',
-      frp: '48.2 MW',
-      temp: '385.4 K',
-      color: '#EF4444',
-    },
-    {
-      id: 'det-2',
-      title: 'Potential Industrial Fire',
-      category: 'Chemical Facility',
-      location: 'Hazira Belt, Gujarat',
-      coords: '21.1702° N, 72.8311° E',
-      time: '28 min ago',
-      frp: '34.6 MW',
-      temp: '362.1 K',
-      color: '#F97316',
-    },
-    {
-      id: 'det-3',
-      title: 'Thermal Anomaly',
-      category: 'Flare / Kiln',
-      location: 'Dahej SEZ, Gujarat',
-      coords: '21.7051° N, 72.9959° E',
-      time: '45 min ago',
-      frp: '22.8 MW',
-      temp: '348.0 K',
-      color: '#38BDF8',
-    },
-    {
-      id: 'det-4',
-      title: 'Hotspot Cluster',
-      category: 'Vegetation Canopy',
-      location: 'Satpura Foothills, MP',
-      coords: '22.1830° N, 77.4120° E',
-      time: '1h 10m ago',
-      frp: '18.5 MW',
-      temp: '335.2 K',
-      color: '#EAB308',
-    },
-  ];
+  // 6. Copy coordinates helper
+  const handleCopyCoords = (lat, lon) => {
+    if (!lat || !lon) return;
+    const str = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lon).toFixed(6)}`;
+    navigator.clipboard.writeText(str);
+    setCopiedCoords(true);
+    setTimeout(() => setCopiedCoords(false), 2000);
+  };
+
+  // 7. Dynamic Geographic Breadcrumb Computation
+  const breadcrumbItems = useMemo(() => {
+    const items = [{ label: '🌍 Global', onClick: () => { onSelectDetection(null); setFocusTrigger((p) => p + 1); } }];
+
+    if (selectedDetection) {
+      const lat = parseFloat(selectedDetection.latitude);
+      const lon = parseFloat(selectedDetection.longitude);
+      const continent = locationContext.continent || getContinent(lat, lon, locationContext.country);
+      if (continent && continent !== 'Global') items.push({ label: continent });
+      if (locationContext.country) items.push({ label: locationContext.country });
+      if (locationContext.state) items.push({ label: locationContext.state });
+      if (locationContext.city) items.push({ label: locationContext.city });
+      items.push({
+        label: selectedDetection.id ? `Detection #${selectedDetection.id}` : `[${lat.toFixed(4)}°, ${lon.toFixed(4)}°]`,
+        isTarget: true,
+      });
+    }
+
+    return items;
+  }, [selectedDetection, locationContext, onSelectDetection]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* 
-        ============================================================
-        1. PAGE HEADER & TIME / BASEMAP CONTROLS
-        ============================================================
-      */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '14px' }}>
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#FFFFFF', margin: 0, letterSpacing: '-0.01em' }}>
-            Earth Intelligence
-          </h1>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px' }}>
-            Interactive satellite view and geospatial analysis
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-          {onNavigate && (
-            <button
-              onClick={() => onNavigate('path-intel')}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '6px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                background: 'rgba(56, 189, 248, 0.12)',
-                color: 'var(--soft-cyan)',
-                fontSize: '11.5px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-              }}
-              title="Open Path Intelligence Corridor Risk Analysis"
-            >
-              <span>Path Corridor Risk</span>
-              <ArrowRight size={13} />
-            </button>
-          )}
-
-          {/* TIME FILTER: Live, 24h, 7d, 30d */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'rgba(11, 23, 38, 0.9)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '8px',
-              padding: '3px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            {['Live', '24h', '7d', '30d'].map((tf) => (
-              <button
-                key={tf}
-                onClick={() => setTimeFilter(tf)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '11.5px',
-                  fontWeight: timeFilter === tf ? 700 : 500,
-                  cursor: 'pointer',
-                  background: timeFilter === tf ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                  color: timeFilter === tf ? '#38BDF8' : '#94A3B8',
-                  boxShadow: timeFilter === tf ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {tf === 'Live' ? '● Live' : tf}
-              </button>
-            ))}
-          </div>
-
-          {/* BASEMAP SELECTOR: Satellite, Dark, Terrain, Light */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              background: 'rgba(11, 23, 38, 0.9)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '8px',
-              padding: '3px',
-              boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)',
-            }}
-          >
-            {['Satellite', 'Dark', 'Terrain', 'Light'].map((bm) => (
-              <button
-                key={bm}
-                onClick={() => setBasemap(bm)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: '6px',
-                  border: 'none',
-                  fontSize: '11.5px',
-                  fontWeight: basemap === bm ? 700 : 500,
-                  cursor: 'pointer',
-                  background: basemap === bm ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-                  color: basemap === bm ? '#38BDF8' : '#94A3B8',
-                  boxShadow: basemap === bm ? '0 0 10px rgba(56, 189, 248, 0.25)' : 'none',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                {bm}
-              </button>
-            ))}
-          </div>
-
-          {/* Layer Control Panel Toggle */}
-          <button
-            onClick={() => setShowLayerPanel(!showLayerPanel)}
-            className="btn-secondary"
-            style={{
-              padding: '6px 14px',
-              fontSize: '11.5px',
-              fontWeight: 600,
-              gap: '6px',
-              display: 'flex',
-              alignItems: 'center',
-              borderColor: showLayerPanel ? '#38BDF8' : 'rgba(56, 189, 248, 0.25)',
-              color: showLayerPanel ? '#38BDF8' : '#F8FAFC',
-              background: showLayerPanel ? 'rgba(56, 189, 248, 0.18)' : 'rgba(11, 23, 38, 0.9)',
-              boxShadow: showLayerPanel ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none',
-            }}
-          >
-            <Layers size={14} />
-            <span>Map Layers</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 
-        ============================================================
-        2. MAIN 2D SATELLITE MAP VIEWPORT (INDIA & SOUTH ASIA FOCUSED)
-        ============================================================
-      */}
-      <div
+    <div
+      ref={containerRef}
+      className="earth-intelligence-root"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: isFullscreen ? '100vh' : 'calc(100vh - 120px)',
+        minHeight: isFullscreen ? '100vh' : '540px',
+        width: '100%',
+        background: '#070A12',
+        borderRadius: isFullscreen ? 0 : '12px',
+        border: isFullscreen ? 'none' : '1px solid rgba(56, 189, 248, 0.18)',
+        boxShadow: isFullscreen ? 'none' : '0 12px 40px rgba(0, 0, 0, 0.6)',
+        color: '#F8FAFC',
+        overflow: 'hidden',
+        fontFamily: "'Inter', -apple-system, sans-serif",
+      }}
+    >
+      {/* ============================================================ */}
+      {/* 1. TOP HEADER                                                */}
+      {/* ============================================================ */}
+      <header
         style={{
-          position: 'relative',
-          height: '560px',
-          width: '100%',
-          borderRadius: '12px',
-          border: '1px solid rgba(56, 189, 248, 0.28)',
-          boxShadow: '0 12px 40px rgba(0, 0, 0, 0.65)',
-          overflow: 'hidden',
-          background: '#030712',
-        }}
-      >
-        {/* Leaflet 2D Map Container */}
-        <div
-          ref={mapContainerRef}
-          style={{ width: '100%', height: '100%', zIndex: 1 }}
-        />
-
-        {/* Top-Left Geographic Focus Badge */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 14,
-            left: 14,
-            zIndex: 10,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            background: 'rgba(11, 23, 38, 0.88)',
-            backdropFilter: 'blur(10px)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            borderRadius: '8px',
-            padding: '6px 12px',
-            fontSize: '11.5px',
-            color: '#FFFFFF',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-          }}
-        >
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#10B981', boxShadow: '0 0 6px #10B981' }} />
-          <strong style={{ color: '#38BDF8' }}>South Asia</strong>
-          <span style={{ color: 'var(--text-muted)' }}>&bull; India, Pakistan, Nepal, Bhutan, Bangladesh, Sri Lanka, Myanmar</span>
-        </div>
-
-        {/* Map Controls (+, -, Locate, Measure) on right */}
-        <div
-          style={{
-            position: 'absolute',
-            top: 14,
-            right: 14,
-            zIndex: 10,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '4px',
-            background: 'rgba(11, 23, 38, 0.92)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '8px',
-            padding: '4px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-          }}
-        >
-          <button
-            onClick={handleZoomIn}
-            title="Zoom In"
-            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px', fontWeight: 700 }}
-          >
-            +
-          </button>
-          <button
-            onClick={handleZoomOut}
-            title="Zoom Out"
-            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#FFFFFF', cursor: 'pointer', fontSize: '18px', fontWeight: 700 }}
-          >
-            &minus;
-          </button>
-          <button
-            onClick={handleRecenter}
-            title="Center on South Asia"
-            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
-          >
-            <Crosshair size={15} />
-          </button>
-          <button
-            onClick={handleDrawAndAnalyze}
-            title="Measure / Select Area"
-            style={{ width: 30, height: 30, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', background: drawingMode ? 'rgba(56, 189, 248, 0.25)' : 'transparent', border: 'none', color: '#38BDF8', cursor: 'pointer' }}
-          >
-            <Scissors size={14} />
-          </button>
-        </div>
-
-        {/* Layer Control Slide-Out HUD Panel */}
-        {showLayerPanel && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 56,
-              right: 14,
-              zIndex: 20,
-              width: '260px',
-              background: 'rgba(11, 23, 38, 0.95)',
-              backdropFilter: 'blur(16px)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
-              borderRadius: '10px',
-              padding: '14px',
-              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.65)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                MAP LAYER CONTROL
-              </div>
-              <button
-                onClick={() => setShowLayerPanel(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '12px' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {[
-                { key: 'satelliteImagery', label: 'Satellite Imagery', color: '#38BDF8' },
-                { key: 'viirsHotspots', label: 'Thermal Hotspots (VIIRS)', color: '#EF4444' },
-                { key: 'modisHotspots', label: 'Thermal Hotspots (MODIS)', color: '#F59E0B' },
-                { key: 'industrialFacilities', label: 'Industrial Facilities', color: '#0284C7' },
-                { key: 'countryBoundaries', label: 'Country Boundaries', color: '#CBD5E1' },
-                { key: 'stateBoundaries', label: 'State Boundaries', color: '#94A3B8' },
-                { key: 'placeLabels', label: 'Place Labels', color: '#E2E8F0' },
-                { key: 'cloudCover', label: 'Cloud Cover', color: '#A855F7' },
-              ].map((item) => {
-                const isOn = layers[item.key];
-                return (
-                  <div
-                    key={item.key}
-                    onClick={() => toggleLayer(item.key)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      padding: '5px 8px',
-                      borderRadius: '6px',
-                      background: isOn ? 'rgba(56, 189, 248, 0.08)' : 'transparent',
-                      cursor: 'pointer',
-                      fontSize: '11.5px',
-                    }}
-                  >
-                    <span style={{ color: isOn ? '#FFFFFF' : 'var(--text-muted)', fontWeight: isOn ? 600 : 400 }}>
-                      {item.label}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: '9.5px',
-                        fontWeight: 800,
-                        padding: '1px 6px',
-                        borderRadius: '3px',
-                        background: isOn ? 'rgba(16, 185, 129, 0.2)' : 'rgba(148, 163, 184, 0.15)',
-                        color: isOn ? '#10B981' : '#64748B',
-                        border: `1px solid ${isOn ? 'rgba(16, 185, 129, 0.4)' : 'rgba(148, 163, 184, 0.2)'}`,
-                      }}
-                    >
-                      {isOn ? 'ON' : 'OFF'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Drawn Area Alert Box */}
-        {drawnAreaAlert && (
-          <div
-            style={{
-              position: 'absolute',
-              top: 56,
-              left: 14,
-              zIndex: 15,
-              background: 'rgba(11, 23, 38, 0.92)',
-              backdropFilter: 'blur(10px)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              borderRadius: '8px',
-              padding: '8px 14px',
-              fontSize: '11.5px',
-              color: '#FFFFFF',
-              boxShadow: '0 4px 16px rgba(0,0,0,0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-            }}
-          >
-            <span>Target Zone: <strong style={{ color: '#38BDF8' }}>{drawnAreaAlert.areaSqKm}</strong></span>
-            <span>&bull;</span>
-            <span>Hotspots: <strong style={{ color: '#EF4444' }}>{drawnAreaAlert.detectedCount} Active</strong></span>
-            <button
-              onClick={() => {
-                measureLayerGroupRef.current?.clearLayers();
-                setDrawnAreaAlert(null);
-                setDrawingMode(false);
-              }}
-              style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', marginLeft: '4px' }}
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {/* Bottom Coordinate & Sensor Telemetry Bar */}
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            zIndex: 10,
-            background: 'rgba(11, 23, 38, 0.92)',
-            backdropFilter: 'blur(8px)',
-            borderTop: '1px solid rgba(56, 189, 248, 0.2)',
-            padding: '6px 14px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            fontSize: '11px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <span>LAT: <strong style={{ color: '#FFFFFF' }}>{mapCoords.lat}° N</strong></span>
-            <span>LON: <strong style={{ color: '#FFFFFF' }}>{mapCoords.lng}° E</strong></span>
-            <span>ZOOM: <strong style={{ color: '#38BDF8' }}>{mapCoords.zoom}x</strong></span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span>BASEMAP: <strong style={{ color: '#38BDF8' }}>{basemap === 'Light' ? 'OpenStreetMap' : 'Esri ArcGIS'}</strong></span>
-            <span>REGION: <strong style={{ color: '#FFFFFF' }}>South Asia</strong></span>
-            <span>PROJECTION: <strong style={{ color: '#94A3B8' }}>EPSG:3857 (WGS84)</strong></span>
-            <span>SENSOR: <strong style={{ color: '#10B981' }}>VIIRS 375m &bull; MODIS 1km</strong></span>
-          </div>
-        </div>
-      </div>
-
-      {/* 
-        ============================================================
-        3. REGION STATISTICS (Real Backend Data)
-        ============================================================
-      */}
-      <div
-        style={{
-          background: 'var(--glass-surface)',
-          backdropFilter: 'var(--glass-blur)',
-          WebkitBackdropFilter: 'var(--glass-blur)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '14px',
-          padding: '20px 24px',
-          boxShadow: 'var(--glass-shadow)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              REGION STATISTICS
-            </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-              Geospatial thermal distribution for South Asia command zone
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Region selector:</span>
-            <select
-              value={selectedRegion}
-              onChange={(e) => setSelectedRegion(e.target.value)}
-              className="filter-input"
-              style={{ fontSize: '12px', padding: '5px 10px', height: '32px' }}
-            >
-              <option value="All South Asia">All South Asia</option>
-              <option value="India - North">India - North</option>
-              <option value="India - Central">India - Central</option>
-              <option value="India - South">India - South</option>
-              <option value="Pakistan">Pakistan</option>
-              <option value="Bangladesh">Bangladesh</option>
-              <option value="Nepal">Nepal</option>
-            </select>
-          </div>
-        </div>
-
-        {/* 4 Metrics in one clean row */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
-            gap: '14px',
-          }}
-        >
-          {/* Total Hotspots */}
-          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Total Hotspots
-            </div>
-            <div style={{ fontSize: '26px', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              {regionStats.totalHotspots.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '11px', color: '#10B981', marginTop: '4px' }}>
-              Observed in region
-            </div>
-          </div>
-
-          {/* Industrial Fires */}
-          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Industrial Fires
-            </div>
-            <div style={{ fontSize: '26px', fontWeight: 600, color: '#EF4444', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              {regionStats.industrialFires.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '11px', color: '#EF4444', marginTop: '4px' }}>
-              High-risk facilities
-            </div>
-          </div>
-
-          {/* Forest Fires */}
-          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Forest Fires
-            </div>
-            <div style={{ fontSize: '26px', fontWeight: 600, color: '#F59E0B', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              {regionStats.forestFires.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '11px', color: '#F59E0B', marginTop: '4px' }}>
-              Vegetation perimeters
-            </div>
-          </div>
-
-          {/* Other Sources */}
-          <div style={{ background: 'var(--glass-nested)', border: '1px solid var(--glass-border-subtle)', borderRadius: '10px', padding: '14px 18px', transition: 'all 0.2s ease' }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Other Sources
-            </div>
-            <div style={{ fontSize: '26px', fontWeight: 600, color: '#38BDF8', fontFamily: 'var(--font-sans)', marginTop: '4px', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
-              {regionStats.otherSources.toLocaleString()}
-            </div>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-              Agricultural / flares
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 
-        ============================================================
-        4. TWO-COLUMN: RECENT DETECTIONS + QUICK ANALYSIS
-        ============================================================
-      */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 24px',
+          background: 'rgba(10, 15, 26, 0.92)',
+          backdropFilter: 'blur(16px)',
+          borderBottom: '1px solid rgba(56, 189, 248, 0.15)',
+          zIndex: 30,
+          flexShrink: 0,
           gap: '16px',
         }}
       >
-        {/* LEFT: RECENT DETECTIONS */}
+        {/* Left: Title & Subtitle */}
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                display: 'inline-block',
+                width: '8px',
+                height: '8px',
+                borderRadius: '50%',
+                background: '#38BDF8',
+                boxShadow: '0 0 8px #38BDF8',
+              }}
+            />
+            <h1
+              style={{
+                fontSize: '17px',
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                color: '#FFFFFF',
+                margin: 0,
+                textTransform: 'uppercase',
+              }}
+            >
+              Earth Intelligence
+            </h1>
+          </div>
+          <p
+            style={{
+              fontSize: '11.5px',
+              color: '#94A3B8',
+              margin: '3px 0 0 0',
+              fontWeight: 400,
+            }}
+          >
+            Global geographic intelligence for satellite thermal detections.
+          </p>
+        </div>
+
+        {/* Right: Search Bar & 3D / 2D Toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Location Search Form */}
+          <form
+            onSubmit={handleSearchSubmit}
+            style={{
+              position: 'relative',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <Search
+              size={14}
+              style={{
+                position: 'absolute',
+                left: '10px',
+                color: isSearching ? '#38BDF8' : '#64748B',
+                pointerEvents: 'none',
+              }}
+            />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search location, coordinates, or Detection ID..."
+              style={{
+                width: '320px',
+                background: 'rgba(15, 23, 42, 0.85)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                borderRadius: '6px',
+                padding: '7px 32px',
+                color: '#F8FAFC',
+                fontSize: '12px',
+                outline: 'none',
+                transition: 'border-color 0.2s',
+              }}
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSearchFeedback(null);
+                }}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  background: 'none',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                <X size={13} />
+              </button>
+            )}
+          </form>
+
+          {/* View Mode Toggle (3D Earth <-> 2D Satellite) */}
+          <div
+            style={{
+              display: 'flex',
+              background: 'rgba(15, 23, 42, 0.85)',
+              borderRadius: '6px',
+              border: '1px solid rgba(56, 189, 248, 0.25)',
+              padding: '2px',
+            }}
+          >
+            <button
+              onClick={() => setViewMode('3d')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: viewMode === '3d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+                color: viewMode === '3d' ? '#38BDF8' : '#94A3B8',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '5px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <Globe size={13} />
+              <span>3D Earth</span>
+            </button>
+            <button
+              onClick={() => setViewMode('2d')}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                background: viewMode === '2d' ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+                color: viewMode === '2d' ? '#38BDF8' : '#94A3B8',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '5px 10px',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              <MapPin size={13} />
+              <span>2D GIS</span>
+            </button>
+          </div>
+
+          {/* Real Live Ingestion Status Pill */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.3)',
+              borderRadius: '6px',
+              padding: '6px 10px',
+              fontSize: '11px',
+              color: '#34D399',
+              fontWeight: 600,
+              letterSpacing: '0.04em',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: '#10B981',
+                boxShadow: '0 0 6px #10B981',
+              }}
+            />
+            <span>{detections.length} REAL DETECTIONS</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Search Feedback Notification Banner */}
+      {searchFeedback && (
         <div
           style={{
-            background: 'var(--glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '14px',
-            padding: '20px 22px',
-            boxShadow: 'var(--glass-shadow)',
+            position: 'absolute',
+            top: '64px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(15, 23, 42, 0.94)',
+            backdropFilter: 'blur(12px)',
+            border: `1px solid ${
+              searchFeedback.type === 'success'
+                ? 'rgba(16, 185, 129, 0.4)'
+                : searchFeedback.type === 'warn'
+                ? 'rgba(239, 68, 68, 0.4)'
+                : 'rgba(56, 189, 248, 0.4)'
+            }`,
+            borderRadius: '8px',
+            padding: '7px 16px',
+            color:
+              searchFeedback.type === 'success'
+                ? '#34D399'
+                : searchFeedback.type === 'warn'
+                ? '#F87171'
+                : '#38BDF8',
+            fontSize: '12px',
+            fontWeight: 500,
+            zIndex: 40,
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-                RECENT DETECTIONS
+          <span>{searchFeedback.text}</span>
+          <button
+            onClick={() => setSearchFeedback(null)}
+            style={{ background: 'none', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: 0 }}
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* ============================================================ */}
+      {/* 2. MAIN WORKSPACE: 2-COLUMN (Center Earth + Right Panel)     */}
+      {/* ============================================================ */}
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+        {/* ========================================================== */}
+        {/* CENTER COLUMN: Large 3D Earth / Geographic Visualization   */}
+        {/* Occupies 65-75% of visual area, completely unobstructed    */}
+        {/* ========================================================== */}
+        <div
+          style={{
+            flex: 1,
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          {/* Dynamic Geographic Breadcrumb Bar */}
+          <div
+            style={{
+              padding: '8px 20px',
+              background: 'rgba(10, 16, 30, 0.65)',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              fontSize: '11.5px',
+              color: '#94A3B8',
+              zIndex: 15,
+              flexShrink: 0,
+              overflowX: 'auto',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {breadcrumbItems.map((item, idx) => (
+              <React.Fragment key={idx}>
+                {idx > 0 && <ChevronRight size={12} style={{ color: '#475569', flexShrink: 0 }} />}
+                <span
+                  onClick={item.onClick}
+                  style={{
+                    color: item.isTarget ? '#38BDF8' : item.onClick ? '#F8FAFC' : '#94A3B8',
+                    fontWeight: item.isTarget ? 700 : item.onClick ? 600 : 400,
+                    cursor: item.onClick ? 'pointer' : 'default',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                >
+                  {item.label}
+                </span>
+              </React.Fragment>
+            ))}
+          </div>
+
+          {/* Primary Visualization Viewport (3D Earth or 2D Satellite) */}
+          <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+            {/* 3D Realistic Earth Canvas */}
+            {viewMode === '3d' && (
+              <div style={{ position: 'absolute', inset: 0, zIndex: 1 }}>
+                <EarthGlobe3D
+                  detections={detections}
+                  selectedDetection={selectedDetection}
+                  onSelectDetection={onSelectDetection}
+                  onSwitchTo2D={() => setViewMode('2d')}
+                  focusTrigger={focusTrigger}
+                  resetTrigger={resetTrigger}
+                  zoomInTrigger={zoomInTrigger}
+                  zoomOutTrigger={zoomOutTrigger}
+                  hideSidePanel={true}
+                  isEarthIntelligence={true}
+                  palette="thermal"
+                />
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                Spaceborne thermal signatures in South Asia
+            )}
+
+            {/* 2D Satellite Viewport */}
+            {viewMode === '2d' && (
+              <div
+                ref={leafletContainerRef}
+                style={{ position: 'absolute', inset: 0, zIndex: 1, background: '#050B14' }}
+              />
+            )}
+
+            {/* Honest Empty State Banner if no detections exist */}
+            {(!detections || detections.length === 0) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  background: 'rgba(15, 23, 42, 0.94)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  borderRadius: '8px',
+                  padding: '8px 20px',
+                  color: '#F87171',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  zIndex: 15,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  letterSpacing: '0.04em',
+                }}
+              >
+                <AlertTriangle size={15} />
+                <span>NO REAL SATELLITE DETECTIONS AVAILABLE</span>
               </div>
-            </div>
-            {onNavigate && (
+            )}
+
+            {/* Single Earth Control Group (Source of Truth) */}
+            <aside
+              style={{
+                position: 'absolute',
+                top: '20px',
+                left: '20px',
+                zIndex: 20,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '3px',
+                background: 'rgba(15, 23, 42, 0.92)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(56, 189, 248, 0.28)',
+                borderRadius: '8px',
+                padding: '4px',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+              }}
+            >
+              {/* 1. Zoom In (+) */}
               <button
-                onClick={() => onNavigate('detection-explorer')}
+                onClick={() => {
+                  if (viewMode === '2d' && leafletMapRef.current) {
+                    leafletMapRef.current.zoomIn();
+                  } else {
+                    setZoomInTrigger((p) => p + 1);
+                  }
+                }}
+                title="Zoom In"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  padding: '5px 7px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  width: '32px',
+                  height: '32px',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                +
+              </button>
+
+              {/* 2. Zoom Out (−) */}
+              <button
+                onClick={() => {
+                  if (viewMode === '2d' && leafletMapRef.current) {
+                    leafletMapRef.current.zoomOut();
+                  } else {
+                    setZoomOutTrigger((p) => p + 1);
+                  }
+                }}
+                title="Zoom Out"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  padding: '5px 7px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                  fontWeight: 700,
+                  lineHeight: 1,
+                  width: '32px',
+                  height: '32px',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                &minus;
+              </button>
+
+              <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.12)', margin: '2px 4px' }} />
+
+              {/* 3. Focus Location */}
+              <button
+                onClick={() => {
+                  if (selectedDetection) {
+                    setFocusTrigger((p) => p + 1);
+                    if (viewMode === '2d' && leafletMapRef.current) {
+                      const lat = parseFloat(selectedDetection.latitude);
+                      const lon = parseFloat(selectedDetection.longitude);
+                      if (!isNaN(lat) && !isNaN(lon)) leafletMapRef.current.setView([lat, lon], 12, { animate: true });
+                    }
+                  } else if (detections.length > 0) {
+                    onSelectDetection(detections[0]);
+                    setFocusTrigger((p) => p + 1);
+                    if (viewMode === '2d' && leafletMapRef.current) {
+                      const lat = parseFloat(detections[0].latitude);
+                      const lon = parseFloat(detections[0].longitude);
+                      if (!isNaN(lat) && !isNaN(lon)) leafletMapRef.current.setView([lat, lon], 12, { animate: true });
+                    }
+                  }
+                }}
+                title="Focus Location"
+                style={{
+                  background: selectedDetection ? 'rgba(56, 189, 248, 0.22)' : 'transparent',
+                  border: 'none',
+                  color: selectedDetection ? '#38BDF8' : '#FFFFFF',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                <Crosshair size={16} />
+              </button>
+
+              {/* 4. Reset / Global View */}
+              <button
+                onClick={() => {
+                  onSelectDetection(null);
+                  setResetTrigger((p) => p + 1);
+                  if (viewMode === '2d' && leafletMapRef.current) {
+                    leafletMapRef.current.setView([21, 78], 4, { animate: true });
+                  }
+                }}
+                title="Reset / Global View"
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                <Globe size={15} />
+              </button>
+
+              {/* 5. Fullscreen */}
+              <button
+                onClick={toggleFullscreen}
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#94A3B8',
+                  cursor: 'pointer',
+                  padding: '6px',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+              </button>
+            </aside>
+          </div>
+        </div>
+
+        {/* ========================================================== */}
+        {/* RIGHT COLUMN: Dedicated Detection / Location Panel        */}
+        {/* Width: 360px fixed, NEVER overlaps Earth                  */}
+        {/* ========================================================== */}
+        <aside
+          style={{
+            width: '360px',
+            flexShrink: 0,
+            height: '100%',
+            background: 'rgba(10, 16, 30, 0.96)',
+            backdropFilter: 'blur(20px)',
+            borderLeft: '1px solid rgba(56, 189, 248, 0.2)',
+            display: 'flex',
+            flexDirection: 'column',
+            zIndex: 25,
+            overflowY: 'auto',
+          }}
+        >
+          {/* Panel Header */}
+          <div
+            style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexShrink: 0,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Compass size={16} style={{ color: '#38BDF8' }} />
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  color: '#F8FAFC',
+                  textTransform: 'uppercase',
+                }}
+              >
+                Location Intelligence
+              </span>
+            </div>
+            {selectedDetection && (
+              <button
+                onClick={() => onSelectDetection(null)}
+                title="Deselect Location"
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#38BDF8',
-                  fontSize: '12px',
-                  fontWeight: 600,
+                  color: '#94A3B8',
                   cursor: 'pointer',
+                  padding: '4px',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '4px',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
                 }}
               >
-                <span>View All</span>
-                <ArrowRight size={13} />
+                <X size={15} />
               </button>
             )}
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {recentDetectionsList.map((item) => (
+          {/* Panel Body */}
+          {!selectedDetection ? (
+            /* Empty State when no detection is selected */
+            <div
+              style={{
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '32px 24px',
+                textAlign: 'center',
+                color: '#64748B',
+              }}
+            >
               <div
-                key={item.id}
-                onClick={() => onNavigate && onNavigate('detection-explorer')}
                 style={{
-                  background: 'rgba(15, 32, 50, 0.45)',
-                  border: '1px solid rgba(56, 189, 248, 0.12)',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
+                  width: '52px',
+                  height: '52px',
+                  borderRadius: '50%',
+                  background: 'rgba(56, 189, 248, 0.08)',
+                  border: '1px solid rgba(56, 189, 248, 0.2)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '12px',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.35)';
-                  e.currentTarget.style.background = 'rgba(15, 32, 50, 0.7)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.12)';
-                  e.currentTarget.style.background = 'rgba(15, 32, 50, 0.45)';
+                  justifyContent: 'center',
+                  marginBottom: '16px',
+                  color: '#38BDF8',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                  {/* Small visual infrared radar thumbnail */}
+                <Compass size={26} />
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 600, color: '#E2E8F0', marginBottom: '8px' }}>
+                No Detection Selected
+              </div>
+              <p style={{ fontSize: '12.5px', lineHeight: 1.6, margin: 0, maxWidth: '280px', color: '#94A3B8' }}>
+                Select a detection or search for a location to inspect geographic intelligence.
+              </p>
+            </div>
+          ) : (
+            /* Dedicated Details when Detection is Selected */
+            <div
+              style={{
+                flex: 1,
+                padding: '18px 20px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px',
+              }}
+            >
+              {/* Section 1: Detection Details */}
+              <div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: '#38BDF8',
+                    textTransform: 'uppercase',
+                    marginBottom: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <span>Detection Details</span>
+                  <span style={{ color: '#64748B', fontFamily: 'monospace' }}>
+                    ID #{selectedDetection.id || selectedDetection.detection_id || 'N/A'}
+                  </span>
+                </div>
+
+                {/* Classification & Status Badges */}
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                  <ClassBadge predictedClass={selectedDetection.predicted_class || selectedDetection.classification} />
+                  <ProvenanceBadge provenance={selectedDetection.data_provenance || selectedDetection.source} />
+                </div>
+
+                {/* Canonical Coordinates Card with Copy */}
+                <div
+                  style={{
+                    background: 'rgba(56, 189, 248, 0.08)',
+                    border: '1px solid rgba(56, 189, 248, 0.25)',
+                    borderRadius: '8px',
+                    padding: '10px 12px',
+                    marginBottom: '12px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: '#38BDF8', letterSpacing: '0.04em' }}>
+                      CANONICAL COORDINATES
+                    </span>
+                    <button
+                      onClick={() => handleCopyCoords(selectedDetection.latitude, selectedDetection.longitude)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        background: 'none',
+                        border: 'none',
+                        color: copiedCoords ? '#34D399' : '#38BDF8',
+                        fontSize: '11px',
+                        cursor: 'pointer',
+                        padding: 0,
+                      }}
+                    >
+                      {copiedCoords ? <Check size={12} /> : <Copy size={12} />}
+                      <span>{copiedCoords ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '6px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94A3B8' }}>LATITUDE</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                        {parseFloat(selectedDetection.latitude).toFixed(6)}°
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '10px', color: '#94A3B8' }}>LONGITUDE</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+                        {parseFloat(selectedDetection.longitude).toFixed(6)}°
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metrics Grid */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: '8px',
+                  }}
+                >
                   <div
                     style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: 6,
-                      background: 'radial-gradient(circle, #EF4444 0%, #F59E0B 40%, #0B1726 80%)',
-                      border: '1px solid rgba(56, 189, 248, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
                     }}
                   >
-                    <Flame size={15} style={{ color: '#FFFFFF' }} />
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Confidence</div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: '#38BDF8', marginTop: '2px' }}>
+                      {formatConfidence(selectedDetection.prediction_confidence)}
+                    </div>
                   </div>
 
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>
-                        {item.title}
-                      </span>
-                      <span
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}
+                  >
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Risk Level</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F8FAFC', marginTop: '2px' }}>
+                      {selectedDetection.risk_level || selectedDetection.risk || 'N/A'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}
+                  >
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Radiative Power</div>
+                    <div style={{ fontSize: '14px', fontWeight: 700, color: '#F59E0B', marginTop: '2px' }}>
+                      {selectedDetection.frp ? `${parseFloat(selectedDetection.frp).toFixed(1)} MW` : 'N/A'}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      padding: '8px 10px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}
+                  >
+                    <div style={{ fontSize: '10.5px', color: '#94A3B8' }}>Satellite Sensor</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+                      {selectedDetection.source || selectedDetection.satellite || 'VIIRS'}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Metadata Row */}
+                <div
+                  style={{
+                    marginTop: '10px',
+                    padding: '8px 10px',
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    fontSize: '11px',
+                    color: '#94A3B8',
+                    lineHeight: 1.6,
+                  }}
+                >
+                  <div>
+                    Acquisition Date:{' '}
+                    <strong style={{ color: '#FFFFFF' }}>
+                      {selectedDetection.acq_date || (selectedDetection.timestamp ? selectedDetection.timestamp.split('T')[0] : 'N/A')}
+                    </strong>
+                  </div>
+                  <div>
+                    Acquisition Time:{' '}
+                    <strong style={{ color: '#FFFFFF' }}>
+                      {selectedDetection.acq_time ? `${selectedDetection.acq_time} UTC` : 'N/A'}
+                    </strong>
+                  </div>
+                  <div>
+                    Data Provenance:{' '}
+                    <strong style={{ color: '#34D399' }}>
+                      {selectedDetection.data_provenance || selectedDetection.source || 'NASA FIRMS'}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Location Context */}
+              <div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    color: '#38BDF8',
+                    textTransform: 'uppercase',
+                    marginBottom: '8px',
+                  }}
+                >
+                  Location Context
+                </div>
+
+                {/* Resolved Administrative Area */}
+                <div
+                  style={{
+                    padding: '8px 12px',
+                    background: 'rgba(255, 255, 255, 0.03)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    fontSize: '12px',
+                    color: '#F8FAFC',
+                    marginBottom: '10px',
+                    lineHeight: 1.45,
+                  }}
+                >
+                  {locationContext.loading ? (
+                    <span style={{ color: '#94A3B8', fontStyle: 'italic' }}>Resolving spatial geography...</span>
+                  ) : (
+                    locationContext.resolvedAddress || formatCoordinates(selectedDetection.latitude, selectedDetection.longitude)
+                  )}
+                </div>
+
+                {/* Nearby Geographic Features from Overpass/OSM */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {locationContext.loading ? (
+                    <div style={{ fontSize: '11.5px', color: '#64748B', fontStyle: 'italic', padding: '6px 0' }}>
+                      Analyzing nearby spatial infrastructure...
+                    </div>
+                  ) : locationContext.features && locationContext.features.length > 0 ? (
+                    locationContext.features.map((feat, idx) => (
+                      <div
+                        key={idx}
                         style={{
-                          fontSize: '10px',
-                          fontWeight: 700,
-                          padding: '1px 6px',
-                          borderRadius: '4px',
-                          background: `${item.color}22`,
-                          color: item.color,
-                          border: `1px solid ${item.color}55`,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '11.5px',
+                          padding: '6px 10px',
+                          background: 'rgba(255, 255, 255, 0.03)',
+                          borderRadius: '6px',
+                          border: '1px solid rgba(255, 255, 255, 0.06)',
                         }}
                       >
-                        {item.category}
-                      </span>
+                        <span
+                          style={{
+                            color: '#E2E8F0',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            maxWidth: '220px',
+                          }}
+                        >
+                          <span
+                            style={{
+                              width: '6px',
+                              height: '6px',
+                              borderRadius: '50%',
+                              background: '#38BDF8',
+                              flexShrink: 0,
+                            }}
+                          />
+                          <span>
+                            {feat.categoryLabel} — <strong style={{ color: '#FFFFFF' }}>{feat.name}</strong>
+                          </span>
+                        </span>
+                        <span style={{ color: '#38BDF8', fontFamily: 'monospace', fontWeight: 600, flexShrink: 0 }}>
+                          {feat.distance_m < 1000 ? `${feat.distance_m} m` : `${(feat.distance_m / 1000).toFixed(1)} km`}
+                        </span>
+                      </div>
+                    ))
+                  ) : (
+                    <div
+                      style={{
+                        fontSize: '11.5px',
+                        color: '#64748B',
+                        fontStyle: 'italic',
+                        padding: '8px 12px',
+                        background: 'rgba(255, 255, 255, 0.02)',
+                        borderRadius: '6px',
+                        border: '1px solid rgba(255, 255, 255, 0.04)',
+                      }}
+                    >
+                      No mapped nearby features found.
                     </div>
-                    <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                      {item.location} &bull; <span style={{ fontFamily: 'var(--font-mono)' }}>{item.coords}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                  <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#38BDF8', fontFamily: 'var(--font-mono)' }}>
-                    {item.frp}
-                  </div>
-                  <div style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>
-                    {item.time}
-                  </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* RIGHT: QUICK ANALYSIS */}
-        <div
-          style={{
-            background: 'var(--glass-surface)',
-            backdropFilter: 'var(--glass-blur)',
-            WebkitBackdropFilter: 'var(--glass-blur)',
-            border: '1px solid var(--glass-border)',
-            borderRadius: '14px',
-            padding: '20px 22px',
-            boxShadow: 'var(--glass-shadow)',
-            display: 'flex',
-            flexDirection: 'column',
-          }}
-        >
-          <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-primary)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: '14px' }}>
-            QUICK ANALYSIS
-          </div>
+              {/* Section 3: Action Buttons */}
+              <div
+                style={{
+                  marginTop: 'auto',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  paddingTop: '12px',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+                }}
+              >
+                <button
+                  onClick={() => {
+                    onFocusDetection(selectedDetection);
+                    onNavigate('detection-explorer');
+                  }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '9.5px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'linear-gradient(90deg, #0284C7 0%, #0EA5E9 100%)',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  <MapPin size={14} />
+                  <span>VIEW DETAILS</span>
+                </button>
 
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-              gap: '10px',
-              flex: 1,
-            }}
-          >
-            {/* Draw & Analyze */}
-            <div
-              onClick={handleDrawAndAnalyze}
-              style={{
-                background: 'var(--glass-nested)',
-                border: '1px solid var(--glass-border-subtle)',
-                borderRadius: '10px',
-                padding: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
-                e.currentTarget.style.background = 'var(--glass-nested-hover)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
-                e.currentTarget.style.background = 'var(--glass-nested)';
-                e.currentTarget.style.transform = 'none';
-              }}
-            >
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(56, 189, 248, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#38BDF8' }}>
-                <Scissors size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
-                  Draw &amp; Analyze
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Select an area on map
-                </div>
+                <button
+                  onClick={() => {
+                    onFocusDetection(selectedDetection);
+                    onNavigate('gis-investigation');
+                  }}
+                  style={{
+                    width: '100%',
+                    justifyContent: 'center',
+                    padding: '8.5px',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    borderRadius: '6px',
+                    color: '#38BDF8',
+                    cursor: 'pointer',
+                    letterSpacing: '0.04em',
+                  }}
+                >
+                  <Target size={14} />
+                  <span>INVESTIGATE LOCATION</span>
+                </button>
+
+                {/* Optional Google Street View if API key is present */}
+                {import.meta.env.VITE_GOOGLE_MAPS_API_KEY &&
+                  selectedDetection.latitude &&
+                  selectedDetection.longitude && (
+                    <button
+                      onClick={() => {
+                        const lat = selectedDetection.latitude;
+                        const lon = selectedDetection.longitude;
+                        window.open(
+                          `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lon}`,
+                          '_blank'
+                        );
+                      }}
+                      style={{
+                        width: '100%',
+                        justifyContent: 'center',
+                        padding: '7px',
+                        fontSize: '11px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '6px',
+                        color: '#94A3B8',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <ExternalLink size={12} />
+                      <span>OPEN STREET VIEW (OPTIONAL)</span>
+                    </button>
+                  )}
               </div>
             </div>
-
-            {/* Time Series */}
-            <div
-              onClick={() => onNavigate && onNavigate('analytics')}
-              style={{
-                background: 'var(--glass-nested)',
-                border: '1px solid var(--glass-border-subtle)',
-                borderRadius: '10px',
-                padding: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
-                e.currentTarget.style.background = 'var(--glass-nested-hover)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
-                e.currentTarget.style.background = 'var(--glass-nested)';
-                e.currentTarget.style.transform = 'none';
-              }}
-            >
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-                <TrendingUp size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
-                  Time Series
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  View temporal changes
-                </div>
-              </div>
-            </div>
-
-            {/* Region Report */}
-            <div
-              onClick={() => {
-                alert(`SATRA Region Report Generated for ${selectedRegion}:\n- Active Hotspots: ${regionStats.totalHotspots}\n- Industrial Fires: ${regionStats.industrialFires}\n- Forest Fires: ${regionStats.forestFires}\n- Status: Operational`);
-              }}
-              style={{
-                background: 'var(--glass-nested)',
-                border: '1px solid var(--glass-border-subtle)',
-                borderRadius: '10px',
-                padding: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
-                e.currentTarget.style.background = 'var(--glass-nested-hover)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
-                e.currentTarget.style.background = 'var(--glass-nested)';
-                e.currentTarget.style.transform = 'none';
-              }}
-            >
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
-                <FileText size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
-                  Region Report
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Generate detailed report
-                </div>
-              </div>
-            </div>
-
-            {/* Export Data */}
-            <div
-              onClick={handleExportData}
-              style={{
-                background: 'var(--glass-nested)',
-                border: '1px solid var(--glass-border-subtle)',
-                borderRadius: '10px',
-                padding: '14px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-hover)';
-                e.currentTarget.style.background = 'var(--glass-nested-hover)';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--glass-border-subtle)';
-                e.currentTarget.style.background = 'var(--glass-nested)';
-                e.currentTarget.style.transform = 'none';
-              }}
-            >
-              <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(168, 85, 247, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#A855F7' }}>
-                <Download size={16} />
-              </div>
-              <div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--text-primary)', marginTop: '10px' }}>
-                  Export Data
-                </div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                  Download satellite data
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+          )}
+        </aside>
       </div>
     </div>
   );

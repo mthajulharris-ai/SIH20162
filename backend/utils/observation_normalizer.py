@@ -527,7 +527,9 @@ def parse_zip_archive(
                 return selected["rows"], selected["format"], selected["rel_name"]
 
     except zipfile.BadZipFile:
-        raise ValueError(f"File '{filename}' is not a valid or readable ZIP archive.")
+        if ".crdownload" in filename.lower():
+            raise ValueError("Incomplete download file. Please wait for the download to finish and upload the completed file.")
+        raise ValueError("Invalid or incomplete ZIP archive.")
 
 
 def normalize_and_validate_file(
@@ -543,6 +545,9 @@ def normalize_and_validate_file(
     - Detected format description (e.g. "NASA FIRMS MODIS", "NASA FIRMS VIIRS CSV")
     - Identified observation filename (either direct filename or extracted file from ZIP)
     """
+    if ".crdownload" in filename.lower():
+        raise ValueError("Incomplete download file. Please wait for the download to finish and upload the completed file.")
+
     is_zip = filename.lower().endswith(".zip") or content_bytes[:4] == b"PK\x03\x04"
     if is_zip:
         raw_rows, detected_flavor, identified_filename = parse_zip_archive(content_bytes, filename)
