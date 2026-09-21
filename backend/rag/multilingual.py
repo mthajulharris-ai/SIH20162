@@ -58,12 +58,54 @@ ASSAMESE_MARKERS = [
 ]
 
 
+def detect_scripts(text: str):
+    """
+    Detects Indic/Urdu scripts in text, returning list of (lang_code, count) sorted descending.
+    """
+    if not text:
+        return []
+    counts = []
+    patterns = [
+        ("te", TELUGU_PATTERN),
+        ("ta", TAMIL_PATTERN),
+        ("kn", KANNADA_PATTERN),
+        ("ml", MALAYALAM_PATTERN),
+        ("gu", GUJARATI_PATTERN),
+        ("pa", GURMUKHI_PUNJABI_PATTERN),
+        ("or", ODIA_PATTERN),
+        ("ur", URDU_ARABIC_PATTERN),
+    ]
+    for code, pat in patterns:
+        matches = pat.findall(text)
+        if matches:
+            counts.append((code, len(matches)))
+
+    if BENGALI_ASSAMESE_PATTERN.search(text):
+        matches = BENGALI_ASSAMESE_PATTERN.findall(text)
+        if any(marker in text for marker in ASSAMESE_MARKERS):
+            counts.append(("as", len(matches)))
+        else:
+            counts.append(("bn", len(matches)))
+
+    if DEVANAGARI_PATTERN.search(text):
+        matches = DEVANAGARI_PATTERN.findall(text)
+        if any(marker in text for marker in MARATHI_DEVANAGARI_MARKERS):
+            counts.append(("mr", len(matches)))
+        elif any(marker in text for marker in RAJASTHANI_DEVANAGARI_MARKERS):
+            counts.append(("raj", len(matches)))
+        else:
+            counts.append(("hi", len(matches)))
+
+    counts.sort(key=lambda x: x[1], reverse=True)
+    return counts
+
+
 def detect_language(text: str) -> str:
     """
     Detects language or style of the input text.
     Returns language codes:
     'ta', 'te', 'kn', 'ml', 'hi', 'mr', 'gu', 'bn', 'pa', 'or', 'as', 'ur', 'raj', 'tanglish', or 'en'.
-    Returns 'neutral' if the text has no strong language indicator (e.g. short greeting 'hello', numbers).
+    Returns 'neutral' for short technical acronyms ('RAG', 'FRP', 'NASA FIRMS'), greetings, or ambiguous text.
     """
     if not text or not text.strip():
         return "neutral"
@@ -72,34 +114,31 @@ def detect_language(text: str) -> str:
     clean_lower = clean_text.lower()
 
     # 1. Native script detection (highest confidence)
-    if TAMIL_PATTERN.search(clean_text):
-        return "ta"
-    if TELUGU_PATTERN.search(clean_text):
-        return "te"
-    if KANNADA_PATTERN.search(clean_text):
-        return "kn"
-    if MALAYALAM_PATTERN.search(clean_text):
-        return "ml"
-    if GUJARATI_PATTERN.search(clean_text):
-        return "gu"
-    if GURMUKHI_PUNJABI_PATTERN.search(clean_text):
-        return "pa"
-    if ODIA_PATTERN.search(clean_text):
-        return "or"
-    if URDU_ARABIC_PATTERN.search(clean_text):
-        return "ur"
-    if BENGALI_ASSAMESE_PATTERN.search(clean_text):
-        if any(marker in clean_text for marker in ASSAMESE_MARKERS):
-            return "as"
-        return "bn"
-    if DEVANAGARI_PATTERN.search(clean_text):
-        if any(marker in clean_text for marker in MARATHI_DEVANAGARI_MARKERS):
-            return "mr"
-        if any(marker in clean_text for marker in RAJASTHANI_DEVANAGARI_MARKERS):
-            return "raj"
-        return "hi"
+    scripts = detect_scripts(clean_text)
+    if scripts:
+        return scripts[0][0]
 
-    # 2. Romanized / Transliterated text detection
+    # 2. Check for explicit language name queries (e.g. "Telugu RAG", "Tamil FRP")
+    explicit_lang_names = {
+        "telugu": "te",
+        "tamil": "ta",
+        "hindi": "hi",
+        "kannada": "kn",
+        "malayalam": "ml",
+        "marathi": "mr",
+        "gujarati": "gu",
+        "bengali": "bn",
+        "punjabi": "pa",
+        "odia": "or",
+        "assamese": "as",
+        "urdu": "ur",
+        "tanglish": "tanglish",
+    }
+    for name, code in explicit_lang_names.items():
+        if re.search(rf"\b{name}\b", clean_lower):
+            return code
+
+    # 3. Romanized / Transliterated text detection
     for marker in TANGLISH_MARKERS:
         if re.search(marker, clean_lower):
             return "tanglish"
@@ -112,22 +151,28 @@ def detect_language(text: str) -> str:
         if re.search(marker, clean_lower):
             return "te"
 
-    # 3. Check for neutral/short ambiguous messages that shouldn't override user preference
-    ambiguous_words = {"hi", "hello", "hey", "help", "ok", "yes", "no", "thanks", "test"}
-    words = clean_lower.split()
-    if len(words) <= 2 and any(w in ambiguous_words for w in words):
-        return "neutral"
-
-    # 4. Check for clear English indicators
+    # 4. Check for clear English indicators / sentence grammar
     english_query_cues = [
         "what is", "what are", "how does", "how do", "how many", "why is", "why was",
         "tell me", "explain", "show me", "which is", "which are", "where is", "details of",
-        "status of", "difference between", "can you", "could you"
+        "status of", "difference between", "can you", "could you", "today's", "todays",
+        "classify", "classification", "overview", "meaning of", "define"
     ]
     if any(cue in clean_lower for cue in english_query_cues):
         return "en"
 
-    # Default to English if standard ASCII
+    # 5. Neutral / Acronym / Short query check
+    words = re.findall(r'\b\w+\b', clean_lower)
+    domain_acronyms = {
+        "rag", "frp", "firms", "nasa", "viirs", "modis", "gis", "dbscan",
+        "satra", "snpp", "terra", "aqua", "mwir", "i4", "i5", "m13", "rf", "xgb", "lgbm"
+    }
+    ambiguous_words = {"hi", "hello", "hey", "help", "ok", "yes", "no", "thanks", "test"}
+
+    if all(w in domain_acronyms or w in ambiguous_words for w in words) or len(words) <= 2:
+        return "neutral"
+
+    # Default to English if standard ASCII with English words
     return "en"
 
 
@@ -138,28 +183,86 @@ def resolve_response_language(
 ) -> str:
     """
     Resolves response language strictly honoring the required priority:
-    1. Current user message language/style (strong signal)
-    2. Current voice transcript language/style (passed via message)
-    3. Current conversation language (from history if message is neutral)
-    4. Selected Preferred Language (preference fallback)
-    5. English fallback ('en')
+    1. Actual current question's language/script when detectable
+    2. If mixed scripts are present (e.g. "FRP అంటే என்ன?"), honor preferred_language if it matches one of the scripts
+    3. Explicit language keywords in query (e.g. "Telugu RAG")
+    4. Transliterated / Romanized markers (Tanglish, Hinglish, Roman Telugu)
+    5. English grammatical questions ("What is NASA FIRMS?")
+    6. Selected Preferred Language for neutral / acronym queries ("RAG", "FRP", "NASA FIRMS")
+    7. Conversation history fallback if preferred is 'auto'
+    8. Default English ('en')
     """
-    detected = detect_language(message)
+    clean_text = (message or "").strip()
+    if not clean_text:
+        pref = (preferred_language or "").strip().lower()
+        return pref if pref and pref != "auto" else "en"
 
-    # 1 & 2: If current message/voice has a strong language signal, that signal WINS unconditionally
-    if detected and detected != "neutral":
-        return detected
-
-    # 4: If message is neutral (e.g. "hello", "hi"), use Preferred Language if specified
     pref = (preferred_language or "").strip().lower()
     valid_prefs = {
         "en", "ta", "tanglish", "te", "kn", "ml", "hi", "mr",
         "gu", "bn", "pa", "or", "as", "ur", "raj"
     }
-    if pref in valid_prefs:
+
+    # 1. Native script detection
+    scripts = detect_scripts(clean_text)
+    if scripts:
+        present_codes = [code for code, _ in scripts]
+        # If preferred language is one of the scripts present, prefer it!
+        if pref in present_codes:
+            return pref
+        # Otherwise return the script with the highest character count
+        return scripts[0][0]
+
+    # 2. Check for explicit language names in query (e.g. "Telugu RAG")
+    clean_lower = clean_text.lower()
+    explicit_lang_names = {
+        "telugu": "te",
+        "tamil": "ta",
+        "hindi": "hi",
+        "kannada": "kn",
+        "malayalam": "ml",
+        "marathi": "mr",
+        "gujarati": "gu",
+        "bengali": "bn",
+        "punjabi": "pa",
+        "odia": "or",
+        "assamese": "as",
+        "urdu": "ur",
+        "tanglish": "tanglish",
+    }
+    for name, code in explicit_lang_names.items():
+        if re.search(rf"\b{name}\b", clean_lower):
+            return code
+
+    # 3. Romanized / Transliterated text detection
+    for marker in TANGLISH_MARKERS:
+        if re.search(marker, clean_lower):
+            return "tanglish"
+
+    for marker in HINGLISH_MARKERS:
+        if re.search(marker, clean_lower):
+            return "hi"
+
+    for marker in ROMAN_TELUGU_MARKERS:
+        if re.search(marker, clean_lower):
+            return "te"
+
+    # 4. Clear English indicators
+    english_query_cues = [
+        "what is", "what are", "how does", "how do", "how many", "why is", "why was",
+        "tell me", "explain", "show me", "which is", "which are", "where is", "details of",
+        "status of", "difference between", "can you", "could you", "today's", "todays",
+        "classify", "classification", "overview", "meaning of", "define"
+    ]
+    if any(cue in clean_lower for cue in english_query_cues):
+        return "en"
+
+    # 5. Neutral / Acronym queries (e.g. "RAG", "FRP", "NASA FIRMS", "hello")
+    # Use Selected Preferred Language if set and not "auto"
+    if pref in valid_prefs and pref != "auto":
         return pref
 
-    # 3: Check conversation history if current message is neutral and pref is auto
+    # 6. Check conversation history if current message is neutral and pref is auto
     if history and isinstance(history, list) and len(history) > 0:
         for item in reversed(history):
             content = ""
@@ -167,12 +270,15 @@ def resolve_response_language(
                 content = item.get("content", "")
             elif hasattr(item, "content"):
                 content = getattr(item, "content", "")
-            if content:
+            if content and content.strip() != clean_text:
+                hist_scripts = detect_scripts(content)
+                if hist_scripts:
+                    return hist_scripts[0][0]
                 hist_det = detect_language(content)
                 if hist_det and hist_det != "neutral":
                     return hist_det
 
-    # 5: Default English fallback
+    # 7. Default English fallback
     return "en"
 
 
@@ -196,6 +302,8 @@ MULTILINGUAL_QUERY_MAP = [
             "nasa firms কি", "nasa firms کیا ہے",
             "nasa firms kya hai aur iska data", "nasa firms என்ன use பண்ணுது",
             "nasa firms na enna? idhu epdi work aaguthu",
+            "what is nasa firms", "what is firms", "nasa firms", "firms",
+            "english nasa firms", "tamil nasa firms", "telugu nasa firms", "hindi nasa firms",
         ],
         "What is NASA FIRMS satellite constellation overview sensors VIIRS MODIS?"
     ),
@@ -206,7 +314,7 @@ MULTILINGUAL_QUERY_MAP = [
             "தீ கதிர்வீச்சு சக்தி", "தீ ஆற்றல்",
             "frp na enna", "frp enna", "thee kadirveechu sakthi",
             "frp क्या है", "frp kya hai", "fire radiative power kya hai", "अग्नि विकिरण शक्ति",
-            "frp అంటే ఏమిటి", "frp ante enti", "frp emiti",
+            "frp అంటే ఏమిటి", "frp ante enti", "frp emiti", "frp అంటే என்ன",
             "frp ಎಂದರೇನು", "frp enu",
             "frp എന്താണ്", "frp enthanu",
             "frp म्हणजे काय", "frp काय आहे",
@@ -214,6 +322,8 @@ MULTILINGUAL_QUERY_MAP = [
             "frp কী", "frp ki",
             "frp ਕੀ ਹੈ", "frp ki hai",
             "frp କଣ", "frp کیا ہے",
+            "what is frp", "what is fire radiative power", "frp",
+            "tamil frp", "telugu frp", "hindi frp",
         ],
         "What is Fire Radiative Power FRP thermal physics brightness temperature?"
     ),
@@ -277,7 +387,7 @@ MULTILINGUAL_QUERY_MAP = [
             "rag என்றால் என்ன", "rag என்ன", "rag பற்றி சொல்லுங்கள்",
             "rag na enna", "rag enna", "rag pathi sollu",
             "rag क्या है", "rag kya hai", "rag ke baare mein batao",
-            "rag అంటే ఏమిటి", "rag ante enti",
+            "rag అంటే ఏమిటి", "rag ante enti", "rag అంటే என்ன",
             "rag ಎಂದರೇನು",
             "rag എന്താണ്",
             "rag म्हणजे काय",
@@ -286,6 +396,8 @@ MULTILINGUAL_QUERY_MAP = [
             "rag ਕੀ ਹੈ",
             "rag କଣ",
             "rag کیا ہے",
+            "what is rag", "what is rag architecture", "rag architecture", "rag",
+            "telugu rag", "tamil rag", "hindi rag",
         ],
         "What is RAG Retrieval-Augmented Generation architecture vector search FAISS?"
     ),
@@ -671,7 +783,7 @@ def localize_response(english_response: str, target_lang: str, original_query: s
     q_raw_lower = original_query.lower()
 
     # Topic 1: NASA FIRMS
-    if "nasa firms" in q_norm or "firms" in q_norm or "nasa firms" in q_raw_lower:
+    if "nasa firms" in q_norm or "firms" in q_norm or "nasa firms" in q_raw_lower or "firms" in q_raw_lower:
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (NASA FIRMS கண்ணோட்டம்):**\n\n"
@@ -810,7 +922,7 @@ def localize_response(english_response: str, target_lang: str, original_query: s
             )
 
     # Topic 2: FRP (Fire Radiative Power)
-    if "frp" in q_norm or "radiative power" in q_norm or "frp" in q_raw_lower:
+    if "frp" in q_norm or "radiative power" in q_norm or "frp" in q_raw_lower or re.search(r'\bfrp\b', q_raw_lower):
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (Fire Radiative Power - FRP):**\n\n"
@@ -1079,7 +1191,7 @@ def localize_response(english_response: str, target_lang: str, original_query: s
             )
 
     # Topic 6: RAG (Retrieval-Augmented Generation)
-    if "rag" in q_norm or "retrieval-augmented" in q_norm:
+    if "rag" in q_norm or "retrieval-augmented" in q_norm or "rag" in q_raw_lower or re.search(r'\brag\b', q_raw_lower):
         if target_lang == "ta":
             return (
                 "**SATRA அறிவுத் தளத்திலிருந்து (RAG கட்டமைப்பு):**\n\n"

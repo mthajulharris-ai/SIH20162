@@ -18,72 +18,136 @@ export const LANGUAGE_OPTIONS = [
   { id: 'or', label: 'Odia', native: 'ଓଡ଼ିଆ', code: 'or-IN', flag: '🇮🇳' },
   { id: 'as', label: 'Assamese', native: 'অসমীয়া', code: 'as-IN', flag: '🇮🇳' },
   { id: 'ur', label: 'Urdu', native: 'اردو', code: 'ur-IN', flag: '🇮🇳' },
-  { id: 'raj', label: 'Rajasthani', native: 'राजस्थानी', code: 'hi-IN', flag: '🇮🇳' },
-  { id: 'tanglish', label: 'Tanglish', native: 'Tamil (Latin)', code: 'ta-IN', flag: '🇮🇳' },
-  { id: 'auto', label: 'Auto Detect', native: 'Auto Detect', code: 'auto', flag: '🌐' },
-];
-
-export const MULTILINGUAL_SUGGESTED_QUESTIONS = {
+  { id: 'raj', label: 'Rajasthani', native: 'र�export const MULTILINGUAL_SUGGESTED_QUESTIONS = {
   auto: [
     'What is NASA FIRMS?',
-    'How does SATRA classify fires?',
     'What is FRP?',
+    'What is RAG?',
+    'How does SATRA classify fires?',
     "Show today's fire detections",
     'What is a persistent thermal source?',
-    'What does the confidence score mean?',
   ],
   en: [
     'What is NASA FIRMS?',
-    'How does SATRA classify fires?',
     'What is FRP?',
+    'What is RAG?',
+    'How does SATRA classify fires?',
     "Show today's fire detections",
     'What is a persistent thermal source?',
-    'What does the confidence score mean?',
   ],
   ta: [
     'NASA FIRMS என்றால் என்ன?',
-    'SATRA தீயை எப்படி வகைப்படுத்துகிறது?',
     'FRP என்றால் என்ன?',
+    'RAG என்றால் என்ன?',
+    'SATRA தீயை எப்படி வகைப்படுத்துகிறது?',
     'இன்றைய தீ கண்டறிதல்களைக் காட்டு',
-    'நான்கு வகைப்பாடுகள் என்ன?',
     'தொடர்ச்சியான வெப்ப ஆதாரம் என்றால் என்ன?',
   ],
   tanglish: [
     'NASA FIRMS na enna?',
-    'SATRA epdi fires classify pannuthu?',
     'FRP na enna?',
+    'RAG na enna?',
+    'SATRA epdi fires classify pannuthu?',
     'Innaiku ethana fire?',
-    'Naalu classification classes enna?',
-    'Recent fire alerts kaatu',
+    'Persistent thermal source na enna?',
   ],
   hi: [
     'NASA FIRMS क्या है?',
-    'SATRA आग को कैसे वर्गीकृत करता है?',
     'FRP क्या है?',
+    'RAG क्या है?',
+    'SATRA आग को कैसे वर्गीकृत करता है?',
     'आज के आग के मामलों को दिखाओ',
-    'चार वर्गीकरण श्रेणियां क्या हैं?',
-    'सैट्रा कौन सा एआई मॉडल उपयोग करता है?',
+    'लगातार थर्मल स्रोत क्या है?',
   ],
   te: [
     'NASA FIRMS అంటే ఏమిటి?',
-    'SATRA మంటలను ఎలా వర్గీకరిస్తుంది?',
     'FRP అంటే ఏమిటి?',
+    'RAG అంటే ఏమిటి?',
+    'SATRA మంటలను ఎలా వర్గీకరిస్తుంది?',
     'ఈరోజు మంటలను చూపించు',
-    'నాలుగు వర్గీకరణలు ఏమిటి?',
     'నిరంతర థర్మల్ మూలం అంటే ఏమిటి?',
   ],
   kn: [
     'NASA FIRMS ಎಂದರೇನು?',
-    'SATRA ಬೆಂಕಿಯನ್ನು ಹೇಗೆ ವರ್ಗೀಕರಿಸುತ್ತದೆ?',
     'FRP ಎಂದರೇನು?',
+    'RAG ಎಂದರೇನು?',
+    'SATRA ಬೆಂಕಿಯನ್ನು ಹೇಗೆ ವರ್ಗೀಕರಿಸುತ್ತದೆ?',
     'ಇಂದಿನ ಬೆಂಕಿ ಪತ್ತೆಗಳನ್ನು ತೋರಿಸಿ',
-    'ನಾಲ್ಕು ವರ್ಗೀಕರಣಗಳು ಯಾವುವು?',
+    'ಸ್ಥಿರ ಉಷ್ಣ ಮೂಲ ಎಂದರೇನು?',
   ],
   ml: [
     'NASA FIRMS എന്താണ്?',
-    'SATRA തീപിടുത്തങ്ങളെ എങ്ങനെ തരംതിരിക്കുന്നു?',
     'FRP എന്താണ്?',
+    'RAG എന്താണ്?',
+    'SATRA തീപിടുത്തങ്ങളെ എങ്ങനെ തരംതിരിക്കുന്നു?',
     'ഇന്നത്തെ തീപിടുത്തങ്ങൾ കാണിക്കുക',
+    'സ്ഥിരമായ താപ സ്രോതസ്സ് എന്താണ്?',
+  ],
+  mr: [
+    'NASA FIRMS म्हणजे काय?',
+    'FRP म्हणजे काय?',
+    'RAG म्हणजे काय?',
+    'SATRA आगीचे वर्गीकरण कसे करते?',
+    'आजच्या आगी दाखवा',
+    'सतत थर्मल स्त्रोत म्हणजे काय?',
+  ],
+  gu: [
+    'NASA FIRMS શું છે?',
+    'FRP શું છે?',
+    'RAG શું છે?',
+    'SATRA આગનું વર્ગીકરણ કેવી રીતે કરે છે?',
+    'આજની આગ બતાવો',
+    'સતત થર્મલ સ્ત્રોત શું છે?',
+  ],
+  bn: [
+    'NASA FIRMS কী?',
+    'FRP কী?',
+    'RAG কী?',
+    'SATRA কীভাবে আগুন শ্রেণিবদ্ধ করে?',
+    'আজকের আগুন সনাক্তকরণ দেখাও',
+    'ধারাবাহিক তাপীয় উৎস কী?',
+  ],
+  pa: [
+    'NASA FIRMS ਕੀ ਹੈ?',
+    'FRP ਕੀ ਹੈ?',
+    'RAG ਕੀ ਹੈ?',
+    'SATRA ਅੱਗ ਨੂੰ ਕਿਵੇਂ ਸ਼੍ਰੇਣੀਬੱਧ ਕਰਦਾ ਹੈ?',
+    'ਅੱਜ ਦੀਆਂ ਅੱਗਾਂ ਦਿਖਾਓ',
+    'ਲਗਾਤਾਰ ਥਰਮਲ ਸਰੋਤ ਕੀ ਹੈ?',
+  ],
+  or: [
+    'NASA FIRMS କଣ?',
+    'FRP କଣ?',
+    'RAG କଣ?',
+    'SATRA ଅଗ୍ନିକୁ କିପରି ବର୍ଗୀକରଣ କରେ?',
+    'ଆଜିର ଅଗ୍ନିକାଣ୍ଡ ଦେଖାନ୍ତୁ',
+    'ନିରନ୍ତର ଥର୍ମାଲ ଉତ୍ସ କଣ?',
+  ],
+  as: [
+    'NASA FIRMS কি?',
+    'FRP কি?',
+    'RAG কি?',
+    'SATRA জুই কেনেকৈ শ্ৰেণীবদ্ধ কৰে?',
+    'আজিৰ জুই চিনাক্তকৰণ দেখুৱাওক',
+    'ধাৰাবাহিক তাপীয় উৎস কি?',
+  ],
+  ur: [
+    'NASA FIRMS کیا ہے؟',
+    'FRP کیا ہے؟',
+    'RAG کیا ہے؟',
+    'SATRA آگ کی درجہ بندی کیسے کرتا ہے؟',
+    'آج کی آگ کی نشاندہی دکھائیں',
+    'مستقل تھرمل ذریعہ کیا ہے؟',
+  ],
+  raj: [
+    'NASA FIRMS कांई है?',
+    'FRP कांई है?',
+    'RAG कांई है?',
+    'SATRA आग नै कियां छांटै है?',
+    'आज री आग दिखावो',
+    'लगातार थर्मल स्रोत कांई है?',
+  ],
+};ണിക്കുക',
     'നാല് വർഗ്ഗീകരണങ്ങൾ ഏവ?',
   ],
   mr: [
@@ -499,18 +563,20 @@ export function startVoiceRecognition({
 
   recognition.onresult = (event) => {
     let interimTranscript = '';
+    let currentFinal = '';
 
-    for (let i = event.resultIndex; i < event.results.length; i++) {
+    for (let i = 0; i < event.results.length; i++) {
       const text = event.results[i][0]?.transcript || '';
       if (event.results[i].isFinal) {
-        finalTranscript += text + ' ';
+        currentFinal += text + ' ';
       } else {
         interimTranscript += text;
       }
     }
 
+    finalTranscript = currentFinal;
     lastInterim = interimTranscript;
-    const currentDisplayTranscript = (finalTranscript + interimTranscript).trim();
+    const currentDisplayTranscript = (currentFinal + ' ' + interimTranscript).trim().replace(/\s+/g, ' ');
 
     onResult && onResult({
       finalTranscript: finalTranscript.trim(),
@@ -525,10 +591,7 @@ export function startVoiceRecognition({
   };
 
   recognition.onend = () => {
-    let latestTranscript = finalTranscript.trim();
-    if (!latestTranscript && lastInterim.trim()) {
-      latestTranscript = lastInterim.trim();
-    }
+    const latestTranscript = (finalTranscript + ' ' + lastInterim).trim().replace(/\s+/g, ' ');
     onEnd && onEnd({ finalTranscript: latestTranscript });
   };
 

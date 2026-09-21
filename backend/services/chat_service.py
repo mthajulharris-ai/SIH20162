@@ -155,6 +155,22 @@ DOMAIN_TOPICS = {
         ),
         "keywords": ["difference between industrial fire and forest fire", "forest fire", "wildfire", "industrial fire vs", "industrial fire"],
     },
+    "rag_architecture": {
+        "title": "Retrieval-Augmented Generation (RAG) Architecture",
+        "content": (
+            "**Retrieval-Augmented Generation (RAG)** is the core AI architecture powering the SATRA AI Assistant, "
+            "connecting verified technical documentation and system knowledge with real-time database observations.\n\n"
+            "### How RAG Works in SATRA:\n"
+            "1. **Document Ingestion & Semantic Chunking**: Specialized engineering documents (sensors, physics, ML models, GIS) are structured into semantic chunks.\n"
+            "2. **Dense Vector Embeddings & FAISS**: Chunks are transformed into high-dimensional dense vector embeddings and stored in a FAISS vector index.\n"
+            "3. **Query Retrieval**: When a user queries in English, Tamil, Telugu, Hindi, or other supported languages, FAISS cosine similarity retrieves the most relevant technical chunks.\n"
+            "4. **Grounded Synthesis**: Eliminates AI hallucination by producing answers strictly cited from verified domain documents and database telemetry."
+        ),
+        "keywords": [
+            "rag", "what is rag", "rag architecture", "retrieval augmented generation", "retrieval-augmented",
+            "vector search", "faiss", "embeddings", "semantic chunking", "grounded generation"
+        ],
+    },
 }
 
 
