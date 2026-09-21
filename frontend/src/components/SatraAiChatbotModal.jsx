@@ -14,8 +14,12 @@ import {
   Layers,
 } from 'lucide-react';
 import { askSatraAi } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   const [messages, setMessages] = useState([
     {
       id: 1,
@@ -84,6 +88,7 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
   };
 
   return (
+<<<<<<< Updated upstream
     <>
       {/* Full-screen backdrop / dark + softly blurred overlay behind the chatbox */}
       <div
@@ -126,12 +131,39 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           animation: 'fadeIn 0.2s ease-out',
         }}
       >
+=======
+    <div
+      style={{
+        position: 'fixed',
+        bottom: 24,
+        right: 24,
+        width: '420px',
+        maxWidth: 'calc(100vw - 48px)',
+        height: '620px',
+        maxHeight: 'calc(100vh - 48px)',
+        background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.96)',
+        backdropFilter: isLight ? 'none' : 'blur(20px)',
+        border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
+        borderRadius: '16px',
+        boxShadow: isLight
+          ? '0 16px 48px rgba(15, 23, 42, 0.15), 0 2px 12px rgba(15, 23, 42, 0.06)'
+          : '0 16px 48px rgba(0, 0, 0, 0.75), 0 0 24px rgba(56, 189, 248, 0.18)',
+        zIndex: 1000,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+        animation: 'fadeIn 0.2s ease-out',
+      }}
+    >
+>>>>>>> Stashed changes
       {/* Header */}
       <div
         style={{
           padding: '14px 18px',
-          background: 'linear-gradient(135deg, rgba(6, 78, 119, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)',
-          borderBottom: '1px solid rgba(56, 189, 248, 0.2)',
+          background: isLight
+            ? '#FFFFFF'
+            : 'linear-gradient(135deg, rgba(6, 78, 119, 0.4) 0%, rgba(15, 23, 42, 0.6) 100%)',
+          borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(56, 189, 248, 0.2)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -143,17 +175,17 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
               width: 32,
               height: 32,
               borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
+              background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)',
+              border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.4)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Bot size={18} style={{ color: '#38BDF8' }} />
+            <Bot size={18} style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
           </div>
           <div>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
+            <div style={{ fontSize: '13px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', letterSpacing: '0.04em' }}>
               SATRA AI SATELLITE COPILOT
             </div>
             <div style={{ fontSize: '10px', color: '#10B981', display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -190,6 +222,7 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           display: 'flex',
           flexDirection: 'column',
           gap: '12px',
+          background: isLight ? '#F8FAFC' : 'transparent',
         }}
       >
         {messages.map((m) => (
@@ -209,16 +242,20 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
                 background:
                   m.sender === 'user'
                     ? 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)'
+                    : isLight
+                    ? '#FFFFFF'
                     : 'rgba(15, 32, 50, 0.75)',
                 border:
                   m.sender === 'user'
                     ? '1px solid rgba(56, 189, 248, 0.4)'
+                    : isLight
+                    ? '1px solid #DCE5EE'
                     : '1px solid rgba(56, 189, 248, 0.2)',
-                color: '#FFFFFF',
+                color: m.sender === 'user' ? '#FFFFFF' : isLight ? '#0F172A' : '#FFFFFF',
                 fontSize: '12px',
                 lineHeight: 1.5,
                 whiteSpace: 'pre-wrap',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                boxShadow: isLight ? '0 1px 4px rgba(15, 23, 42, 0.05)' : '0 2px 8px rgba(0,0,0,0.3)',
               }}
             >
               {m.text}
@@ -226,15 +263,15 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
               {/* Referenced Detections Carousel / List */}
               {m.detections && m.detections.length > 0 && (
                 <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--ice-blue)', textTransform: 'uppercase' }}>
+                  <div style={{ fontSize: '10px', fontWeight: 800, color: isLight ? '#0284C7' : 'var(--ice-blue)', textTransform: 'uppercase' }}>
                     Satellite Hotspots ({m.detections.length})
                   </div>
                   {m.detections.slice(0, 3).map((d) => (
                     <div
                       key={d.id}
                       style={{
-                        background: 'rgba(3, 7, 18, 0.6)',
-                        border: '1px solid rgba(56, 189, 248, 0.15)',
+                        background: isLight ? '#F0F7FC' : 'rgba(3, 7, 18, 0.6)',
+                        border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.15)',
                         borderRadius: '6px',
                         padding: '6px 8px',
                         display: 'flex',
@@ -245,8 +282,8 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
                     >
                       <div>
                         <span style={{ color: '#EF4444', fontWeight: 700 }}>#{d.id}</span>{' '}
-                        <span style={{ color: '#FFFFFF' }}>{d.predicted_class || d.classification}</span> &bull;{' '}
-                        <span style={{ color: '#94A3B8' }}>{d.source || 'VIIRS'}</span>
+                        <span style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{d.predicted_class || d.classification}</span> &bull;{' '}
+                        <span style={{ color: isLight ? '#64748B' : '#94A3B8' }}>{d.source || 'VIIRS'}</span>
                       </div>
                       {onFocusDetection && (
                         <button
@@ -255,9 +292,9 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
                             onClose();
                           }}
                           style={{
-                            background: 'rgba(56, 189, 248, 0.2)',
-                            border: '1px solid rgba(56, 189, 248, 0.4)',
-                            color: '#38BDF8',
+                            background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.2)',
+                            border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.4)',
+                            color: isLight ? '#0284C7' : '#38BDF8',
                             borderRadius: '4px',
                             padding: '2px 6px',
                             fontSize: '9.5px',
@@ -279,9 +316,9 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           </div>
         ))}
         {isLoading && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#38BDF8', fontSize: '11px', padding: '6px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: isLight ? '#0284C7' : '#38BDF8', fontSize: '11px', padding: '6px' }}>
             <RefreshCw size={14} className="spin" />
-            <span>Querying NASA FIRMS database & SATRA AI engine...</span>
+            <span>Querying NASA FIRMS database &amp; SATRA AI engine...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -291,8 +328,8 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
       <div
         style={{
           padding: '8px 14px',
-          background: 'rgba(5, 11, 20, 0.6)',
-          borderTop: '1px solid rgba(56, 189, 248, 0.15)',
+          background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.6)',
+          borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(56, 189, 248, 0.15)',
           display: 'flex',
           gap: '6px',
           overflowX: 'auto',
@@ -305,14 +342,15 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
             onClick={() => handleSend(qp)}
             disabled={isLoading}
             style={{
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: isLight ? '#F0F7FC' : 'rgba(56, 189, 248, 0.08)',
+              border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.25)',
               borderRadius: '12px',
               padding: '4px 10px',
               fontSize: '10.5px',
-              color: '#38BDF8',
+              color: isLight ? '#0284C7' : '#38BDF8',
               cursor: 'pointer',
               flexShrink: 0,
+              fontWeight: 500,
             }}
           >
             {qp}
@@ -328,8 +366,8 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
         }}
         style={{
           padding: '12px 14px',
-          background: 'rgba(3, 7, 18, 0.9)',
-          borderTop: '1px solid rgba(56, 189, 248, 0.2)',
+          background: isLight ? '#FFFFFF' : 'rgba(3, 7, 18, 0.9)',
+          borderTop: isLight ? '1px solid #E2E8F0' : '1px solid rgba(56, 189, 248, 0.2)',
           display: 'flex',
           gap: '8px',
         }}
@@ -342,11 +380,11 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           disabled={isLoading}
           style={{
             flex: 1,
-            background: 'rgba(15, 32, 50, 0.7)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
+            background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.7)',
+            border: isLight ? '1px solid #CBD5E1' : '1px solid rgba(56, 189, 248, 0.25)',
             borderRadius: '8px',
             padding: '8px 12px',
-            color: '#FFFFFF',
+            color: isLight ? '#0F172A' : '#FFFFFF',
             fontSize: '12px',
             outline: 'none',
           }}
@@ -355,8 +393,10 @@ export function SatraAiChatbotModal({ isOpen, onClose, onFocusDetection }) {
           type="submit"
           disabled={isLoading || !inputQuery.trim()}
           style={{
-            background: 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.4)',
+            background: isLight
+              ? 'linear-gradient(135deg, #0EA5E9 0%, #0284C7 100%)'
+              : 'linear-gradient(135deg, #0284C7 0%, #0369A1 100%)',
+            border: isLight ? '1px solid #0284C7' : '1px solid rgba(56, 189, 248, 0.4)',
             borderRadius: '8px',
             padding: '8px 14px',
             color: '#FFFFFF',

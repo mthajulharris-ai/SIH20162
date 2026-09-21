@@ -22,6 +22,7 @@ import {
   TrendingUp,
   Cpu,
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 
 export function InvestigateView({
   selectedDetection = null,
@@ -29,6 +30,9 @@ export function InvestigateView({
   onSelectDetection,
   onNavigate,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   const [copySuccess, setCopySuccess] = useState(false);
   const [isRawExpanded, setIsRawExpanded] = useState(true);
 
@@ -127,6 +131,27 @@ export function InvestigateView({
 
   const badgeStyle = getRiskBadgeStyle(event.risk);
 
+  const cardStyle = {
+    background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.75)',
+    backdropFilter: isLight ? 'none' : 'blur(12px)',
+    borderRadius: '16px',
+    border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+    padding: '22px',
+    boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'none',
+  };
+
+  const subMetricStyle = {
+    background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.5)',
+    padding: '10px 12px',
+    borderRadius: '8px',
+    border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)',
+  };
+
+  const textHeading = isLight ? '#0F172A' : '#FFFFFF';
+  const textSub = isLight ? '#64748B' : 'var(--text-secondary)';
+  const textMuted = isLight ? '#94A3B8' : 'var(--text-muted)';
+  const borderSubtle = isLight ? '#E2E8F0' : 'var(--border-subtle)';
+
   return (
     <div className="investigate-container" style={{
       width: '100%',
@@ -139,12 +164,12 @@ export function InvestigateView({
       
       {/* Investigation Console Header Bar */}
       <div style={{
-        background: 'rgba(11, 23, 38, 0.85)',
-        backdropFilter: 'blur(16px)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '12px',
+        background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.85)',
+        backdropFilter: isLight ? 'none' : 'blur(16px)',
+        border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+        borderRadius: '16px',
         padding: '20px 24px',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
+        boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : '0 8px 32px rgba(0, 0, 0, 0.4)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -171,12 +196,12 @@ export function InvestigateView({
               <h1 style={{
                 margin: 0,
                 fontSize: '20px',
-                fontWeight: 600,
-                letterSpacing: '0.08em',
+                fontWeight: 700,
+                letterSpacing: '0.04em',
                 lineHeight: 1.15,
                 fontFamily: "'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif",
                 whiteSpace: 'nowrap',
-                color: '#FFFFFF',
+                color: textHeading,
               }}>
                 THERMAL EVENT #{event.id}
               </h1>
@@ -196,10 +221,10 @@ export function InvestigateView({
                 {event.status}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
-              <MapPin size={14} style={{ color: 'var(--soft-cyan)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', fontSize: '13px', color: textSub }}>
+              <MapPin size={14} style={{ color: isLight ? '#0EA5E9' : 'var(--soft-cyan)' }} />
               <span>{event.locationName}</span>
-              <span style={{ color: 'var(--text-muted)' }}>•</span>
+              <span style={{ color: textMuted }}>•</span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>{event.lat}° N, {event.lon}° E</span>
             </div>
           </div>
@@ -213,9 +238,9 @@ export function InvestigateView({
               style={{
                 padding: '6px 12px',
                 borderRadius: '6px',
-                background: 'rgba(11, 23, 38, 0.8)',
-                border: '1px solid rgba(56, 189, 248, 0.35)',
-                color: 'var(--soft-cyan)',
+                background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.8)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
+                color: isLight ? '#0284C7' : 'var(--soft-cyan)',
                 fontWeight: 600,
                 fontSize: '12px',
                 cursor: 'pointer',
@@ -246,9 +271,9 @@ export function InvestigateView({
           <div style={{
             padding: '6px 14px',
             borderRadius: '6px',
-            background: 'rgba(56, 189, 248, 0.12)',
-            border: '1px solid rgba(56, 189, 248, 0.25)',
-            color: 'var(--soft-cyan)',
+            background: isLight ? 'rgba(14, 165, 233, 0.1)' : 'rgba(56, 189, 248, 0.12)',
+            border: isLight ? '1px solid rgba(14, 165, 233, 0.25)' : '1px solid rgba(56, 189, 248, 0.25)',
+            color: isLight ? '#0284C7' : 'var(--soft-cyan)',
             fontWeight: 700,
             fontSize: '12.5px',
             fontFamily: 'var(--font-mono)',
@@ -258,58 +283,53 @@ export function InvestigateView({
         </div>
       </div>
 
+
       {/* Grid Layout: 2 Columns for Deep Technical Inspection */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))', gap: '20px' }}>
         
         {/* ================================================================= */}
         {/* 1. EVENT OVERVIEW */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
-            <Activity size={16} style={{ color: 'var(--primary-cyan)' }} />
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--soft-cyan)', textTransform: 'uppercase' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
+            <Activity size={16} style={{ color: isLight ? '#0284C7' : 'var(--primary-cyan)' }} />
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: isLight ? '#0284C7' : 'var(--soft-cyan)', textTransform: 'uppercase' }}>
               EVENT OVERVIEW
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Detected Timestamp</div>
-              <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: textMuted, textTransform: 'uppercase' }}>Detected Timestamp</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 600, color: textHeading, marginTop: '2px' }}>
                 {event.detected}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Coordinates (WGS84)</div>
-              <div style={{ fontSize: '13.5px', fontWeight: 600, color: 'var(--soft-cyan)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '11px', color: textMuted, textTransform: 'uppercase' }}>Coordinates (WGS84)</div>
+              <div style={{ fontSize: '13.5px', fontWeight: 600, color: isLight ? '#0284C7' : 'var(--soft-cyan)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                 {event.lat}° N, {event.lon}° E
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Surface Temperature</div>
+              <div style={{ fontSize: '11px', color: textMuted, textTransform: 'uppercase' }}>Surface Temperature</div>
               <div style={{ fontSize: '19px', fontWeight: 800, color: '#F97316', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                 {event.temp}°C
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Detection Confidence</div>
+              <div style={{ fontSize: '11px', color: textMuted, textTransform: 'uppercase' }}>Detection Confidence</div>
               <div style={{ fontSize: '19px', fontWeight: 800, color: '#10B981', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                 {event.confidence}%
               </div>
             </div>
 
             <div style={{ gridColumn: 'span 2' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Detection Source</div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: textMuted, textTransform: 'uppercase' }}>Detection Source</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: textHeading, marginTop: '2px' }}>
                 {event.source}
               </div>
             </div>
@@ -319,21 +339,15 @@ export function InvestigateView({
         {/* ================================================================= */}
         {/* 2. THERMAL PROFILE & TREND CHART */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <TrendingUp size={16} style={{ color: '#F97316' }} />
               <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: '#F97316', textTransform: 'uppercase' }}>
                 THERMAL PROFILE
               </span>
             </div>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Temporal Trend (Last 2 hrs)</span>
+            <span style={{ fontSize: '11px', color: textMuted }}>Temporal Trend (Last 2 hrs)</span>
           </div>
 
           {/* SVG Thermal Trend Line Chart */}
@@ -341,15 +355,15 @@ export function InvestigateView({
             <svg viewBox="0 0 400 100" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
               <defs>
                 <linearGradient id="thermalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#F97316" stopOpacity="0.45" />
+                  <stop offset="0%" stopColor="#F97316" stopOpacity={isLight ? '0.25' : '0.45'} />
                   <stop offset="100%" stopColor="#F97316" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
 
               {/* Grid Lines */}
-              <line x1="0" y1="20" x2="400" y2="20" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
-              <line x1="0" y1="50" x2="400" y2="50" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
-              <line x1="0" y1="80" x2="400" y2="80" stroke="rgba(255,255,255,0.06)" strokeDasharray="3,3" />
+              <line x1="0" y1="20" x2="400" y2="20" stroke={isLight ? '#E2E8F0' : 'rgba(255,255,255,0.06)'} strokeDasharray="3,3" />
+              <line x1="0" y1="50" x2="400" y2="50" stroke={isLight ? '#E2E8F0' : 'rgba(255,255,255,0.06)'} strokeDasharray="3,3" />
+              <line x1="0" y1="80" x2="400" y2="80" stroke={isLight ? '#E2E8F0' : 'rgba(255,255,255,0.06)'} strokeDasharray="3,3" />
 
               {/* Area */}
               <path
@@ -367,9 +381,9 @@ export function InvestigateView({
               />
 
               {/* Peak Point */}
-              <circle cx="400" cy="15" r="4.5" fill="#EF4444" stroke="#FFFFFF" strokeWidth="2" />
+              <circle cx="400" cy="15" r="4.5" fill="#EF4444" stroke={isLight ? '#FFFFFF' : '#07111F'} strokeWidth="2" />
             </svg>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: textMuted, fontFamily: 'var(--font-mono)', marginTop: '4px' }}>
               <span>11:30 AM (48°C)</span>
               <span>12:00 PM (56°C)</span>
               <span>12:22 PM (62°C)</span>
@@ -379,29 +393,29 @@ export function InvestigateView({
 
           {/* Thermal Profile Metric Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Current Temp</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Current Temp</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#F97316', fontFamily: 'var(--font-mono)' }}>{event.temp}°C</div>
             </div>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Temp Trend</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Temp Trend</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#10B981', fontFamily: 'var(--font-mono)' }}>+4.2°C / hr</div>
             </div>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Peak Temp</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Peak Temp</div>
               <div style={{ fontSize: '14px', fontWeight: 700, color: '#EF4444', fontFamily: 'var(--font-mono)' }}>72.1°C</div>
             </div>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Rate of Increase</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>+1.8°C / 10m</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Rate of Increase</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: textHeading, fontFamily: 'var(--font-mono)' }}>+1.8°C / 10m</div>
             </div>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Affected Area</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--soft-cyan)', fontFamily: 'var(--font-mono)' }}>2.4 km²</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Affected Area</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: isLight ? '#0284C7' : 'var(--soft-cyan)', fontFamily: 'var(--font-mono)' }}>2.4 km²</div>
             </div>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '8px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Fire Rad. Power</div>
-              <div style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF', fontFamily: 'var(--font-mono)' }}>{event.frp} MW</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10px', color: textMuted, textTransform: 'uppercase' }}>Fire Rad. Power</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: textHeading, fontFamily: 'var(--font-mono)' }}>{event.frp} MW</div>
             </div>
           </div>
         </div>
@@ -409,14 +423,8 @@ export function InvestigateView({
         {/* ================================================================= */}
         {/* 3. RISK ANALYSIS (Progress meters matching prompt) */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
             <ShieldAlert size={16} style={{ color: '#EF4444' }} />
             <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: '#EF4444', textTransform: 'uppercase' }}>
               RISK ANALYSIS
@@ -427,10 +435,10 @@ export function InvestigateView({
             {/* Fire Risk */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>Fire Risk</span>
+                <span style={{ fontWeight: 600, color: textHeading }}>Fire Risk</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#EF4444' }}>82%</span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: '82%', height: '100%', background: 'linear-gradient(90deg, #F97316 0%, #EF4444 100%)', borderRadius: '4px' }} />
               </div>
             </div>
@@ -438,10 +446,10 @@ export function InvestigateView({
             {/* Spread Risk */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>Spread Risk</span>
+                <span style={{ fontWeight: 600, color: textHeading }}>Spread Risk</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#F97316' }}>71%</span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: '71%', height: '100%', background: 'linear-gradient(90deg, #EAB308 0%, #F97316 100%)', borderRadius: '4px' }} />
               </div>
             </div>
@@ -449,10 +457,10 @@ export function InvestigateView({
             {/* Infrastructure Risk */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>Infrastructure Risk</span>
+                <span style={{ fontWeight: 600, color: textHeading }}>Infrastructure Risk</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#EAB308' }}>48%</span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: '48%', height: '100%', background: 'linear-gradient(90deg, #10B981 0%, #EAB308 100%)', borderRadius: '4px' }} />
               </div>
             </div>
@@ -460,10 +468,10 @@ export function InvestigateView({
             {/* Environmental Risk */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF' }}>Environmental Risk</span>
+                <span style={{ fontWeight: 600, color: textHeading }}>Environmental Risk</span>
                 <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#EF4444' }}>76%</span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{ width: '76%', height: '100%', background: 'linear-gradient(90deg, #F97316 0%, #EF4444 100%)', borderRadius: '4px' }} />
               </div>
             </div>
@@ -473,48 +481,42 @@ export function InvestigateView({
         {/* ================================================================= */}
         {/* 4. SATELLITE OBSERVATION */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
-            <Satellite size={16} style={{ color: 'var(--soft-cyan)' }} />
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--soft-cyan)', textTransform: 'uppercase' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
+            <Satellite size={16} style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)' }} />
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: isLight ? '#0284C7' : 'var(--soft-cyan)', textTransform: 'uppercase' }}>
               SATELLITE OBSERVATION
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '12px' }}>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Satellite:</span>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>{event.satellite}</div>
+              <span style={{ color: textMuted }}>Satellite:</span>
+              <div style={{ fontWeight: 700, color: textHeading, marginTop: '2px' }}>{event.satellite}</div>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Observation Time:</span>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>2026-09-18 12:42:18 UTC</div>
+              <span style={{ color: textMuted }}>Observation Time:</span>
+              <div style={{ fontWeight: 700, color: textHeading, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>2026-09-18 12:42:18 UTC</div>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Image Timestamp:</span>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>2026-09-18 12:44:02 UTC</div>
+              <span style={{ color: textMuted }}>Image Timestamp:</span>
+              <div style={{ fontWeight: 700, color: textHeading, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>2026-09-18 12:44:02 UTC</div>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Resolution:</span>
-              <div style={{ fontWeight: 700, color: 'var(--soft-cyan)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>375m (I-Band MIR/TIR)</div>
+              <span style={{ color: textMuted }}>Resolution:</span>
+              <div style={{ fontWeight: 700, color: isLight ? '#0284C7' : 'var(--soft-cyan)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>375m (I-Band MIR/TIR)</div>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Coverage:</span>
+              <span style={{ color: textMuted }}>Coverage:</span>
               <div style={{ fontWeight: 700, color: '#10B981', marginTop: '2px' }}>98.4% orbital swath</div>
             </div>
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Cloud Coverage:</span>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>12% (Clear Line of Sight)</div>
+              <span style={{ color: textMuted }}>Cloud Coverage:</span>
+              <div style={{ fontWeight: 700, color: textHeading, marginTop: '2px' }}>12% (Clear Line of Sight)</div>
             </div>
             <div style={{ gridColumn: 'span 2' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Sensor Type:</span>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>
+              <span style={{ color: textMuted }}>Sensor Type:</span>
+              <div style={{ fontWeight: 700, color: textHeading, marginTop: '2px' }}>
                 Dual-Channel Mid-Wave Infrared (MWIR 3.9µm / LWIR 11.0µm)
               </div>
             </div>
@@ -524,49 +526,49 @@ export function InvestigateView({
         {/* ================================================================= */}
         {/* 5. ENVIRONMENT */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
-            <Wind size={16} style={{ color: '#38BDF8' }} />
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: '#38BDF8', textTransform: 'uppercase' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
+            <Wind size={16} style={{ color: '#0EA5E9' }} />
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: '#0EA5E9', textTransform: 'uppercase' }}>
               ENVIRONMENT
             </span>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Ambient Temp</div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>36.2°C</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10.5px', color: textMuted, textTransform: 'uppercase' }}>Ambient Temp</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 700, color: textHeading, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>36.2°C</div>
             </div>
 
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Humidity</div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>38%</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10.5px', color: textMuted, textTransform: 'uppercase' }}>Humidity</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 700, color: textHeading, marginTop: '2px', fontFamily: 'var(--font-mono)' }}>38%</div>
             </div>
 
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wind Speed</div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#38BDF8', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>18.5 km/h</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10.5px', color: textMuted, textTransform: 'uppercase' }}>Wind Speed</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#0EA5E9', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>18.5 km/h</div>
             </div>
 
-            <div style={{ background: 'rgba(5, 11, 20, 0.5)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Wind Direction</div>
-              <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF', marginTop: '2px' }}>WNW (290°)</div>
+            <div style={subMetricStyle}>
+              <div style={{ fontSize: '10.5px', color: textMuted, textTransform: 'uppercase' }}>Wind Direction</div>
+              <div style={{ fontSize: '14.5px', fontWeight: 700, color: textHeading, marginTop: '2px' }}>WNW (290°)</div>
             </div>
 
-            <div style={{ gridColumn: 'span 2', background: 'rgba(5, 11, 20, 0.5)', padding: '10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
-              <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vegetation Condition</div>
-              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#EAB308', marginTop: '2px' }}>Dry Sclerophyll / High Fuel Index</div>
+            <div style={{ ...subMetricStyle, gridColumn: 'span 2' }}>
+              <div style={{ fontSize: '10.5px', color: textMuted, textTransform: 'uppercase' }}>Vegetation Condition</div>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#D97706', marginTop: '2px' }}>Dry Sclerophyll / High Fuel Index</div>
             </div>
 
-            <div style={{ gridColumn: 'span 3', background: 'rgba(239, 68, 68, 0.08)', padding: '10px', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.25)' }}>
+            <div style={{
+              gridColumn: 'span 3',
+              background: isLight ? 'rgba(239, 68, 68, 0.06)' : 'rgba(239, 68, 68, 0.08)',
+              padding: '10px',
+              borderRadius: '8px',
+              border: isLight ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(239, 68, 68, 0.25)',
+            }}>
               <div style={{ fontSize: '10.5px', color: '#EF4444', textTransform: 'uppercase', fontWeight: 700 }}>Weather Condition Alert</div>
-              <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FCA5A5', marginTop: '2px' }}>Arid Environment & Heatwave Warning Active in Perimeter</div>
+              <div style={{ fontSize: '12.5px', fontWeight: 600, color: isLight ? '#991B1B' : '#FCA5A5', marginTop: '2px' }}>Arid Environment & Heatwave Warning Active in Perimeter</div>
             </div>
           </div>
         </div>
@@ -574,45 +576,39 @@ export function InvestigateView({
         {/* ================================================================= */}
         {/* 6. TIMELINE (Chronological Events) */}
         {/* ================================================================= */}
-        <div style={{
-          background: 'rgba(11, 23, 38, 0.75)',
-          backdropFilter: 'blur(12px)',
-          borderRadius: '10px',
-          border: '1px solid var(--border-color)',
-          padding: '20px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '10px' }}>
-            <Clock size={16} style={{ color: 'var(--soft-cyan)' }} />
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: 'var(--soft-cyan)', textTransform: 'uppercase' }}>
+        <div style={cardStyle}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', borderBottom: `1px solid ${borderSubtle}`, paddingBottom: '10px' }}>
+            <Clock size={16} style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)' }} />
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: isLight ? '#0284C7' : 'var(--soft-cyan)', textTransform: 'uppercase' }}>
               TIMELINE
             </span>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative', paddingLeft: '8px' }}>
             <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#38BDF8', marginTop: '5px', flexShrink: 0 }} />
+              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0EA5E9', marginTop: '5px', flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: 'var(--soft-cyan)', fontWeight: 700 }}>12:10 PM</div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FFFFFF' }}>Thermal anomaly detected</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Initial sensor pass triggered MIR threshold flag (FRP 18.2 MW)</div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: isLight ? '#0284C7' : 'var(--soft-cyan)', fontWeight: 700 }}>12:10 PM</div>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: textHeading }}>Thermal anomaly detected</div>
+                <div style={{ fontSize: '11px', color: textMuted }}>Initial sensor pass triggered MIR threshold flag (FRP 18.2 MW)</div>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EAB308', marginTop: '5px', flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#EAB308', fontWeight: 700 }}>12:22 PM</div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FFFFFF' }}>Temperature increased (+5.8°C)</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Secondary channel observed rapid core thermal gradient expansion</div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#D97706', fontWeight: 700 }}>12:22 PM</div>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: textHeading }}>Temperature increased (+5.8°C)</div>
+                <div style={{ fontSize: '11px', color: textMuted }}>Secondary channel observed rapid core thermal gradient expansion</div>
               </div>
             </div>
 
             <div style={{ display: 'flex', gap: '14px', alignItems: 'flex-start' }}>
               <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#F97316', marginTop: '5px', flexShrink: 0 }} />
               <div>
-                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#F97316', fontWeight: 700 }}>12:31 PM</div>
-                <div style={{ fontSize: '12.5px', fontWeight: 600, color: '#FFFFFF' }}>Risk threshold exceeded</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Estimated fire spread vector approaching Western agricultural reserve</div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#EA580C', fontWeight: 700 }}>12:31 PM</div>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: textHeading }}>Risk threshold exceeded</div>
+                <div style={{ fontSize: '11px', color: textMuted }}>Estimated fire spread vector approaching Western agricultural reserve</div>
               </div>
             </div>
 
@@ -621,7 +617,7 @@ export function InvestigateView({
               <div>
                 <div style={{ fontSize: '11px', fontFamily: 'var(--font-mono)', color: '#EF4444', fontWeight: 700 }}>12:42 PM</div>
                 <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#EF4444' }}>HIGH-RISK classification</div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Multi-spectral validation confirms active hotspot perimeter (68.4°C)</div>
+                <div style={{ fontSize: '11px', color: textMuted }}>Multi-spectral validation confirms active hotspot perimeter (68.4°C)</div>
               </div>
             </div>
           </div>
@@ -634,15 +630,16 @@ export function InvestigateView({
       {/* =================================================================== */}
       <div style={{
         marginTop: '24px',
-        background: 'rgba(5, 11, 20, 0.92)',
-        borderRadius: '10px',
-        border: '1px solid var(--border-color)',
+        background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.92)',
+        borderRadius: '16px',
+        border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+        boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'none',
         overflow: 'hidden',
       }}>
         <div style={{
-          padding: '12px 20px',
-          background: 'rgba(15, 32, 50, 0.7)',
-          borderBottom: '1px solid var(--border-subtle)',
+          padding: '14px 20px',
+          background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.7)',
+          borderBottom: `1px solid ${borderSubtle}`,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -650,8 +647,8 @@ export function InvestigateView({
           gap: '10px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Code size={16} style={{ color: 'var(--soft-cyan)' }} />
-            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF', textTransform: 'uppercase' }}>
+            <Code size={16} style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)' }} />
+            <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '0.08em', color: textHeading, textTransform: 'uppercase' }}>
               RAW / JSON INVESTIGATION CONSOLE
             </span>
           </div>
@@ -664,10 +661,10 @@ export function InvestigateView({
                 alignItems: 'center',
                 gap: '6px',
                 padding: '5px 12px',
-                borderRadius: '5px',
-                background: copySuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(56, 189, 248, 0.12)',
-                border: copySuccess ? '1px solid #10B981' : '1px solid rgba(56, 189, 248, 0.25)',
-                color: copySuccess ? '#10B981' : 'var(--soft-cyan)',
+                borderRadius: '6px',
+                background: copySuccess ? 'rgba(16, 185, 129, 0.15)' : (isLight ? '#FFFFFF' : 'rgba(56, 189, 248, 0.12)'),
+                border: copySuccess ? '1px solid #10B981' : (isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.25)'),
+                color: copySuccess ? '#10B981' : (isLight ? '#0284C7' : 'var(--soft-cyan)'),
                 fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -685,10 +682,10 @@ export function InvestigateView({
                 alignItems: 'center',
                 gap: '6px',
                 padding: '5px 12px',
-                borderRadius: '5px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--text-secondary)',
+                borderRadius: '6px',
+                background: isLight ? '#FFFFFF' : 'rgba(255, 255, 255, 0.05)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+                color: isLight ? '#0F172A' : 'var(--text-secondary)',
                 fontSize: '11.5px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -707,8 +704,8 @@ export function InvestigateView({
             fontFamily: 'var(--font-mono)',
             fontSize: '12.5px',
             lineHeight: 1.6,
-            color: '#38BDF8',
-            background: 'transparent',
+            color: isLight ? '#0369A1' : '#38BDF8',
+            background: isLight ? '#F8FAFC' : 'transparent',
             maxHeight: '380px',
             overflowY: 'auto',
           }}>

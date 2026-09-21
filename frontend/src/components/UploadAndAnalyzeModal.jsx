@@ -32,6 +32,7 @@ import {
   getSatelliteAnalysisJobStatus,
 } from '../services/api';
 import { AiClassificationSection } from './AiClassificationSection';
+import { useTheme } from '../context/ThemeContext';
 
 /**
  * Built-in real satellite test records for immediate operator analysis
@@ -131,6 +132,9 @@ export function UploadAndAnalyzeModal({
   onAnalysisSuccess,
   onViewExactLocation,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   const [activeTab, setActiveTab] = useState('upload'); // 'upload' | 'templates' | 'manual'
   const [analysisViewTab, setAnalysisViewTab] = useState('summary'); // 'summary' | 'thermal' | 'spatial' | 'temporal'
 
@@ -682,10 +686,12 @@ export function UploadAndAnalyzeModal({
           maxWidth: '880px',
           maxHeight: '94vh',
           overflowY: 'auto',
-          background: 'var(--modal-bg, #0B1726)',
-          border: '1px solid var(--border-color)',
+          background: isLight ? '#FFFFFF' : 'var(--modal-bg, #0B1726)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
           borderRadius: '14px',
-          boxShadow: '0 24px 60px rgba(0, 0, 0, 0.35), 0 0 32px rgba(2, 132, 199, 0.1)',
+          boxShadow: isLight
+            ? '0 24px 60px rgba(15, 23, 42, 0.15), 0 2px 12px rgba(15, 23, 42, 0.05)'
+            : '0 24px 60px rgba(0, 0, 0, 0.35), 0 0 32px rgba(2, 132, 199, 0.1)',
           display: 'flex',
           flexDirection: 'column',
           color: 'var(--text-primary)',
@@ -698,8 +704,8 @@ export function UploadAndAnalyzeModal({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '16px 24px',
-            borderBottom: '1px solid var(--border-color)',
-            background: 'var(--panel-header-bg)',
+            borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-color)',
+            background: isLight ? '#FFFFFF' : 'var(--panel-header-bg)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -708,19 +714,19 @@ export function UploadAndAnalyzeModal({
                 width: '36px',
                 height: '36px',
                 borderRadius: '10px',
-                background: 'rgba(56, 189, 248, 0.15)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
+                background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)',
+                border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'var(--primary-cyan)',
+                color: isLight ? '#0284C7' : 'var(--primary-cyan)',
               }}
             >
               <UploadCloud size={20} />
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: 'var(--text-heading)' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 800, letterSpacing: '0.04em', margin: 0, color: isLight ? '#0F172A' : 'var(--text-heading)' }}>
                   Upload Satellite Observation Data
                 </h2>
                 <span
@@ -729,16 +735,16 @@ export function UploadAndAnalyzeModal({
                     fontWeight: 700,
                     padding: '2px 7px',
                     borderRadius: '4px',
-                    background: 'rgba(56, 189, 248, 0.15)',
-                    color: 'var(--primary-cyan)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)',
+                    color: isLight ? '#0284C7' : 'var(--primary-cyan)',
+                    border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.3)',
                     letterSpacing: '0.04em',
                   }}
                 >
                   SATRA AI CORE
                 </span>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-muted)', marginTop: '2px' }}>
                 Upload any compatible NASA FIRMS / MODIS / VIIRS CSV or JSON file &bull; Filename does not matter
               </div>
             </div>
@@ -747,7 +753,7 @@ export function UploadAndAnalyzeModal({
           <button
             onClick={onClose}
             className="satra-icon-btn"
-            style={{ width: '32px', height: '32px', border: '1px solid rgba(255, 255, 255, 0.1)' }}
+            style={{ width: '32px', height: '32px', border: isLight ? '1px solid #CBD5E1' : '1px solid rgba(255, 255, 255, 0.1)' }}
             title="Close"
           >
             <X size={16} />
@@ -761,10 +767,10 @@ export function UploadAndAnalyzeModal({
             <div
               style={{
                 display: 'flex',
-                background: 'var(--panel-secondary)',
+                background: isLight ? '#F1F5F9' : 'var(--panel-secondary)',
                 padding: '4px',
                 borderRadius: '8px',
-                border: '1px solid var(--border-subtle)',
+                border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)',
                 gap: '4px',
               }}
             >
@@ -777,9 +783,15 @@ export function UploadAndAnalyzeModal({
                   flex: 1,
                   padding: '8px 14px',
                   borderRadius: '6px',
-                  border: activeTab === 'upload' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'upload' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
-                  color: activeTab === 'upload' ? 'var(--text-heading)' : 'var(--text-muted)',
+                  border: activeTab === 'upload'
+                    ? (isLight ? '1px solid #BFDBFE' : '1px solid var(--primary-cyan)')
+                    : '1px solid transparent',
+                  background: activeTab === 'upload'
+                    ? (isLight ? '#FFFFFF' : 'rgba(2, 132, 199, 0.15)')
+                    : 'transparent',
+                  color: activeTab === 'upload'
+                    ? (isLight ? '#0284C7' : 'var(--text-heading)')
+                    : (isLight ? '#64748B' : 'var(--text-muted)'),
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -787,6 +799,7 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  boxShadow: activeTab === 'upload' && isLight ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
                 }}
               >
                 <FileText size={14} />
@@ -799,9 +812,15 @@ export function UploadAndAnalyzeModal({
                   flex: 1,
                   padding: '8px 14px',
                   borderRadius: '6px',
-                  border: activeTab === 'templates' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'templates' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
-                  color: activeTab === 'templates' ? 'var(--text-heading)' : 'var(--text-muted)',
+                  border: activeTab === 'templates'
+                    ? (isLight ? '1px solid #BFDBFE' : '1px solid var(--primary-cyan)')
+                    : '1px solid transparent',
+                  background: activeTab === 'templates'
+                    ? (isLight ? '#FFFFFF' : 'rgba(2, 132, 199, 0.15)')
+                    : 'transparent',
+                  color: activeTab === 'templates'
+                    ? (isLight ? '#0284C7' : 'var(--text-heading)')
+                    : (isLight ? '#64748B' : 'var(--text-muted)'),
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -809,6 +828,7 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  boxShadow: activeTab === 'templates' && isLight ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
                 }}
               >
                 <Database size={14} />
@@ -821,9 +841,15 @@ export function UploadAndAnalyzeModal({
                   flex: 1,
                   padding: '8px 14px',
                   borderRadius: '6px',
-                  border: activeTab === 'manual' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-                  background: activeTab === 'manual' ? 'rgba(2, 132, 199, 0.15)' : 'transparent',
-                  color: activeTab === 'manual' ? 'var(--text-heading)' : 'var(--text-muted)',
+                  border: activeTab === 'manual'
+                    ? (isLight ? '1px solid #BFDBFE' : '1px solid var(--primary-cyan)')
+                    : '1px solid transparent',
+                  background: activeTab === 'manual'
+                    ? (isLight ? '#FFFFFF' : 'rgba(2, 132, 199, 0.15)')
+                    : 'transparent',
+                  color: activeTab === 'manual'
+                    ? (isLight ? '#0284C7' : 'var(--text-heading)')
+                    : (isLight ? '#64748B' : 'var(--text-muted)'),
                   fontSize: '12px',
                   fontWeight: 600,
                   cursor: 'pointer',
@@ -831,6 +857,7 @@ export function UploadAndAnalyzeModal({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
+                  boxShadow: activeTab === 'manual' && isLight ? '0 1px 3px rgba(0,0,0,0.05)' : 'none',
                 }}
               >
                 <Compass size={14} />
@@ -864,8 +891,14 @@ export function UploadAndAnalyzeModal({
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                   style={{
-                    border: `2px dashed ${isDragging ? 'var(--primary-cyan)' : 'rgba(56, 189, 248, 0.35)'}`,
-                    background: isDragging ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.55)',
+                    border: isDragging
+                      ? '2px dashed #0EA5E9'
+                      : isLight
+                      ? '1px dashed #93C5FD'
+                      : '2px dashed rgba(56, 189, 248, 0.35)',
+                    background: isDragging
+                      ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.1)')
+                      : (isLight ? '#F8FBFF' : 'rgba(15, 23, 42, 0.55)'),
                     borderRadius: '12px',
                     padding: '32px 24px',
                     display: 'flex',
@@ -882,31 +915,31 @@ export function UploadAndAnalyzeModal({
                       width: '50px',
                       height: '50px',
                       borderRadius: '50%',
-                      background: 'rgba(56, 189, 248, 0.15)',
-                      border: '1px solid rgba(56, 189, 248, 0.35)',
+                      background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)',
+                      border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.35)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      color: 'var(--primary-cyan)',
+                      color: isLight ? '#0284C7' : 'var(--primary-cyan)',
                       marginBottom: '10px',
                     }}
                   >
                     <UploadCloud size={24} />
                   </div>
 
-                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: '#FFFFFF' }}>
+                  <div style={{ fontSize: '14.5px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
                     Upload Satellite Observation Data
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--ice-blue)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '12px', color: isLight ? '#0284C7' : 'var(--ice-blue)', marginTop: '4px' }}>
                     Upload any compatible NASA FIRMS / MODIS / VIIRS CSV, JSON, Shapefile, or ZIP dataset.
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-muted)', marginTop: '4px' }}>
                     Click to browse local files or drag and drop files here.
                   </div>
 
                   {/* Supported formats pill list */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       Supported formats:
                     </span>
                     {['CSV', 'JSON', 'ZIP DATASETS', 'ESRI SHAPEFILE (.SHP)', 'MODIS', 'VIIRS', 'NASA FIRMS'].map((fmt) => (
@@ -916,9 +949,9 @@ export function UploadAndAnalyzeModal({
                           fontSize: '10.5px',
                           padding: '2px 8px',
                           borderRadius: '4px',
-                          background: 'rgba(56, 189, 248, 0.1)',
-                          border: '1px solid rgba(56, 189, 248, 0.25)',
-                          color: 'var(--primary-cyan)',
+                          background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.1)',
+                          border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.25)',
+                          color: isLight ? '#0284C7' : 'var(--primary-cyan)',
                           fontFamily: 'var(--font-mono)',
                         }}
                       >
@@ -931,14 +964,16 @@ export function UploadAndAnalyzeModal({
                 /* State B: FILE SELECTED -> Replaces empty upload state as required by Section 6 */
                 <div
                   style={{
-                    border: '1px solid rgba(56, 189, 248, 0.4)',
-                    background: 'rgba(15, 32, 50, 0.8)',
+                    border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.4)',
+                    background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.8)',
                     borderRadius: '12px',
                     padding: '22px 24px',
                     display: 'flex',
                     flexDirection: 'column',
                     gap: '14px',
-                    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(56, 189, 248, 0.08)',
+                    boxShadow: isLight
+                      ? '0 2px 10px rgba(15, 23, 42, 0.04)'
+                      : '0 8px 30px rgba(0, 0, 0, 0.4), inset 0 0 16px rgba(56, 189, 248, 0.08)',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1153,7 +1188,7 @@ export function UploadAndAnalyzeModal({
                     }}
                   >
                     <span>
-                      <strong style={{ color: '#FFFFFF' }}>{jobProgress.processedRecords.toLocaleString()}</strong> /{' '}
+                      <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{jobProgress.processedRecords.toLocaleString()}</strong> /{' '}
                       {jobProgress.totalRecords.toLocaleString()} observations processed
                     </span>
                     <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--primary-cyan)', fontWeight: 700 }}>
@@ -1167,8 +1202,8 @@ export function UploadAndAnalyzeModal({
               {filePreviews.length > 1 && (
                 <div
                   style={{
-                    background: 'rgba(15, 32, 50, 0.75)',
-                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    background: isLight ? '#F0F9FF' : 'rgba(15, 32, 50, 0.75)',
+                    border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.3)',
                     borderRadius: '10px',
                     padding: '14px 18px',
                     display: 'flex',
@@ -1177,12 +1212,12 @@ export function UploadAndAnalyzeModal({
                     fontSize: '12px',
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.08)', paddingBottom: '8px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--success)', fontWeight: 700 }}>
                       <CheckCircle2 size={16} />
                       <span>{filePreviews.length} File{filePreviews.length > 1 ? 's' : ''} Ready for AI Analysis</span>
                     </div>
-                    <span style={{ color: 'var(--ice-blue)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>
+                    <span style={{ color: isLight ? '#0284C7' : 'var(--ice-blue)', fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700 }}>
                       {totalRecordsCount} Total Observation{totalRecordsCount > 1 ? 's' : ''}
                     </span>
                   </div>
@@ -1195,15 +1230,15 @@ export function UploadAndAnalyzeModal({
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
-                          background: 'rgba(5, 11, 20, 0.6)',
+                          background: isLight ? '#FFFFFF' : 'rgba(5, 11, 20, 0.6)',
                           padding: '8px 12px',
                           borderRadius: '6px',
-                          border: '1px solid rgba(255, 255, 255, 0.05)',
+                          border: isLight ? '1px solid #E2E8F0' : '1px solid rgba(255, 255, 255, 0.05)',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                           <FileText size={14} style={{ color: 'var(--primary-cyan)' }} />
-                          <span style={{ fontWeight: 600, color: '#FFFFFF' }}>{p.name}</span>
+                          <span style={{ fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF' }}>{p.name}</span>
                           {p.identifiedFile && p.identifiedFile !== p.name && (
                             <span
                               style={{
@@ -1274,8 +1309,8 @@ export function UploadAndAnalyzeModal({
                   key={obs.id}
                   onClick={() => handleSelectObservation(obs)}
                   style={{
-                    background: 'rgba(15, 32, 50, 0.6)',
-                    border: '1px solid rgba(56, 189, 248, 0.2)',
+                    background: isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.6)',
+                    border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.2)',
                     borderRadius: '8px',
                     padding: '12px 16px',
                     display: 'flex',
@@ -1285,18 +1320,18 @@ export function UploadAndAnalyzeModal({
                     transition: 'all 0.15s ease',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--primary-cyan)';
-                    e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)';
+                    e.currentTarget.style.borderColor = isLight ? '#0284C7' : 'var(--primary-cyan)';
+                    e.currentTarget.style.background = isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.1)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'rgba(56, 189, 248, 0.2)';
-                    e.currentTarget.style.background = 'rgba(15, 32, 50, 0.6)';
+                    e.currentTarget.style.borderColor = isLight ? '#DCE5EE' : 'rgba(56, 189, 248, 0.2)';
+                    e.currentTarget.style.background = isLight ? '#F8FAFC' : 'rgba(15, 32, 50, 0.6)';
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#FFFFFF' }}>{obs.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{obs.desc}</div>
-                    <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: 'var(--ice-blue)', marginTop: '4px' }}>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>{obs.name}</div>
+                    <div style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-muted)', marginTop: '2px' }}>{obs.desc}</div>
+                    <div style={{ fontSize: '10.5px', fontFamily: 'var(--font-mono)', color: isLight ? '#0284C7' : 'var(--ice-blue)', marginTop: '4px' }}>
                       Exact: {obs.lat}° N, {obs.lon}° E &bull; {obs.satellite} &bull; FRP: {obs.frp} MW
                     </div>
                   </div>

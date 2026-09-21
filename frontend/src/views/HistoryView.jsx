@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { History, Download, Calendar, Filter, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
+import { useTheme } from '../context/ThemeContext';
 
 export function HistoryView({ detections = [], onQueryHistory, onNavigate }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -102,13 +106,14 @@ export function HistoryView({ detections = [], onQueryHistory, onNavigate }) {
               alignItems: 'center',
               gap: '6px',
               padding: '6px 14px',
-              borderRadius: '7px',
-              background: 'rgba(11, 23, 38, 0.8)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
-              color: 'var(--soft-cyan)',
+              borderRadius: '8px',
+              background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.8)',
+              border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.35)',
+              color: isLight ? '#0284C7' : 'var(--soft-cyan)',
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              boxShadow: isLight ? '0 1px 3px rgba(0, 0, 0, 0.04)' : 'none',
             }}
             title="Return to Analytics"
           >
@@ -274,7 +279,7 @@ export function HistoryView({ detections = [], onQueryHistory, onNavigate }) {
                 paginatedItems.map((d) => (
                   <tr key={d.id}>
                     <td className="mono-cell">#{d.id}</td>
-                    <td className="mono-cell" style={{ color: '#FFFFFF' }}>
+                    <td className="mono-cell" style={{ color: isLight ? '#0F172A' : '#FFFFFF', fontWeight: 600 }}>
                       {d.acq_date} {d.acq_time}
                     </td>
                     <td className="mono-cell">

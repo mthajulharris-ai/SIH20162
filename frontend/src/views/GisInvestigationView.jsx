@@ -26,6 +26,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
+import { useTheme } from '../context/ThemeContext';
 
 // Mathematical Haversine Distance in meters
 function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
@@ -118,6 +119,9 @@ export function GisInvestigationView({
   onRefresh,
   onNavigate,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const detectionLayerRef = useRef(null);
@@ -605,32 +609,32 @@ out center 35;`;
       {/* 1. GIS Investigation Header & Mission Banner */}
       <div
         style={{
-          background: 'var(--glass-surface)',
-          backdropFilter: 'var(--glass-blur)',
-          WebkitBackdropFilter: 'var(--glass-blur)',
-          border: '1px solid var(--glass-border)',
-          borderRadius: '14px',
+          background: isLight ? '#FFFFFF' : 'var(--glass-surface)',
+          backdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+          WebkitBackdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid var(--glass-border)',
+          borderRadius: '16px',
           padding: '16px 20px',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           flexWrap: 'wrap',
           gap: '14px',
-          boxShadow: 'var(--glass-shadow)',
+          boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.06)' : 'var(--glass-shadow)',
         }}
       >
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <MapIcon size={18} style={{ color: '#38BDF8' }} />
-            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.08em', color: '#FFFFFF' }}>
+            <MapIcon size={18} style={{ color: '#0EA5E9' }} />
+            <span style={{ fontSize: '14px', fontWeight: 800, letterSpacing: '0.04em', color: isLight ? '#0F172A' : '#FFFFFF' }}>
               GIS INVESTIGATION: REAL-WORLD LOCAL CONTEXT
             </span>
             <span
               style={{
                 fontSize: '10.5px',
-                color: '#38BDF8',
-                background: 'rgba(56, 189, 248, 0.12)',
-                border: '1px solid rgba(56, 189, 248, 0.25)',
+                color: isLight ? '#0284C7' : '#38BDF8',
+                background: isLight ? 'rgba(14, 165, 233, 0.1)' : 'rgba(56, 189, 248, 0.12)',
+                border: isLight ? '1px solid rgba(14, 165, 233, 0.25)' : '1px solid rgba(56, 189, 248, 0.25)',
                 padding: '2px 8px',
                 borderRadius: '12px',
                 fontWeight: 600,
@@ -639,12 +643,12 @@ out center 35;`;
               1 km Surface Investigation Radius
             </span>
           </div>
-          <div style={{ fontSize: '12.5px', color: '#BAE6FD', fontWeight: 600, marginTop: '3px' }}>
+          <div style={{ fontSize: '12.5px', color: isLight ? '#0369A1' : '#BAE6FD', fontWeight: 600, marginTop: '3px' }}>
             "Understand what exists around the detected thermal event."
           </div>
-          <div style={{ fontSize: '11.5px', color: '#94A3B8', marginTop: '4px', maxWidth: '850px', lineHeight: 1.5 }}>
+          <div style={{ fontSize: '11.5px', color: isLight ? '#64748B' : '#94A3B8', marginTop: '4px', maxWidth: '850px', lineHeight: 1.5 }}>
             Queries real OpenStreetMap and GIS data around the exact detection coordinates. Examines mapped{' '}
-            <span style={{ color: '#FFFFFF', fontWeight: 600 }}>industrial facilities, buildings, roads, vegetation, and populated places</span>{' '}
+            <span style={{ color: isLight ? '#0F172A' : '#FFFFFF', fontWeight: 600 }}>industrial facilities, buildings, roads, vegetation, and populated places</span>{' '}
             without simulated or hardcoded features.
           </div>
         </div>
@@ -660,9 +664,9 @@ out center 35;`;
                 gap: '6px',
                 padding: '6px 14px',
                 borderRadius: '8px',
-                background: 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(3, 105, 161, 0.3) 100%)',
-                border: '1px solid rgba(56, 189, 248, 0.4)',
-                color: '#38BDF8',
+                background: isLight ? '#F0F7FC' : 'linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(3, 105, 161, 0.3) 100%)',
+                border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.4)',
+                color: isLight ? '#0284C7' : '#38BDF8',
                 fontSize: '11.5px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -681,19 +685,19 @@ out center 35;`;
               gap: '6px',
               fontSize: '11px',
               padding: '4px 10px',
-              background: 'rgba(3, 7, 18, 0.65)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
+              background: isLight ? '#F8FAFC' : 'rgba(3, 7, 18, 0.65)',
+              border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.25)',
               borderRadius: '6px',
-              color: '#38BDF8',
+              color: isLight ? '#0284C7' : '#38BDF8',
             }}
           >
             <Compass size={13} />
             <span>
-              GIS SOURCE: <strong style={{ color: '#FFFFFF' }}>{contextSource}</strong>
+              GIS SOURCE: <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{contextSource}</strong>
             </span>
           </div>
           {selectedDetection && (
-            <div style={{ fontSize: '11px', color: '#BAE6FD', fontFamily: 'var(--font-mono)' }}>
+            <div style={{ fontSize: '11px', color: isLight ? '#0284C7' : '#BAE6FD', fontFamily: 'var(--font-mono)' }}>
               TARGET: {parseFloat(selectedDetection.latitude).toFixed(4)}° N, {parseFloat(selectedDetection.longitude).toFixed(4)}° E
             </div>
           )}
@@ -803,24 +807,24 @@ out center 35;`;
               position: 'absolute',
               bottom: '16px',
               left: '16px',
-              background: 'var(--glass-surface)',
-              backdropFilter: 'var(--glass-blur)',
-              WebkitBackdropFilter: 'var(--glass-blur)',
-              border: '1px solid var(--glass-border)',
-              borderRadius: '10px',
+              background: isLight ? '#FFFFFF' : 'var(--glass-surface)',
+              backdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+              WebkitBackdropFilter: isLight ? 'none' : 'var(--glass-blur)',
+              border: isLight ? '1px solid #DCE5EE' : '1px solid var(--glass-border)',
+              borderRadius: '12px',
               padding: '12px 16px',
               zIndex: 1000,
               fontSize: '11px',
               display: 'flex',
               flexDirection: 'column',
               gap: '6px',
-              boxShadow: 'var(--glass-shadow)',
+              boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.12)' : 'var(--glass-shadow)',
               maxWidth: '300px',
             }}
           >
-            <div style={{ fontWeight: 700, color: '#FFFFFF', display: 'flex', justifyContent: 'space-between' }}>
+            <div style={{ fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF', display: 'flex', justifyContent: 'space-between' }}>
               <span>MAP SYMBOLS</span>
-              <span style={{ color: '#38BDF8', fontSize: '10px' }}>1 km Boundary</span>
+              <span style={{ color: isLight ? '#0284C7' : '#38BDF8', fontSize: '10px' }}>1 km Boundary</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#FF453A', fontWeight: 600 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: '#FF453A', display: 'inline-block' }} />
@@ -1008,12 +1012,12 @@ out center 35;`;
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Compass size={14} style={{ color: '#38BDF8' }} />
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
+                <Compass size={14} style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', letterSpacing: '0.04em' }}>
                   NEARBY FEATURES
                 </span>
               </div>
-              <span style={{ fontSize: '10px', color: '#38BDF8', background: 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
+              <span style={{ fontSize: '10px', color: isLight ? '#0284C7' : '#38BDF8', background: isLight ? 'rgba(14, 165, 233, 0.1)' : 'rgba(56, 189, 248, 0.1)', padding: '2px 6px', borderRadius: '4px' }}>
                 1 km Radius
               </span>
             </div>
@@ -1037,19 +1041,19 @@ out center 35;`;
             {/* Feature List Content */}
             <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '6px', paddingRight: '4px' }}>
               {isLoadingContext ? (
-                <div style={{ padding: '24px', textAlign: 'center', color: '#94A3B8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
-                  <Loader2 size={18} className="animate-spin" style={{ color: '#38BDF8' }} />
+                <div style={{ padding: '24px', textAlign: 'center', color: isLight ? '#64748B' : '#94A3B8', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <Loader2 size={18} className="animate-spin" style={{ color: isLight ? '#0284C7' : '#38BDF8' }} />
                   <span style={{ fontSize: '11.5px' }}>Querying real OpenStreetMap geographic data...</span>
                 </div>
               ) : contextError ? (
-                <div style={{ padding: '16px', background: 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', color: '#F87171', fontSize: '11px', textAlign: 'center' }}>
+                <div style={{ padding: '16px', background: isLight ? 'rgba(239, 68, 68, 0.08)' : 'rgba(239, 68, 68, 0.08)', borderRadius: '6px', color: '#EF4444', fontSize: '11px', textAlign: 'center' }}>
                   Local GIS data unavailable for this area.
                 </div>
               ) : localFeatures.length === 0 ? (
-                <div style={{ padding: '24px 16px', textAlign: 'center', color: '#94A3B8', fontSize: '11.5px' }}>
-                  <Info size={16} style={{ margin: '0 auto 6px', color: '#64748B' }} />
+                <div style={{ padding: '24px 16px', textAlign: 'center', color: isLight ? '#64748B' : '#94A3B8', fontSize: '11.5px' }}>
+                  <Info size={16} style={{ margin: '0 auto 6px', color: isLight ? '#94A3B8' : '#64748B' }} />
                   <div>No mapped nearby features found within 1 km.</div>
-                  <div style={{ fontSize: '10.5px', color: '#64748B', marginTop: '4px' }}>
+                  <div style={{ fontSize: '10.5px', color: isLight ? '#94A3B8' : '#64748B', marginTop: '4px' }}>
                     Area may be remote, rural, or unmapped in OpenStreetMap.
                   </div>
                 </div>
@@ -1069,19 +1073,19 @@ out center 35;`;
                         alignItems: 'center',
                         justifyContent: 'space-between',
                         padding: '7px 10px',
-                        background: 'rgba(3, 7, 18, 0.5)',
-                        border: `1px solid ${catInfo.border}`,
+                        background: isLight ? '#F8FAFC' : 'rgba(3, 7, 18, 0.5)',
+                        border: `1px solid ${isLight ? '#E2E8F0' : catInfo.border}`,
                         borderRadius: '6px',
                         cursor: 'pointer',
-                        transition: 'background 0.15s ease',
+                        transition: 'all 0.15s ease',
                       }}
-                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(56, 189, 248, 0.1)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.background = 'rgba(3, 7, 18, 0.5)')}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.1)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = isLight ? '#F8FAFC' : 'rgba(3, 7, 18, 0.5)')}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
                         <span style={{ fontSize: '14px' }}>{catInfo.icon}</span>
                         <div style={{ minWidth: 0 }}>
-                          <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          <div style={{ fontSize: '11.5px', fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {feat.name}
                           </div>
                           <div style={{ fontSize: '10px', color: catInfo.color }}>
@@ -1091,10 +1095,10 @@ out center 35;`;
                       </div>
 
                       <div style={{ textAlign: 'right', whiteSpace: 'nowrap', marginLeft: '10px' }}>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#BAE6FD', fontFamily: 'var(--font-mono)' }}>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: isLight ? '#0284C7' : '#BAE6FD', fontFamily: 'var(--font-mono)' }}>
                           {formatDistance(feat.distance_m)}
                         </div>
-                        <div style={{ fontSize: '9.5px', color: '#64748B' }}>
+                        <div style={{ fontSize: '9.5px', color: isLight ? '#94A3B8' : '#64748B' }}>
                           from detection
                         </div>
                       </div>

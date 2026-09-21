@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
+import { useTheme } from '../context/ThemeContext';
 import {
   Route,
   Navigation,
@@ -105,18 +106,20 @@ const PRESET_ROUTES = [
 ];
 
 export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
   const [selectedRouteId, setSelectedRouteId] = useState('coimbatore-ghats');
   const [fromInput, setFromInput] = useState(PRESET_ROUTES[0].fromName);
   const [toInput, setToInput] = useState(PRESET_ROUTES[0].toName);
   const [corridorBuffer, setCorridorBuffer] = useState(10); // km
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeAnalysis, setActiveAnalysis] = useState(PRESET_ROUTES[0]);
-  const [activeBaseMap, setActiveBaseMap] = useState('dark'); // 'dark' | 'satellite'
+  const [activeBaseMap, setActiveBaseMap] = useState('canvas'); // 'canvas' | 'satellite'
 
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const layersRef = useRef({
-    darkLayer: null,
+    canvasLayer: null,
     satLayer: null,
     routeGroup: null,
     hotspotGroup: null,
@@ -133,8 +136,10 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
       attributionControl: false,
     });
 
-    const darkLayer = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    const canvasLayer = L.tileLayer(
+      isLight
+        ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+        : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
       { maxZoom: 16 }
     );
 
@@ -143,12 +148,12 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
       { maxZoom: 18 }
     );
 
-    darkLayer.addTo(map);
+    canvasLayer.addTo(map);
 
     const routeGroup = L.layerGroup().addTo(map);
     const hotspotGroup = L.layerGroup().addTo(map);
 
-    layersRef.current = { darkLayer, satLayer, routeGroup, hotspotGroup };
+    layersRef.current = { canvasLayer, satLayer, routeGroup, hotspotGroup };
     mapInstanceRef.current = map;
 
     return () => {
@@ -157,18 +162,36 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
     };
   }, []);
 
+  // Update canvas layer when isLight changes
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const { canvasLayer } = layersRef.current;
+    if (canvasLayer && map.hasLayer(canvasLayer)) {
+      map.removeLayer(canvasLayer);
+      const newCanvasLayer = L.tileLayer(
+        isLight
+          ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+          : 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 16 }
+      );
+      newCanvasLayer.addTo(map);
+      layersRef.current.canvasLayer = newCanvasLayer;
+    }
+  }, [isLight]);
+
   // Base map toggle
   useEffect(() => {
-    const { darkLayer, satLayer } = layersRef.current;
+    const { canvasLayer, satLayer } = layersRef.current;
     const map = mapInstanceRef.current;
-    if (!map || !darkLayer || !satLayer) return;
+    if (!map || !canvasLayer || !satLayer) return;
 
     if (activeBaseMap === 'satellite') {
-      if (map.hasLayer(darkLayer)) map.removeLayer(darkLayer);
+      if (map.hasLayer(canvasLayer)) map.removeLayer(canvasLayer);
       if (!map.hasLayer(satLayer)) satLayer.addTo(map);
     } else {
       if (map.hasLayer(satLayer)) map.removeLayer(satLayer);
-      if (!map.hasLayer(darkLayer)) darkLayer.addTo(map);
+      if (!map.hasLayer(canvasLayer)) canvasLayer.addTo(map);
     }
   }, [activeBaseMap]);
 
@@ -319,14 +342,14 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
   };
 
   return (
-    <div className="path-intel-container" style={{ position: 'relative', width: '100%', height: 'calc(100vh - var(--header-height))', display: 'flex', flexDirection: 'column', background: 'var(--bg-space)', overflow: 'hidden' }}>
+    <div className="path-intel-container" style={{ position: 'relative', width: '100%', height: 'calc(100vh - var(--header-height))', display: 'flex', flexDirection: 'column', background: isLight ? '#F8FAFC' : 'var(--bg-space)', overflow: 'hidden' }}>
       
       {/* Top Header Bar */}
       <div style={{
         padding: '12px 20px',
-        background: 'rgba(11, 23, 38, 0.95)',
+        background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.95)',
         backdropFilter: 'blur(12px)',
-        borderBottom: '1px solid var(--border-color)',
+        borderBottom: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -339,8 +362,8 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             width: '32px',
             height: '32px',
             borderRadius: '8px',
-            background: 'rgba(56, 189, 248, 0.15)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
+            background: isLight ? '#F0F7FF' : 'rgba(56, 189, 248, 0.15)',
+            border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.3)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -350,12 +373,12 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.05em', margin: 0, color: '#FFFFFF' }}>PATH INTELLIGENCE</h2>
-              <span style={{ fontSize: '11px', padding: '2px 7px', borderRadius: '4px', background: 'rgba(56, 189, 248, 0.15)', color: 'var(--soft-cyan)', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+              <h2 style={{ fontSize: '15px', fontWeight: 700, letterSpacing: '0.05em', margin: 0, color: isLight ? '#0F172A' : '#FFFFFF' }}>PATH INTELLIGENCE</h2>
+              <span style={{ fontSize: '11px', padding: '2px 7px', borderRadius: '4px', background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.15)', color: isLight ? '#0284C7' : 'var(--soft-cyan)', border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.3)' }}>
                 CORRIDOR RISK MATRIX
               </span>
             </div>
-            <p style={{ margin: 0, fontSize: '11.5px', color: 'var(--text-secondary)' }}>
+            <p style={{ margin: 0, fontSize: '11.5px', color: isLight ? '#64748B' : 'var(--text-secondary)' }}>
               Risk-aware multi-hazard trajectory computation & satellite exposure
             </p>
           </div>
@@ -372,9 +395,9 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                 gap: '6px',
                 padding: '6px 12px',
                 borderRadius: '7px',
-                border: '1px solid rgba(56, 189, 248, 0.3)',
-                background: 'rgba(11, 23, 38, 0.8)',
-                color: 'var(--soft-cyan)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid rgba(56, 189, 248, 0.3)',
+                background: isLight ? '#F8FAFC' : 'rgba(11, 23, 38, 0.8)',
+                color: isLight ? '#0284C7' : 'var(--soft-cyan)',
                 fontSize: '12px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -384,7 +407,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
               <span>&larr; Earth Intelligence</span>
             </button>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Corridor Preset:</span>
+          <span style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Corridor Preset:</span>
           {PRESET_ROUTES.map((r) => (
             <button
               key={r.id}
@@ -393,9 +416,15 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                 fontSize: '11.5px',
                 padding: '5px 10px',
                 borderRadius: '6px',
-                border: selectedRouteId === r.id ? '1px solid var(--primary-cyan)' : '1px solid var(--border-color)',
-                background: selectedRouteId === r.id ? 'rgba(56, 189, 248, 0.18)' : 'rgba(255, 255, 255, 0.04)',
-                color: selectedRouteId === r.id ? '#FFFFFF' : 'var(--text-secondary)',
+                border: selectedRouteId === r.id
+                  ? (isLight ? '1px solid #0EA5E9' : '1px solid var(--primary-cyan)')
+                  : (isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)'),
+                background: selectedRouteId === r.id
+                  ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.18)')
+                  : (isLight ? '#FFFFFF' : 'rgba(255, 255, 255, 0.04)'),
+                color: selectedRouteId === r.id
+                  ? (isLight ? '#0284C7' : '#FFFFFF')
+                  : (isLight ? '#64748B' : 'var(--text-secondary)'),
                 cursor: 'pointer',
                 transition: 'all 0.2s',
                 fontWeight: selectedRouteId === r.id ? 600 : 400,
@@ -411,7 +440,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
       <div style={{ flex: 1, position: 'relative', display: 'flex', overflow: 'hidden' }}>
         
         {/* Leaflet Map Canvas */}
-        <div ref={mapContainerRef} style={{ flex: 1, height: '100%', background: '#070D18' }} />
+        <div ref={mapContainerRef} style={{ flex: 1, height: '100%', background: isLight ? '#E2E8F0' : '#070D18' }} />
 
         {/* Map Floating Control Overlay (Top Left) */}
         <div style={{
@@ -427,16 +456,16 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
         }}>
           {/* Origin & Destination Card */}
           <div style={{
-            background: 'rgba(11, 23, 38, 0.92)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.92)',
             backdropFilter: 'blur(16px)',
-            borderRadius: '10px',
-            border: '1px solid var(--border-color)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+            borderRadius: '12px',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+            boxShadow: isLight ? '0 4px 18px rgba(15, 23, 42, 0.08)' : '0 8px 32px rgba(0,0,0,0.5)',
             padding: '14px',
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 700, color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10B981' }} />
                   FROM (Location / Coordinates)
                 </label>
@@ -450,9 +479,9 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                     boxSizing: 'border-box',
                     padding: '8px 10px',
                     borderRadius: '6px',
-                    background: 'rgba(5, 11, 20, 0.7)',
-                    border: '1px solid var(--border-color)',
-                    color: '#FFFFFF',
+                    background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.7)',
+                    border: isLight ? '1px solid #CBD5E1' : '1px solid var(--border-color)',
+                    color: isLight ? '#0F172A' : '#FFFFFF',
                     fontSize: '12.5px',
                     fontFamily: 'var(--font-sans)',
                     outline: 'none',
@@ -461,7 +490,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
               </div>
 
               <div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '10.5px', fontWeight: 700, color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#EF4444' }} />
                   TO (Location / Coordinates)
                 </label>
@@ -475,9 +504,9 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                     boxSizing: 'border-box',
                     padding: '8px 10px',
                     borderRadius: '6px',
-                    background: 'rgba(5, 11, 20, 0.7)',
-                    border: '1px solid var(--border-color)',
-                    color: '#FFFFFF',
+                    background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.7)',
+                    border: isLight ? '1px solid #CBD5E1' : '1px solid var(--border-color)',
+                    color: isLight ? '#0F172A' : '#FFFFFF',
                     fontSize: '12.5px',
                     fontFamily: 'var(--font-sans)',
                     outline: 'none',
@@ -487,7 +516,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
 
               {/* Buffer Radius Slider */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '2px' }}>
-                <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Corridor Risk Buffer:</span>
+                <span style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-secondary)' }}>Corridor Risk Buffer:</span>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     type="range"
@@ -498,7 +527,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                     onChange={(e) => setCorridorBuffer(Number(e.target.value))}
                     style={{ width: '90px', accentColor: 'var(--primary-cyan)', cursor: 'pointer' }}
                   />
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--soft-cyan)', minWidth: '35px', textAlign: 'right' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 600, color: isLight ? '#0284C7' : 'var(--soft-cyan)', minWidth: '35px', textAlign: 'right' }}>
                     {corridorBuffer} km
                   </span>
                 </div>
@@ -549,18 +578,19 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
           bottom: '20px',
           left: '16px',
           zIndex: 990,
-          background: 'rgba(11, 23, 38, 0.88)',
+          background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.88)',
           backdropFilter: 'blur(12px)',
           borderRadius: '8px',
-          border: '1px solid var(--border-color)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+          boxShadow: isLight ? '0 4px 14px rgba(15, 23, 42, 0.08)' : 'none',
           padding: '8px 12px',
           display: 'flex',
           alignItems: 'center',
           gap: '14px',
           fontSize: '11px',
-          color: 'var(--text-secondary)',
+          color: isLight ? '#64748B' : 'var(--text-secondary)',
         }}>
-          <span style={{ fontWeight: 700, color: '#FFFFFF' }}>RISK GRADIENT:</span>
+          <span style={{ fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>RISK GRADIENT:</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
             <span style={{ width: '12px', height: '4px', background: '#10B981', borderRadius: '2px' }} />
             <span>LOW</span>
@@ -578,20 +608,20 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             <span>CRITICAL</span>
           </div>
 
-          <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '10px', display: 'flex', gap: '6px' }}>
+          <div style={{ borderLeft: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-color)', paddingLeft: '10px', display: 'flex', gap: '6px' }}>
             <button
-              onClick={() => setActiveBaseMap(prev => prev === 'dark' ? 'satellite' : 'dark')}
+              onClick={() => setActiveBaseMap(prev => prev === 'canvas' ? 'satellite' : 'canvas')}
               style={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                border: '1px solid var(--border-color)',
-                color: '#FFFFFF',
+                background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.08)',
+                border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+                color: isLight ? '#0F172A' : '#FFFFFF',
                 fontSize: '10.5px',
                 padding: '3px 8px',
                 borderRadius: '4px',
                 cursor: 'pointer',
               }}
             >
-              {activeBaseMap === 'dark' ? '🛰️ Satellite View' : '🗺️ Dark Canvas'}
+              {activeBaseMap === 'satellite' ? '🗺️ Canvas View' : '🛰️ Satellite View'}
             </button>
           </div>
         </div>
@@ -600,18 +630,18 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
         <div style={{
           width: '420px',
           height: '100%',
-          background: 'rgba(11, 23, 38, 0.96)',
+          background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.96)',
           backdropFilter: 'blur(20px)',
-          borderLeft: '1px solid var(--border-color)',
+          borderLeft: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
           overflowY: 'auto',
           display: 'flex',
           flexDirection: 'column',
           zIndex: 995,
         }}>
           {/* Section Header */}
-          <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border-color)' }}>
+          <div style={{ padding: '16px 20px', borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--soft-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: isLight ? '#0284C7' : 'var(--soft-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
                 PATH RISK ANALYSIS
               </span>
               <span style={{
@@ -629,22 +659,22 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
 
             {/* Quick Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px', marginTop: '14px' }}>
-              <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Distance</div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase' }}>Distance</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                   {activeAnalysis.distance}
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Est. Time</div>
-                <div style={{ fontSize: '15px', fontWeight: 800, color: '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase' }}>Est. Time</div>
+                <div style={{ fontSize: '15px', fontWeight: 800, color: isLight ? '#0F172A' : '#FFFFFF', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                   {activeAnalysis.estTime}
                 </div>
               </div>
 
-              <div style={{ background: 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: '1px solid var(--border-subtle)' }}>
-                <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Hazard Index</div>
+              <div style={{ background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.6)', padding: '10px', borderRadius: '7px', border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '10.5px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase' }}>Hazard Index</div>
                 <div style={{ fontSize: '15px', fontWeight: 800, color: getRiskColor(activeAnalysis.riskLevel), marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                   {activeAnalysis.thermalExposure > 70 ? 'CRITICAL' : 'ELEVATED'}
                 </div>
@@ -652,13 +682,13 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             </div>
           </div>
 
-          {/* Exposure Progress Metrics (as requested in specifications) */}
-          <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          {/* Exposure Progress Metrics */}
+          <div style={{ padding: '18px 20px', borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-color)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
             
             {/* THERMAL EXPOSURE */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Flame size={14} style={{ color: '#F97316' }} />
                   THERMAL EXPOSURE
                 </span>
@@ -666,7 +696,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                   {activeAnalysis.thermalExposure}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
                   width: `${activeAnalysis.thermalExposure}%`,
                   height: '100%',
@@ -680,7 +710,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             {/* FIRE EXPOSURE */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <ShieldAlert size={14} style={{ color: '#EF4444' }} />
                   FIRE EXPOSURE
                 </span>
@@ -688,7 +718,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                   {activeAnalysis.fireExposure}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
                   width: `${activeAnalysis.fireExposure}%`,
                   height: '100%',
@@ -702,7 +732,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             {/* WEATHER IMPACT */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Wind size={14} style={{ color: '#38BDF8' }} />
                   WEATHER IMPACT
                 </span>
@@ -710,7 +740,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                   {activeAnalysis.weatherImpact}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
                   width: `${activeAnalysis.weatherImpact}%`,
                   height: '100%',
@@ -724,7 +754,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
             {/* SATELLITE COVERAGE */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px', marginBottom: '5px' }}>
-                <span style={{ fontWeight: 600, color: '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Satellite size={14} style={{ color: '#10B981' }} />
                   SATELLITE COVERAGE
                 </span>
@@ -732,7 +762,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                   {activeAnalysis.satelliteCoverage}%
                 </span>
               </div>
-              <div style={{ width: '100%', height: '8px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', background: isLight ? '#F1F5F9' : 'rgba(255, 255, 255, 0.08)', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
                   width: `${activeAnalysis.satelliteCoverage}%`,
                   height: '100%',
@@ -747,10 +777,10 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
           {/* Hotspots along the path */}
           <div style={{ padding: '16px 20px', flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#FFFFFF', letterSpacing: '0.04em' }}>
+              <span style={{ fontSize: '11.5px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF', letterSpacing: '0.04em' }}>
                 INTERSECTING THERMAL HOTSPOTS ({activeAnalysis.hotspots.length})
               </span>
-              <span style={{ fontSize: '10.5px', color: 'var(--text-muted)' }}>Within {corridorBuffer} km</span>
+              <span style={{ fontSize: '10.5px', color: isLight ? '#64748B' : 'var(--text-muted)' }}>Within {corridorBuffer} km</span>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -758,9 +788,9 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                 <div
                   key={h.id}
                   style={{
-                    background: 'rgba(5, 11, 20, 0.6)',
+                    background: isLight ? '#F8FAFC' : 'rgba(5, 11, 20, 0.6)',
                     borderRadius: '8px',
-                    border: '1px solid var(--border-color)',
+                    border: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-color)',
                     padding: '12px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -768,7 +798,7 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', fontWeight: 700, color: '#FFFFFF' }}>{h.id}</span>
+                    <span style={{ fontSize: '12px', fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>{h.id}</span>
                     <span style={{
                       fontSize: '10px',
                       fontWeight: 800,
@@ -782,11 +812,11 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                     </span>
                   </div>
 
-                  <div style={{ fontSize: '11.5px', color: 'var(--text-secondary)' }}>{h.name}</div>
+                  <div style={{ fontSize: '11.5px', color: isLight ? '#475569' : 'var(--text-secondary)' }}>{h.name}</div>
 
-                  <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                  <div style={{ display: 'flex', gap: '14px', fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
                     <span>TEMP: <strong style={{ color: '#F97316' }}>{h.temp}°C</strong></span>
-                    <span>FRP: <strong style={{ color: '#FFFFFF' }}>{h.frp} MW</strong></span>
+                    <span>FRP: <strong style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{h.frp} MW</strong></span>
                   </div>
 
                   {/* Deep dive into Investigation view */}
@@ -816,9 +846,9 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
                       gap: '5px',
                       padding: '6px',
                       borderRadius: '5px',
-                      background: 'rgba(56, 189, 248, 0.12)',
-                      border: '1px solid rgba(56, 189, 248, 0.25)',
-                      color: 'var(--soft-cyan)',
+                      background: isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.12)',
+                      border: isLight ? '1px solid #BFDBFE' : '1px solid rgba(56, 189, 248, 0.25)',
+                      color: isLight ? '#0284C7' : 'var(--soft-cyan)',
                       fontSize: '11px',
                       fontWeight: 600,
                       cursor: 'pointer',
@@ -836,13 +866,13 @@ export function PathIntelligenceView({ onNavigate, onSelectDetection }) {
               marginTop: '14px',
               padding: '12px',
               borderRadius: '8px',
-              background: 'rgba(56, 189, 248, 0.05)',
-              border: '1px solid rgba(56, 189, 248, 0.15)',
+              background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.05)',
+              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.15)',
               fontSize: '11.5px',
-              color: 'var(--text-secondary)',
+              color: isLight ? '#334155' : 'var(--text-secondary)',
               lineHeight: 1.5,
             }}>
-              <div style={{ fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <div style={{ fontWeight: 700, color: isLight ? '#0369A1' : '#FFFFFF', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <CheckCircle2 size={13} style={{ color: '#10B981' }} />
                 CORRIDOR ADVISORY
               </div>

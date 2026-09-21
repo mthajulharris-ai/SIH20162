@@ -32,6 +32,7 @@ import {
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
 import { StatusBadge, ClassBadge, ProvenanceBadge } from '../components/StatusBadge';
 import { getSatelliteStatus } from '../services/api';
+import { useTheme } from '../context/ThemeContext';
 
 // Mathematical Haversine Distance in meters
 function calculateHaversineMeters(lat1, lon1, lat2, lon2) {
@@ -108,6 +109,9 @@ export function ThermalIntelligenceView({
   onOpenUploadModal,
   onOpenAiAssistant,
 }) {
+  const { effectiveTheme } = useTheme();
+  const isLight = effectiveTheme === 'light';
+
   // View Modes: '3d' (Three.js Earth) | '2d' (Leaflet Satellite GIS) | 'street' (Optional Google Street View)
   const [viewMode, setViewMode] = useState('3d');
 
@@ -884,15 +888,15 @@ export function ThermalIntelligenceView({
             left: '50%',
             transform: 'translateX(-50%)',
             zIndex: 1000,
-            background: 'rgba(11, 23, 38, 0.92)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.92)',
+            border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.3)',
             borderRadius: '8px',
             padding: '10px 20px',
-            color: 'var(--soft-cyan)',
+            color: isLight ? '#0284C7' : 'var(--soft-cyan)',
             fontSize: '13px',
             fontWeight: 600,
             letterSpacing: '0.04em',
-            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.6)',
+            boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.08)' : '0 8px 30px rgba(0, 0, 0, 0.6)',
             pointerEvents: 'none',
           }}
         >
@@ -927,15 +931,15 @@ export function ThermalIntelligenceView({
             display: 'flex',
             alignItems: 'center',
             gap: '10px',
-            background: 'rgba(11, 23, 38, 0.92)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.92)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-color)',
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.65)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
+            boxShadow: isLight ? '0 4px 20px rgba(15, 23, 42, 0.08)' : '0 8px 32px rgba(0, 0, 0, 0.65)',
             borderRadius: '10px',
             padding: '8px 16px',
           }}
         >
-          <Search size={18} style={{ color: 'var(--soft-cyan)', flexShrink: 0 }} />
+          <Search size={18} style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)', flexShrink: 0 }} />
           <input
             type="text"
             value={searchQuery}
@@ -946,7 +950,7 @@ export function ThermalIntelligenceView({
               background: 'transparent',
               border: 'none',
               outline: 'none',
-              color: '#FFFFFF',
+              color: isLight ? '#0F172A' : '#FFFFFF',
               fontSize: '13.5px',
               fontFamily: 'var(--font-sans)',
             }}
@@ -971,13 +975,13 @@ export function ThermalIntelligenceView({
             </button>
           )}
           {isSearching && <Loader2 size={16} className="spin" style={{ color: 'var(--primary-cyan)' }} />}
-          <div style={{ height: '18px', width: '1px', background: 'var(--border-subtle)' }} />
+          <div style={{ height: '18px', width: '1px', background: isLight ? '#E2E8F0' : 'var(--border-subtle)' }} />
           <button
             type="submit"
             style={{
-              background: 'rgba(56, 189, 248, 0.15)',
-              border: '1px solid rgba(56, 189, 248, 0.4)',
-              color: 'var(--primary-cyan)',
+              background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.15)',
+              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.4)',
+              color: isLight ? '#0284C7' : 'var(--primary-cyan)',
               borderRadius: '6px',
               padding: '4px 10px',
               fontSize: '11px',
@@ -1009,16 +1013,17 @@ export function ThermalIntelligenceView({
                   ? 'rgba(245, 158, 11, 0.92)'
                   : searchFeedback.type === 'success'
                   ? 'rgba(16, 185, 129, 0.92)'
-                  : 'rgba(11, 23, 38, 0.95)',
-              color: '#FFFFFF',
-              boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+                  : (isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.95)'),
+              color: searchFeedback.type ? '#FFFFFF' : (isLight ? '#0F172A' : '#FFFFFF'),
+              boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.08)' : '0 6px 20px rgba(0,0,0,0.5)',
+              border: isLight ? '1px solid #DCE5EE' : 'none',
               backdropFilter: 'blur(12px)',
             }}
           >
             <span>{searchFeedback.message}</span>
             <button
               onClick={() => setSearchFeedback(null)}
-              style={{ background: 'transparent', border: 'none', color: '#FFF', cursor: 'pointer', display: 'flex' }}
+              style={{ background: 'transparent', border: 'none', color: searchFeedback.type ? '#FFF' : (isLight ? '#0F172A' : '#FFF'), cursor: 'pointer', display: 'flex' }}
             >
               <X size={14} />
             </button>
@@ -1050,12 +1055,12 @@ export function ThermalIntelligenceView({
                   borderRadius: '20px',
                   fontSize: '11.5px',
                   fontWeight: active ? 700 : 500,
-                  background: active ? item.bg : 'rgba(11, 23, 38, 0.72)',
+                  background: active ? item.bg : (isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.72)'),
                   backdropFilter: 'blur(10px)',
-                  border: active ? `1px solid ${item.color}` : '1px solid var(--border-subtle)',
-                  color: active ? '#FFFFFF' : 'var(--text-secondary)',
+                  border: active ? `1px solid ${item.color}` : (isLight ? '1px solid #DCE5EE' : '1px solid var(--border-subtle)'),
+                  color: active ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#475569' : 'var(--text-secondary)'),
                   cursor: 'pointer',
-                  boxShadow: active ? `0 0 14px ${item.glow}` : 'none',
+                  boxShadow: active ? `0 0 14px ${item.glow}` : (isLight ? '0 2px 8px rgba(15, 23, 42, 0.04)' : 'none'),
                   transition: 'all 0.18s ease',
                 }}
               >
@@ -1070,8 +1075,8 @@ export function ThermalIntelligenceView({
                 <span>{item.label}</span>
                 <span
                   style={{
-                    background: active ? item.color : 'rgba(255,255,255,0.08)',
-                    color: active ? '#000000' : 'var(--text-muted)',
+                    background: active ? item.color : (isLight ? '#F1F5F9' : 'rgba(255,255,255,0.08)'),
+                    color: active ? '#FFFFFF' : (isLight ? '#475569' : 'var(--text-muted)'),
                     fontSize: '10px',
                     fontWeight: 800,
                     padding: '1px 6px',
@@ -1094,13 +1099,13 @@ export function ThermalIntelligenceView({
             gap: '6px',
             padding: '5px 14px',
             borderRadius: '6px',
-            background: 'rgba(11, 23, 38, 0.82)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.82)',
             backdropFilter: 'blur(12px)',
-            border: '1px solid var(--border-subtle)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-subtle)',
             fontSize: '11.5px',
-            color: 'var(--text-secondary)',
+            color: isLight ? '#475569' : 'var(--text-secondary)',
             fontFamily: 'var(--font-sans)',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+            boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.06)' : '0 4px 16px rgba(0,0,0,0.4)',
           }}
         >
           <button
@@ -1108,7 +1113,7 @@ export function ThermalIntelligenceView({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--primary-cyan)',
+              color: isLight ? '#0284C7' : 'var(--primary-cyan)',
               cursor: 'pointer',
               fontWeight: 700,
               display: 'flex',
@@ -1132,7 +1137,7 @@ export function ThermalIntelligenceView({
           {geoBreadcrumb.country && (
             <>
               <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
-              <span style={{ color: '#FFFFFF' }}>{geoBreadcrumb.country}</span>
+              <span style={{ color: isLight ? '#0F172A' : '#FFFFFF' }}>{geoBreadcrumb.country}</span>
             </>
           )}
 
@@ -1153,13 +1158,13 @@ export function ThermalIntelligenceView({
           {geoBreadcrumb.hotspotId && (
             <>
               <ChevronRight size={12} style={{ color: 'var(--text-muted)' }} />
-              <span style={{ color: 'var(--primary-cyan)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
+              <span style={{ color: isLight ? '#0284C7' : 'var(--primary-cyan)', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
                 {geoBreadcrumb.hotspotId}
               </span>
             </>
           )}
 
-          {isResolvingGeo && <Loader2 size={12} className="spin" style={{ color: 'var(--soft-cyan)', marginLeft: '4px' }} />}
+          {isResolvingGeo && <Loader2 size={12} className="spin" style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)', marginLeft: '4px' }} />}
         </div>
       </div>
 
@@ -1180,15 +1185,15 @@ export function ThermalIntelligenceView({
       >
         <div
           style={{
-            background: 'rgba(11, 23, 38, 0.94)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.94)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-color)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
             borderRadius: '8px',
             padding: '4px',
             display: 'flex',
             flexDirection: 'column',
             gap: '3px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+            boxShadow: isLight ? '0 4px 20px rgba(15, 23, 42, 0.08)' : '0 8px 24px rgba(0,0,0,0.5)',
           }}
         >
           {/* 3D Earth Toggle */}
@@ -1202,9 +1207,9 @@ export function ThermalIntelligenceView({
               borderRadius: '6px',
               fontSize: '11.5px',
               fontWeight: 700,
-              background: viewMode === '3d' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-              border: viewMode === '3d' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-              color: viewMode === '3d' ? 'var(--primary-cyan)' : 'var(--text-secondary)',
+              background: viewMode === '3d' ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.2)') : 'transparent',
+              border: viewMode === '3d' ? (isLight ? '1px solid #38BDF8' : '1px solid var(--primary-cyan)') : '1px solid transparent',
+              color: viewMode === '3d' ? (isLight ? '#0284C7' : 'var(--primary-cyan)') : (isLight ? '#64748B' : 'var(--text-secondary)'),
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
@@ -1225,9 +1230,9 @@ export function ThermalIntelligenceView({
               borderRadius: '6px',
               fontSize: '11.5px',
               fontWeight: 700,
-              background: viewMode === '2d' ? 'rgba(56, 189, 248, 0.2)' : 'transparent',
-              border: viewMode === '2d' ? '1px solid var(--primary-cyan)' : '1px solid transparent',
-              color: viewMode === '2d' ? 'var(--primary-cyan)' : 'var(--text-secondary)',
+              background: viewMode === '2d' ? (isLight ? '#EFF6FF' : 'rgba(56, 189, 248, 0.2)') : 'transparent',
+              border: viewMode === '2d' ? (isLight ? '1px solid #38BDF8' : '1px solid var(--primary-cyan)') : '1px solid transparent',
+              color: viewMode === '2d' ? (isLight ? '#0284C7' : 'var(--primary-cyan)') : (isLight ? '#64748B' : 'var(--text-secondary)'),
               cursor: 'pointer',
               transition: 'all 0.15s ease',
             }}
@@ -1249,9 +1254,9 @@ export function ThermalIntelligenceView({
                 borderRadius: '6px',
                 fontSize: '11.5px',
                 fontWeight: 700,
-                background: viewMode === 'street' ? 'rgba(16, 185, 129, 0.25)' : 'transparent',
+                background: viewMode === 'street' ? (isLight ? '#F0FDF4' : 'rgba(16, 185, 129, 0.25)') : 'transparent',
                 border: viewMode === 'street' ? '1px solid #10B981' : '1px solid transparent',
-                color: viewMode === 'street' ? '#10B981' : 'var(--text-secondary)',
+                color: viewMode === 'street' ? '#059669' : (isLight ? '#64748B' : 'var(--text-secondary)'),
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
               }}
@@ -1267,12 +1272,12 @@ export function ThermalIntelligenceView({
         <button
           onClick={handleResetGlobalView}
           style={{
-            background: 'rgba(11, 23, 38, 0.94)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.94)',
             backdropFilter: 'blur(16px)',
-            border: '1px solid var(--border-color)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
             borderRadius: '8px',
             padding: '8px 12px',
-            color: '#FFFFFF',
+            color: isLight ? '#0F172A' : '#FFFFFF',
             fontSize: '11.5px',
             fontWeight: 600,
             display: 'flex',
@@ -1280,7 +1285,7 @@ export function ThermalIntelligenceView({
             justifyContent: 'center',
             gap: '6px',
             cursor: 'pointer',
-            boxShadow: '0 6px 20px rgba(0,0,0,0.4)',
+            boxShadow: isLight ? '0 4px 16px rgba(15, 23, 42, 0.08)' : '0 6px 20px rgba(0,0,0,0.4)',
           }}
           title="Reset to Global World View"
         >
@@ -1298,15 +1303,15 @@ export function ThermalIntelligenceView({
           bottom: '22px',
           right: '22px',
           zIndex: 990,
-          background: 'rgba(11, 23, 38, 0.92)',
+          background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.92)',
           backdropFilter: 'blur(16px)',
-          border: '1px solid var(--border-color)',
+          border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
           borderRadius: '10px',
           padding: '10px 14px',
           display: 'flex',
           alignItems: 'center',
           gap: '16px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
+          boxShadow: isLight ? '0 4px 20px rgba(15, 23, 42, 0.08)' : '0 8px 30px rgba(0,0,0,0.5)',
           fontSize: '11.5px',
           pointerEvents: 'auto',
         }}
@@ -1322,16 +1327,16 @@ export function ThermalIntelligenceView({
             }}
           />
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <span style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               NASA FIRMS TELEMETRY
             </span>
-            <span style={{ fontWeight: 700, color: '#FFFFFF' }}>
+            <span style={{ fontWeight: 700, color: isLight ? '#0F172A' : '#FFFFFF' }}>
               {satelliteTelemetry?.status || 'CONNECTED'} &bull; {filteredDetections.length} HOTSPOTS
             </span>
           </div>
         </div>
 
-        <div style={{ height: '24px', width: '1px', background: 'var(--border-subtle)' }} />
+        <div style={{ height: '24px', width: '1px', background: isLight ? '#E2E8F0' : 'var(--border-subtle)' }} />
 
         {/* Quick Access Action Shortcuts */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -1343,9 +1348,9 @@ export function ThermalIntelligenceView({
               gap: '5px',
               padding: '5px 9px',
               borderRadius: '6px',
-              background: 'rgba(56, 189, 248, 0.12)',
-              border: '1px solid rgba(56, 189, 248, 0.35)',
-              color: 'var(--primary-cyan)',
+              background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.12)',
+              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.35)',
+              color: isLight ? '#0284C7' : 'var(--primary-cyan)',
               fontSize: '11px',
               fontWeight: 600,
               cursor: 'pointer',
@@ -1365,9 +1370,9 @@ export function ThermalIntelligenceView({
                 gap: '5px',
                 padding: '5px 9px',
                 borderRadius: '6px',
-                background: 'rgba(168, 85, 247, 0.12)',
-                border: '1px solid rgba(168, 85, 247, 0.35)',
-                color: '#C084FC',
+                background: isLight ? '#FAF5FF' : 'rgba(168, 85, 247, 0.12)',
+                border: isLight ? '1px solid #E9D5FF' : '1px solid rgba(168, 85, 247, 0.35)',
+                color: isLight ? '#7E22CE' : '#C084FC',
                 fontSize: '11px',
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -1393,11 +1398,11 @@ export function ThermalIntelligenceView({
             zIndex: 1000,
             width: '380px',
             maxWidth: 'calc(100% - 44px)',
-            background: 'rgba(11, 23, 38, 0.94)',
+            background: isLight ? '#FFFFFF' : 'rgba(11, 23, 38, 0.94)',
             backdropFilter: 'blur(22px)',
-            border: '1px solid var(--border-color)',
+            border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-color)',
             borderRadius: '12px',
-            boxShadow: '0 16px 48px rgba(0, 0, 0, 0.75)',
+            boxShadow: isLight ? '0 12px 36px rgba(15, 23, 42, 0.12)' : '0 16px 48px rgba(0, 0, 0, 0.75)',
             padding: '18px',
             pointerEvents: 'auto',
             animation: 'fadeIn 0.2s ease',
@@ -1414,7 +1419,7 @@ export function ThermalIntelligenceView({
                     fontSize: '10.5px',
                     fontWeight: 800,
                     letterSpacing: '0.08em',
-                    color: selectedTaxonomy ? selectedTaxonomy.color : 'var(--soft-cyan)',
+                    color: selectedTaxonomy ? selectedTaxonomy.color : (isLight ? '#0284C7' : 'var(--soft-cyan)'),
                     textTransform: 'uppercase',
                   }}
                 >
@@ -1425,8 +1430,8 @@ export function ThermalIntelligenceView({
                     fontSize: '10px',
                     padding: '2px 6px',
                     borderRadius: '4px',
-                    background: 'rgba(255,255,255,0.06)',
-                    color: 'var(--text-muted)',
+                    background: isLight ? '#F1F5F9' : 'rgba(255,255,255,0.06)',
+                    color: isLight ? '#64748B' : 'var(--text-muted)',
                     fontFamily: 'var(--font-mono)',
                   }}
                 >
@@ -1437,7 +1442,7 @@ export function ThermalIntelligenceView({
                 style={{
                   fontSize: '15px',
                   fontWeight: 800,
-                  color: '#FFFFFF',
+                  color: isLight ? '#0F172A' : '#FFFFFF',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
@@ -1445,7 +1450,7 @@ export function ThermalIntelligenceView({
               >
                 {selectedDetection.location_name || geoBreadcrumb.city || geoBreadcrumb.state || `Detection Point #${selectedDetection.id}`}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '11px', color: isLight ? '#64748B' : 'var(--text-secondary)', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
                 {parseFloat(selectedDetection.latitude).toFixed(4)}°N, {parseFloat(selectedDetection.longitude).toFixed(4)}°E
               </div>
             </div>
@@ -1455,7 +1460,7 @@ export function ThermalIntelligenceView({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: 'var(--text-muted)',
+                color: isLight ? '#64748B' : 'var(--text-muted)',
                 cursor: 'pointer',
                 padding: '3px',
                 borderRadius: '4px',
@@ -1473,21 +1478,21 @@ export function ThermalIntelligenceView({
               gridTemplateColumns: '1fr 1fr',
               gap: '10px',
               padding: '12px 0',
-              borderTop: '1px solid var(--border-subtle)',
-              borderBottom: '1px solid var(--border-subtle)',
+              borderTop: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)',
+              borderBottom: isLight ? '1px solid #E2E8F0' : '1px solid var(--border-subtle)',
             }}
           >
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 AI Prediction
               </div>
-              <div style={{ fontSize: '12.5px', fontWeight: 800, color: selectedTaxonomy ? selectedTaxonomy.color : '#FFF', marginTop: '2px' }}>
+              <div style={{ fontSize: '12.5px', fontWeight: 800, color: selectedTaxonomy ? selectedTaxonomy.color : (isLight ? '#0F172A' : '#FFF'), marginTop: '2px' }}>
                 {selectedTaxonomy ? selectedTaxonomy.label : (selectedDetection.predicted_class || 'Thermal Hotspot')}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Confidence
               </div>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#10B981', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
@@ -1498,7 +1503,7 @@ export function ThermalIntelligenceView({
             </div>
 
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Risk Level
               </div>
               <div
@@ -1519,7 +1524,7 @@ export function ThermalIntelligenceView({
             </div>
 
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 FRP
               </div>
               <div style={{ fontSize: '13px', fontWeight: 800, color: '#F97316', marginTop: '2px', fontFamily: 'var(--font-mono)' }}>
@@ -1528,20 +1533,20 @@ export function ThermalIntelligenceView({
             </div>
 
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Acquisition Time
               </div>
-              <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#FFFFFF', marginTop: '2px' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: isLight ? '#0F172A' : '#FFFFFF', marginTop: '2px' }}>
                 {selectedDetection.acq_date || selectedDetection.date || 'Live Observation'}
                 {selectedDetection.acq_time ? ` ${selectedDetection.acq_time} UTC` : ''}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              <div style={{ fontSize: '10px', color: isLight ? '#64748B' : 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 Satellite / Sensor
               </div>
-              <div style={{ fontSize: '11.5px', fontWeight: 600, color: 'var(--ice-blue)', marginTop: '2px' }}>
+              <div style={{ fontSize: '11.5px', fontWeight: 600, color: isLight ? '#0284C7' : 'var(--ice-blue)', marginTop: '2px' }}>
                 {selectedDetection.source || selectedDetection.satellite || 'NASA FIRMS / VIIRS'}
               </div>
             </div>
@@ -1553,14 +1558,14 @@ export function ThermalIntelligenceView({
               margin: '10px 0',
               padding: '8px 10px',
               borderRadius: '6px',
-              background: 'rgba(56, 189, 248, 0.08)',
-              border: '1px solid rgba(56, 189, 248, 0.2)',
+              background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.08)',
+              border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.2)',
               fontSize: '10.5px',
-              color: 'var(--text-secondary)',
+              color: isLight ? '#475569' : 'var(--text-secondary)',
               lineHeight: 1.4,
             }}
           >
-            <strong style={{ color: 'var(--soft-cyan)' }}>Data Provenance:</strong>{' '}
+            <strong style={{ color: isLight ? '#0284C7' : 'var(--soft-cyan)' }}>Data Provenance:</strong>{' '}
             {selectedDetection.data_provenance || 'REAL_FIRMS'}. Satellite observations detect spaceborne thermal radiance; class is an AI prediction from the SATRA analytical pipeline.
           </div>
 
@@ -1570,7 +1575,7 @@ export function ThermalIntelligenceView({
               style={{
                 fontSize: '11px',
                 fontWeight: 700,
-                color: 'var(--soft-cyan)',
+                color: isLight ? '#0284C7' : 'var(--soft-cyan)',
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginBottom: '8px',
@@ -1585,52 +1590,52 @@ export function ThermalIntelligenceView({
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11.5px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Factory size={13} style={{ color: '#A855F7' }} />
                   <span>Industrial Facility</span>
                 </span>
-                <span style={{ fontWeight: 600, color: localContext.industrial ? '#FFFFFF' : 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 600, color: localContext.industrial ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#94A3B8' : 'var(--text-muted)') }}>
                   {localContext.industrial ? `${formatDistance(localContext.industrial.distance)} (${localContext.industrial.name})` : 'None within 5 km'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Navigation size={13} style={{ color: '#60A5FA' }} />
                   <span>Road / Transport</span>
                 </span>
-                <span style={{ fontWeight: 600, color: localContext.road ? '#FFFFFF' : 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 600, color: localContext.road ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#94A3B8' : 'var(--text-muted)') }}>
                   {localContext.road ? `${formatDistance(localContext.road.distance)} (${localContext.road.name})` : 'None within 5 km'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Building size={13} style={{ color: '#94A3B8' }} />
                   <span>Structure / Building</span>
                 </span>
-                <span style={{ fontWeight: 600, color: localContext.building ? '#FFFFFF' : 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 600, color: localContext.building ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#94A3B8' : 'var(--text-muted)') }}>
                   {localContext.building ? `${formatDistance(localContext.building.distance)} (${localContext.building.name})` : 'None within 5 km'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Trees size={13} style={{ color: '#10B981' }} />
                   <span>Forest / Vegetation</span>
                 </span>
-                <span style={{ fontWeight: 600, color: localContext.vegetation ? '#FFFFFF' : 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 600, color: localContext.vegetation ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#94A3B8' : 'var(--text-muted)') }}>
                   {localContext.vegetation ? `${formatDistance(localContext.vegetation.distance)} (${localContext.vegetation.name})` : 'None within 5 km'}
                 </span>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: isLight ? '#475569' : 'var(--text-secondary)' }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MapPin size={13} style={{ color: '#F59E0B' }} />
                   <span>Settlement / Populated Place</span>
                 </span>
-                <span style={{ fontWeight: 600, color: localContext.settlement ? '#FFFFFF' : 'var(--text-muted)' }}>
+                <span style={{ fontWeight: 600, color: localContext.settlement ? (isLight ? '#0F172A' : '#FFFFFF') : (isLight ? '#94A3B8' : 'var(--text-muted)') }}>
                   {localContext.settlement ? `${formatDistance(localContext.settlement.distance)} (${localContext.settlement.name})` : 'None within 5 km'}
                 </span>
               </div>
@@ -1651,9 +1656,9 @@ export function ThermalIntelligenceView({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  background: 'rgba(56, 189, 248, 0.18)',
-                  border: '1px solid rgba(56, 189, 248, 0.45)',
-                  color: 'var(--primary-cyan)',
+                  background: isLight ? '#F0F9FF' : 'rgba(56, 189, 248, 0.18)',
+                  border: isLight ? '1px solid #BAE6FD' : '1px solid rgba(56, 189, 248, 0.45)',
+                  color: isLight ? '#0284C7' : 'var(--primary-cyan)',
                   borderRadius: '6px',
                   padding: '9px 12px',
                   fontSize: '12px',
@@ -1679,9 +1684,9 @@ export function ThermalIntelligenceView({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  background: 'var(--primary-cyan)',
+                  background: isLight ? '#0284C7' : 'var(--primary-cyan)',
                   border: 'none',
-                  color: '#050B14',
+                  color: '#FFFFFF',
                   borderRadius: '6px',
                   padding: '9px 12px',
                   fontSize: '12px',
@@ -1706,9 +1711,9 @@ export function ThermalIntelligenceView({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-subtle)',
-                  color: '#FFFFFF',
+                  background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.05)',
+                  border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-subtle)',
+                  color: isLight ? '#0F172A' : '#FFFFFF',
                   borderRadius: '6px',
                   padding: '7px 12px',
                   fontSize: '11.5px',
@@ -1728,9 +1733,9 @@ export function ThermalIntelligenceView({
                   alignItems: 'center',
                   justifyContent: 'center',
                   gap: '6px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid var(--border-subtle)',
-                  color: '#FFFFFF',
+                  background: isLight ? '#F8FAFC' : 'rgba(255, 255, 255, 0.05)',
+                  border: isLight ? '1px solid #DCE5EE' : '1px solid var(--border-subtle)',
+                  color: isLight ? '#0F172A' : '#FFFFFF',
                   borderRadius: '6px',
                   padding: '7px 12px',
                   fontSize: '11.5px',
