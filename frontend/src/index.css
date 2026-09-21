@@ -1607,3 +1607,116 @@ body,
   }
 }
 
+/* ==========================================================================
+   SATRA Interactive Classification Drill-Down & Hotspot Telemetry Registry
+   ========================================================================== */
+
+.satra-class-card {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.satra-class-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
+  filter: brightness(1.08);
+}
+
+.satra-class-card.active {
+  transform: translateY(-2px);
+}
+
+.satra-class-card.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: currentColor;
+  box-shadow: 0 0 10px currentColor;
+}
+
+.satra-table-row {
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.satra-table-row:hover {
+  background-color: rgba(56, 189, 248, 0.07) !important;
+}
+
+.satra-table-row.selected-row {
+  background-color: rgba(56, 189, 248, 0.16) !important;
+  outline: 1px solid rgba(56, 189, 248, 0.45);
+}
+
+.satra-locate-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38BDF8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.satra-locate-btn:hover {
+  background: rgba(56, 189, 248, 0.25);
+  border-color: #38BDF8;
+  box-shadow: 0 0 14px rgba(56, 189, 248, 0.45);
+  transform: translateY(-1px);
+}
+
+.satra-locate-btn:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 860px) {
+  .satra-classification-cards-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+@media (max-width: 540px) {
+  .satra-classification-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Responsive Table & Stacked Mobile Cards */
+.satra-mobile-cards {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .satra-desktop-table {
+    display: none !important;
+  }
+  .satra-mobile-cards {
+    display: flex !important;
+    flex-direction: column;
+    gap: 12px;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

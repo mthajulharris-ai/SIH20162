@@ -17,9 +17,19 @@ import {
   Cpu,
   Database,
   Server,
+  Filter,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Search,
+  Sliders,
+  Award,
 } from 'lucide-react';
 
 import { EarthGlobe3D } from '../components/EarthGlobe3D';
+import { ClassBadge } from '../components/StatusBadge';
+import { AiClassificationSection } from '../components/AiClassificationSection';
 import { getHealth, getModelStatus, getSatelliteStatus } from '../services/api';
 
 /**
@@ -58,20 +68,33 @@ export function OverviewView({
   });
 
   // Live satellite constellation telemetry (VIIRS / MODIS status)
-  const [satelliteTelemetry, setSatelliteTelemetry] = useState(null);
+  const [satelliteTelemetry, setSatelliteTelemetry] = useState({
+    status: 'CONNECTED',
+    active_constellations: [
+      'VIIRS / NOAA-20',
+      'VIIRS / SNPP',
+      'MODIS Terra/Aqua',
+    ],
+    sensor_resolution: '375m / 1km',
+  });
 
-  // Query real statuses on mount
+  // Query real statuses and satellite telemetry on mount
   useEffect(() => {
     let isMounted = true;
-    const loadSatelliteTelemetry = async () => {
-      try {
-        const status = await getSatelliteStatus();
 
-        if (isMounted) {
-          setSatelliteTelemetry(status);
-        }
-      } catch {
-        if (isMounted) {
+    const checkSystemAndTelemetry = async () => {
+      try {
+        const [healthRes, modelRes, satRes] = await Promise.allSettled([
+          getHealth(),
+          getModelStatus(),
+          getSatelliteStatus(),
+        ]);
+        if (!isMounted) return;
+
+        // Update Satellite Telemetry from the combined call
+        if (satRes.status === 'fulfilled' && satRes.value) {
+          setSatelliteTelemetry(satRes.value);
+        } else {
           setSatelliteTelemetry({
             status: 'CONNECTED',
             active_constellations: [
@@ -82,18 +105,8 @@ export function OverviewView({
             sensor_resolution: '375m / 1km',
           });
         }
-      }
-    };
 
-    const checkSystem = async () => {
-      try {
-        const [healthRes, modelRes, satRes] = await Promise.allSettled([
-          getHealth(),
-          getModelStatus(),
-          getSatelliteStatus(),
-        ]);
-        if (!isMounted) return;
-
+        // Update System Health
         const isFastApiOk =
           healthRes.status === 'fulfilled' &&
           (healthRes.value?.status === 'healthy' || healthRes.value?.status === 'online');
@@ -123,26 +136,25 @@ export function OverviewView({
             database: 'Connected',
             allOperational: true,
           });
+          setSatelliteTelemetry({
+            status: 'CONNECTED',
+            active_constellations: [
+              'VIIRS / NOAA-20',
+              'VIIRS / SNPP',
+              'MODIS Terra/Aqua',
+            ],
+            sensor_resolution: '375m / 1km',
+          });
         }
       }
     };
-    loadSatelliteTelemetry();
-    checkSystem();
+
+    checkSystemAndTelemetry();
+
     return () => {
       isMounted = false;
     };
   }, []);
-
-  // Dynamic Real Counts strictly calculated from Live Backend Data (0 if empty)
-  const counts = useMemo(() => {
-    const tally = { industrial: 0, forest: 0, persistent: 0, other: 0 };
-    (detections || []).forEach((d) => {
-      const key = normalizeClassKey(d.predicted_class || d.classification);
-      if (tally[key] !== undefined) tally[key]++;
-      else tally.other++;
-    });
-    return tally;
-  }, [detections]);
 
   // Handler for uploading or analyzing
   const handleUploadClick = () => {
@@ -396,159 +408,14 @@ export function OverviewView({
       </section>
 
       {/* ============================================================ */}
-      {/* 2. FOUR SUMMARY CARDS (Strictly Real Backend Counts)         */}
+      {/* 2. AI CLASSIFICATION SECTION (Interactive 4-Class Filters)  */}
       {/* ============================================================ */}
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '16px',
-        }}
-      >
-        {/* Card 1: Industrial Fires (Red) */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(239, 68, 68, 0.3)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#FCA5A5', letterSpacing: '0.04em' }}>
-              Industrial Fires
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#EF4444', margin: '4px 0 2px 0' }}>
-              {counts.industrial}
-            </div>
-            <div style={{ fontSize: '10.5px', color: '#F87171', opacity: 0.85 }}>
-              High-temp localized assets
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'rgba(239, 68, 68, 0.15)',
-              borderRadius: '10px',
-              padding: '10px',
-              color: '#EF4444',
-            }}
-          >
-            <Flame size={24} />
-          </div>
-        </div>
-
-        {/* Card 2: Forest Fires (Green) */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(16, 185, 129, 0.3)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#86EFAC', letterSpacing: '0.04em' }}>
-              Forest Fires
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#10B981', margin: '4px 0 2px 0' }}>
-              {counts.forest}
-            </div>
-            <div style={{ fontSize: '10.5px', color: '#4ADE80', opacity: 0.85 }}>
-              Biomass thermal fronts
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'rgba(16, 185, 129, 0.15)',
-              borderRadius: '10px',
-              padding: '10px',
-              color: '#10B981',
-            }}
-          >
-            <Trees size={24} />
-          </div>
-        </div>
-
-        {/* Card 3: Persistent Sources (Orange/Yellow) */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(245, 158, 11, 0.3)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#FDE68A', letterSpacing: '0.04em' }}>
-              Persistent Sources
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#F59E0B', margin: '4px 0 2px 0' }}>
-              {counts.persistent}
-            </div>
-            <div style={{ fontSize: '10.5px', color: '#FBBF24', opacity: 0.85 }}>
-              Refineries & flaring
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'rgba(245, 158, 11, 0.15)',
-              borderRadius: '10px',
-              padding: '10px',
-              color: '#F59E0B',
-            }}
-          >
-            <Factory size={24} />
-          </div>
-        </div>
-
-        {/* Card 4: Other (Blue) */}
-        <div
-          style={{
-            background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.85) 100%)',
-            border: '1px solid rgba(56, 189, 248, 0.3)',
-            borderRadius: '12px',
-            padding: '18px 20px',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.35)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}
-        >
-          <div>
-            <div style={{ fontSize: '12px', fontWeight: 600, color: '#BAE6FD', letterSpacing: '0.04em' }}>
-              Other
-            </div>
-            <div style={{ fontSize: '28px', fontWeight: 800, color: '#38BDF8', margin: '4px 0 2px 0' }}>
-              {counts.other}
-            </div>
-            <div style={{ fontSize: '10.5px', color: '#38BDF8', opacity: 0.85 }}>
-              Agricultural & unclassified
-            </div>
-          </div>
-          <div
-            style={{
-              background: 'rgba(56, 189, 248, 0.15)',
-              borderRadius: '10px',
-              padding: '10px',
-              color: '#38BDF8',
-            }}
-          >
-            <Target size={24} />
-          </div>
-        </div>
-      </section>
+      <AiClassificationSection
+        detections={detections}
+        analytics={analytics}
+        onFocusDetection={onFocusDetection}
+        onNavigate={onNavigate}
+      />
 
       {/* ============================================================ */}
       {/* 3. PRIMARY DASHBOARD ROW (Upload & Analysis, System Status, Quick Access) */}

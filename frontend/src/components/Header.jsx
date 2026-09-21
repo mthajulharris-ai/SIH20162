@@ -82,7 +82,7 @@ export function Header({
 
   return (
     <header className="top-header">
-      {/* Left: Hamburger Menu Toggle + SATRA Identity */}
+      {/* Left: Hamburger Menu Toggle + SATRA Logo & Branding */}
       <div className="header-left" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
         <button
           onClick={onToggleSidebar}
@@ -105,6 +105,7 @@ export function Header({
             className="header-logo-img satra-logo-light"
           />
         </div>
+
         <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '16px', fontWeight: 800, color: '#FFFFFF', letterSpacing: '0.04em' }}>
@@ -126,7 +127,7 @@ export function Header({
             </span>
           </div>
           <div style={{ fontSize: '10.5px', color: 'var(--text-muted)', marginTop: '2px' }}>
-            AI Satellite Intelligence
+            AI Satellite Intelligence • Turning satellite data into a safer tomorrow
           </div>
         </div>
       </div>

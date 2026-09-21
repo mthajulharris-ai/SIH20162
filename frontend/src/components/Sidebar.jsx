@@ -28,7 +28,9 @@ export function Sidebar({
   connectionStatus = 'checking',
   onLogout,
 }) {
-  const isChecking = connectionStatus === 'checking' || connectionStatus === 'connecting';
+  const isChecking =
+    connectionStatus === 'checking' ||
+    connectionStatus === 'connecting';
   const isOnline = connectionStatus === 'online';
   const statusColor = isOnline ? 'var(--success, #10B981)' : isChecking ? '#F59E0B' : 'var(--critical-red, #EF4444)';
   const statusText = isOnline ? 'ONLINE' : isChecking ? 'CONNECTING...' : 'OFFLINE';

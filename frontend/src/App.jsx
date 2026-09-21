@@ -337,6 +337,7 @@ export function App() {
           alertCount={unverifiedAlertsCount}
           isBackendHealthy={isBackendHealthy}
           connectionStatus={connectionStatus}
+          onLogout={handleLogout}
           onRefresh={loadDashboardData}
           detections={detections}
           alerts={alerts}
@@ -345,7 +346,6 @@ export function App() {
           onOpenUploadModal={() => setIsUploadModalOpen(true)}
           onOpenAiAssistant={() => setIsAiAssistantModalOpen(true)}
           onToggleChatbot={() => setIsAiAssistantModalOpen((prev) => !prev)}
-          onLogout={handleLogout}
         />
 
         {/* Main Content Area */}
