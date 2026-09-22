@@ -143,7 +143,6 @@ export function UploadAndAnalyzeModal({
   const [filePreviews, setFilePreviews] = useState([]);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef(null);
-  const [autoNavCountdown, setAutoNavCountdown] = useState(null);
 
   // Manual Form State
   const [manualForm, setManualForm] = useState({
@@ -173,8 +172,6 @@ export function UploadAndAnalyzeModal({
     progressPercent: 0,
     statusMessage: '',
   });
-
-  if (!isOpen) return null;
 
   // Format file size for human readability
   const formatFileSize = (bytes) => {
@@ -622,26 +619,6 @@ export function UploadAndAnalyzeModal({
     }
   };
 
-  // Automatic navigation to deep zoom on upload analysis success (Section 2)
-  useEffect(() => {
-    if (uiState === 'SUCCESS') {
-      setAutoNavCountdown(3);
-      const timer = setInterval(() => {
-        setAutoNavCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            handleFocusClick(null, { isDeepZoom: true });
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    } else {
-      setAutoNavCountdown(null);
-    }
-  }, [uiState]);
-
   const handleFocusClick = (detectionTarget, options = { isDeepZoom: true }) => {
     let det = detectionTarget || analysisResult?.detection;
     if (!det && analysisResult?.all_detections && analysisResult.all_detections.length > 0) {
@@ -671,6 +648,8 @@ export function UploadAndAnalyzeModal({
     }
   };
 
+
+
   const handleResetUpload = () => {
     setSelectedFiles([]);
     setFilePreviews([]);
@@ -688,6 +667,8 @@ export function UploadAndAnalyzeModal({
     isProcessing ||
     (activeTab === 'upload' && !hasValidFile) ||
     (activeTab === 'templates' && !hasValidFile);
+
+  if (!isOpen) return null;
 
   return (
     <div
@@ -1778,29 +1759,27 @@ export function UploadAndAnalyzeModal({
                 })}
               </div>
 
-              {/* Automatic Deep Zoom Navigation Status Indicator (Section 2) */}
+              {/* Analysis Success Action Banner (Explicit user action required) */}
               <div
                 style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(14, 165, 233, 0.08) 100%)',
-                  border: '1px solid rgba(56, 189, 248, 0.4)',
+                  background: 'linear-gradient(90deg, rgba(56, 189, 248, 0.12) 0%, rgba(14, 165, 233, 0.06) 100%)',
+                  border: '1px solid rgba(56, 189, 248, 0.35)',
                   borderRadius: '8px',
                   padding: '10px 16px',
-                  boxShadow: '0 0 20px rgba(56, 189, 248, 0.15)',
+                  boxShadow: '0 0 20px rgba(56, 189, 248, 0.1)',
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <Compass size={18} className="spin" style={{ color: '#38BDF8' }} />
+                  <Compass size={18} style={{ color: '#38BDF8' }} />
                   <div>
                     <div style={{ fontSize: '12px', fontWeight: 800, color: '#38BDF8', letterSpacing: '0.05em' }}>
-                      LOCATING DETECTION...
+                      AI ANALYSIS COMPLETED
                     </div>
                     <div style={{ fontSize: '11px', color: '#94A3B8' }}>
-                      {autoNavCountdown !== null && autoNavCountdown > 0
-                        ? `Auto-launching Earth deep zoom investigation in ${autoNavCountdown}s`
-                        : 'Initiating deep zoom satellite pass...'}
+                      Filter by classification below, or click View on Map to investigate on the 3D Earth globe.
                     </div>
                   </div>
                 </div>
@@ -1820,9 +1799,10 @@ export function UploadAndAnalyzeModal({
                     cursor: 'pointer',
                     boxShadow: '0 2px 8px rgba(2, 132, 199, 0.4)',
                   }}
+                  title="Navigate to 3D Earth Intelligence and focus detected hotspot"
                 >
                   <Globe size={13} />
-                  <span>START NOW →</span>
+                  <span>VIEW ON 3D EARTH →</span>
                 </button>
               </div>
 

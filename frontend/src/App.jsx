@@ -139,15 +139,47 @@ export function App() {
   const [alerts, setAlerts] = useState([]);
   const [recentAlerts, setRecentAlerts] = useState([]);
 
-  // Focus a detection on 3D Earth / Global Command Deck
+  const [activeMapDetections, setActiveMapDetections] = useState(null);
   const [deepZoomTarget, setDeepZoomTarget] = useState(null);
 
-  const handleFocusDetection = (detection, options = {}) => {
-    setSelectedDetection(detection);
-    if (options.isDeepZoom || detection?.isUploadedDeepZoom) {
-      setDeepZoomTarget(detection);
+  // Focus a detection on 3D Earth / GIS Map (supports both single detection and batch sets)
+  const handleFocusDetection = (detection, options = null) => {
+    let opts = {};
+    let targetTab = 'earth-intel';
+
+    if (typeof options === 'string') {
+      targetTab = options;
+    } else if (Array.isArray(options) && options.length > 0) {
+      setActiveMapDetections(options);
+    } else if (options && typeof options === 'object') {
+      opts = options;
+      if (opts.targetTab) targetTab = opts.targetTab;
+      else if (opts.tab) targetTab = opts.tab;
+      if (Array.isArray(opts.allFiltered) && opts.allFiltered.length > 0) {
+        setActiveMapDetections(opts.allFiltered);
+      }
     }
-    handleTabChange('earth-intel');
+
+    if (detection) {
+      const cleanLat = parseFloat(detection.latitude ?? detection.lat);
+      const cleanLon = parseFloat(detection.longitude ?? detection.lon ?? detection.lng);
+      const cleanId = detection.id ?? detection.detection_id ?? `det-${Date.now()}`;
+      const normalized = {
+        ...detection,
+        id: cleanId,
+        detection_id: cleanId,
+        latitude: isNaN(cleanLat) ? detection.latitude : cleanLat,
+        longitude: isNaN(cleanLon) ? detection.longitude : cleanLon,
+      };
+      setSelectedDetection(normalized);
+      if (opts.isDeepZoom || detection?.isUploadedDeepZoom) {
+        setDeepZoomTarget(normalized);
+      }
+    } else {
+      setSelectedDetection(null);
+    }
+
+    handleTabChange(targetTab);
   };
 
   // Centralized real-time health probe — single source of truth for connectionStatus
@@ -375,7 +407,7 @@ export function App() {
             {/* 02 Earth Intelligence */}
             {currentTab === 'earth-intel' && (
               <EarthIntelligenceView
-                detections={detections}
+                detections={activeMapDetections && activeMapDetections.length > 0 ? activeMapDetections : detections}
                 analytics={analytics}
                 selectedDetection={selectedDetection}
                 onSelectDetection={setSelectedDetection}

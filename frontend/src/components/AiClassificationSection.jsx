@@ -136,7 +136,7 @@ export function AiClassificationSection({
     return [];
   }, [detections, analysisResult]);
 
-  // 2. Accumulate real observation counts strictly from telemetry
+  // 2. Accumulate real observation counts strictly from dataset telemetry
   const counts = useMemo(() => {
     const tally = {
       'Industrial Fire': 0,
@@ -145,6 +145,26 @@ export function AiClassificationSection({
       'Other': 0,
     };
 
+    // Priority 1: If summary distribution is available from dataset analysis,
+    // this contains the TRUE classification counts for the entire dataset (e.g. 10,067 records)
+    const rawClassDist =
+      analysisResult?.analysis_summary?.class_distribution ||
+      summaryData?.class_distribution ||
+      analytics?.class_distribution ||
+      analysisResult?.class_distribution;
+
+    if (rawClassDist && Object.keys(rawClassDist).length > 0) {
+      Object.entries(rawClassDist).forEach(([key, val]) => {
+        const canonical = normalizeClassKey(key);
+        tally[canonical] = (tally[canonical] || 0) + (Number(val) || 0);
+      });
+      const sum = tally['Industrial Fire'] + tally['Forest Fire'] + tally['Persistent Thermal Source'] + tally['Other'];
+      if (sum > 0) {
+        return tally;
+      }
+    }
+
+    // Priority 2: If no summary distribution, accumulate directly from raw observations
     if (rawObservations.length > 0) {
       rawObservations.forEach((d) => {
         const canonical = normalizeClassKey(d.predicted_class || d.classification);
@@ -153,22 +173,7 @@ export function AiClassificationSection({
       return tally;
     }
 
-    // Fallback if raw observations array is not directly passed but summary distributions are available
-    const rawClassDist =
-      analytics?.class_distribution ||
-      summaryData?.class_distribution ||
-      analysisResult?.analysis_summary?.class_distribution ||
-      analysisResult?.class_distribution;
-
-    if (rawClassDist && Object.keys(rawClassDist).length > 0) {
-      Object.entries(rawClassDist).forEach(([key, val]) => {
-        const canonical = normalizeClassKey(key);
-        tally[canonical] = (tally[canonical] || 0) + (Number(val) || 0);
-      });
-      return tally;
-    }
-
-    // Single observation or primary prediction
+    // Priority 3: Single observation or primary prediction
     if (analysisResult?.prediction?.predicted_class || analysisResult?.prediction?.classification) {
       const canonical = normalizeClassKey(analysisResult.prediction.predicted_class || analysisResult.prediction.classification);
       tally[canonical] = 1;
@@ -903,6 +908,7 @@ export function AiClassificationSection({
                   }}
                 >
                   {filteredDetections.length.toLocaleString()} CLASSIFIED OBSERVATION{filteredDetections.length === 1 ? '' : 'S'}
+                  {activeCategoryMeta.count > filteredDetections.length ? ` (${activeCategoryMeta.count.toLocaleString()} in full dataset)` : ''}
                 </span>
                 <span style={{ color: isLight ? '#CBD5E1' : 'rgba(255, 255, 255, 0.25)' }}>&bull;</span>
                 <span style={{ fontSize: '12px', color: isLight ? '#64748B' : 'var(--text-muted, #94A3B8)' }}>
@@ -1025,7 +1031,8 @@ export function AiClassificationSection({
                   <th style={{ padding: '12px 14px' }}>FRP (MW)</th>
                   <th style={{ padding: '12px 14px' }}>Temperature (K)</th>
                   <th style={{ padding: '12px 14px' }}>Date & Time (UTC)</th>
-                  <th style={{ padding: '12px 14px' }}>Sensor</th>
+                  <th style={{ padding: '12px 14px' }}>Satellite/Sensor</th>
+                  <th style={{ padding: '12px 14px' }}>Classification</th>
                   <th style={{ padding: '12px 14px', textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
@@ -1155,7 +1162,7 @@ export function AiClassificationSection({
                           {dateTimeFormatted}
                         </td>
 
-                        {/* 9. Sensor */}
+                        {/* 9. Satellite/Sensor */}
                         <td style={{ padding: '12px 14px' }}>
                           <span
                             style={{
@@ -1173,7 +1180,29 @@ export function AiClassificationSection({
                           </span>
                         </td>
 
-                        {/* 10. Action: VIEW ON MAP */}
+                        {/* 10. Classification */}
+                        <td style={{ padding: '12px 14px' }}>
+                          <span
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              color: activeCategoryMeta.color,
+                              background: isLight ? activeCategoryMeta.iconBg : `${activeCategoryMeta.color}18`,
+                              border: isLight ? `1px solid ${activeCategoryMeta.iconBorder}` : `1px solid ${activeCategoryMeta.color}44`,
+                              padding: '2px 8px',
+                              borderRadius: '4px',
+                              whiteSpace: 'nowrap',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                            }}
+                          >
+                            <span>{activeCategoryMeta.emoji}</span>
+                            <span>{d.predicted_class || d.classification || activeCategoryMeta.name}</span>
+                          </span>
+                        </td>
+
+                        {/* 11. Action: VIEW ON MAP */}
                         <td style={{ padding: '12px 14px', textAlign: 'right' }}>
                           <button
                             onClick={(e) => handleRowViewOnMap(d, e)}
@@ -1190,7 +1219,7 @@ export function AiClassificationSection({
                 ) : (
                   <tr>
                     <td
-                      colSpan="10"
+                      colSpan="11"
                       style={{
                         textAlign: 'center',
                         padding: '42px 20px',
